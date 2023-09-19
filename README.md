@@ -1,2 +1,2 @@
-# Agricultural-work-and-urban-malaria-
-Scripts examining the relationship of agricultural work and malaria transmission in urban and rural areas 
+# urban-malaria-employment-relationships-2022
+Analysis of the association between employment and malaria 
