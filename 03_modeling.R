@@ -7,24 +7,24 @@ rm(list = ls())
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
 if ("ido0493" %in% user) {
-  user_path <- file.path("C:/Users", "ido0493.FSM")
-  DriveDir <- file.path(user_path, "OneDrive - Northwestern University", "urban_malaria")
-  DatDir <- file.path(DriveDir, "data", "data_agric_analysis")
+  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
+  DriveDir <- file.path(user_path, "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "220623_new_figures")
-} else if  ("Chilo Chiziba" %in% user) {
-  Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
-  DriveDir <- file.path(Drive, 'OneDrive - Northwestern University', 'urban_malaria')
+} else if  ("CHZCHI003" %in% user) {
+  Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
+  DriveDir <- file.path(Drive, "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
 } else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
-  #DriveDir <- file.path(Drive, '', 'Northwestern University', 'Ifeoma Doreen Ozodiegwu - urban_malaria')
-  DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
-  DatDir <- file.path(DriveDir, "data", "data_agric_analysis")
+  DriveDir <- file.path(Drive, 'Library', 'CloudStorage', 'OneDrive-NorthwesternUniversity', "urban_malaria")
+  #DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "220623_new_figures")
-  SupFigDir <- file.path(ManDir, "figures", "sup_figures")
-  
 }
 
 ## -----------------------------------------
@@ -39,8 +39,8 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### read in analysis datasets 
 ## -------------------------------
 
-urban_df <- read_csv(file.path("analysis_dat/urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
-rural_df <- read_csv(file.path("analysis_dat/rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
 
 # obtaining country ids
 ids <- dhs_countries(returnFields=c("CountryName", "DHS_CountryCode", "SubregionName"))

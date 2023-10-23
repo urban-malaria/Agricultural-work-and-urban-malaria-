@@ -5,7 +5,7 @@
 # # Reading in the necessary packages 
 list.of.packages <- c('readr', 'tidyr', 'plyr', 'dplyr', 'purrr', 'forcats',"survey", 
                       "haven", "ggplot2", "purrr",  "stringr", "sp", "rgdal", "raster","sf",   "labelled", "plotrix", "arules", 
-                      "fuzzyjoin", 'cowplot', 'gridExtra', 'lme4', "patchwork", "readxl" ,
+                      "fuzzyjoin", 'cowplot', 'gridExtra', 'lme4', "patchwork", "readxl" , "janitor", 
                       'ggsci', 'glue', 'ggrepel', 'jtools', "srvyr", "ggpubr", "collapse",
                       'gtsummary', 'rstatix', 'ggcorrplot', 'viridis', 'effects', "rdhs", "microbenchmark",  "ggfittext", "forcats", "broom")
 
@@ -14,8 +14,6 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 if(length(new.packages)) install.packages(new.packages)
 
 lapply(list.of.packages, library, character.only = TRUE) #applying the library function to packages
-
-library(rdhs)
 
 
 #plotting functions
@@ -214,4 +212,77 @@ bar_prop_fun<- function(df, var_string, x_lab){
     ylab('Proportion') +
     theme(legend.position = "none", strip.background = element_blank(),
           strip.text.x = element_blank()) 
+}
+
+#############################################
+## Environment extracting functions
+############################################
+
+get_crs <- function(df, raster){
+  dhs <- spTransform(x = df, CRSobj = crs(raster))
+}
+
+
+extract_fun <- function(raster, dhs, buffer){
+  clu_val<-raster::extract(raster,dhs, buffer = buffer, fun = mean, df =TRUE) %>%
+    mutate(dhs_year = dhs$DHSYEAR)%>%
+    mutate(hv001 = dhs$DHSCLUST) 
+}
+
+
+extract_fun_month <- function(raster, dhs, buffer){
+  clu_val<-raster::extract(raster,dhs, buffer = buffer, fun = mean, df =TRUE) %>%
+    mutate(dhs_year = dhs$DHSYEAR, hv001 = dhs$DHSCLUST, month = dhs$hv006)
+}
+
+survey_gps_comb <- function(x, y){
+  survey1 <- left_join(st_as_sf(all_GPS[[x]]), dhs_all[[y]], by = c("DHSCLUST"="hv001")) %>% 
+    group_split(hv007, hv006) 
+}
+
+
+# Pick correct survey year and months from EVI and Precipitation data files- with 2 month lag
+get_month_str <- function(file){
+  file %>% 
+    dplyr::select(hv006, hv007) %>% 
+    mutate(mo= hv006- 2,
+           month_lag= if_else(mo< 10, str_c(".0", mo), str_c(".", mo))) %>% 
+    mutate(month_lag= if_else(month_lag== ".0-1", ".11", #nov
+                              if_else(month_lag== ".00", ".12", month_lag)), #dec 
+           year= if_else(month_lag %in% c(".11", ".12"), hv007-1, hv007)) %>% #nov and dec (already lagged by 2mo) should be the year prior to interview year
+    dplyr::select(month_lag, year) %>% 
+    group_by(month_lag, year) %>% 
+    slice(1)
+} 
+
+
+pick_month <- function(file, filepath){
+  
+  EVI_files <- list.files(path = filepath, pattern = ".tif$", full.names = TRUE, recursive = F) # pull in files
+  month_lag <- get_month_str(file) %>%  #get months and year with 2 month lag
+    mutate(year_mo= paste0(year,month_lag))
+  vect <- month_lag$year_mo
+  EVI_files1 <- EVI_files[(grep(paste(vect, collapse="|"), EVI_files))]
+  
+}
+
+get_month_str_RH <- function(file){
+  file %>% 
+    dplyr::select(hv006, hv007) %>% 
+    mutate(month_lag= hv006- 2) %>% 
+    mutate(month_lag= if_else(month_lag== -1, 11, #nov
+                              if_else(month_lag== 0, 12, month_lag)), #dec 
+           year= if_else(month_lag %in% c(11, 12), hv007-1, hv007)) %>% #nov and dec (already lagged by 2mo) should be the year prior to interview year
+    dplyr::select(month_lag, year) %>% 
+    mutate(month_lag= as.numeric(month_lag), year= as.numeric(year)) %>% 
+    group_by(year, month_lag) %>% 
+    slice(1)
+} 
+
+#Select the rasterbrick files needed
+pick_files_RH <- function(year, month_lag){
+  x <- list_RH[[as.character(year)]]
+  
+  RH_file <- x[[month_lag]]
+  return(RH_file)
 }

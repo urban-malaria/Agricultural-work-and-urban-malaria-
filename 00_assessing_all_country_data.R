@@ -13,17 +13,24 @@ if ("ido0493" %in% user) {
   PopDir <- file.path(DriveDir, "data", "Urban_malaria_net_ownership_data")
   FigDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript", "figures", "220623_new_figures")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-} else {
+} else if ("CHZCHI003" %in% user) {
+  Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
+  DriveDir <- file.path(Drive, "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", 'Urban_malaria_net_ownership_data')
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+}else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
   DriveDir <- file.path(Drive, "OneDrive - Northwestern University", "urban_malaria")
   #DriveDir <- file.path(user_path, "OneDrive - Northwestern University", "urban_malaria")
   #DriveDir <- file.path(Drive, '', 'Northwestern University', 'Ifeoma Doreen Ozodiegwu - urban_malaria')
   #DriveDir <- file.path(Drive, '', 'Library', 'CloudStorage', "OneDrive-NorthwesternUniversity", "urban_malaria")
+  DriveDir <- file.path(Drive, "OneDrive - Personal", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'Urban_malaria_net_ownership_data')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "220623_new_figures")
 }
-
+ 
 
 ## -----------------------------------------
 ### Required functions and settings
