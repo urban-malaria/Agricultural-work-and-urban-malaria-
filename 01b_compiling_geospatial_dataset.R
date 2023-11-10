@@ -15,6 +15,7 @@ if ("ido0493" %in% user) {
   EviDir <- file.path(PopDir, "MAP_EVI_monthly")
   PrecDir <- file.path(PopDir, "chirps_monthly_precip")
   HumDir <- file.path(PopDir, "ERA5_rel_humidity_monthly")
+  TempDir <- file.path(PopDir, "ERA5_temperature")
   OutDir <- file.path(PopDir, "analysis_dat")
 } else if  ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
@@ -25,6 +26,7 @@ if ("ido0493" %in% user) {
   EviDir <- file.path(PopDir, "MAP_EVI_monthly")
   PrecDir <- file.path(PopDir, "chirps_monthly_precip")
   HumDir <- file.path(PopDir, "ERA5_rel_humidity_monthly")
+  TempDir <- file.path(PopDir, "ERA5_temperature")
   OutDir <- file.path(PopDir, "analysis_dat")
 } else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
@@ -36,6 +38,7 @@ if ("ido0493" %in% user) {
   EviDir <- file.path(PopDir, "MAP_EVI_monthly")
   PrecDir <- file.path(PopDir, "chirps_monthly_precip")
   HumDir <- file.path(PopDir, "ERA5_rel_humidity_monthly")
+  TempDir <- file.path(PopDir, "ERA5_temperature")
   OutDir <- file.path(PopDir, "analysis_dat")
 }
 
@@ -155,21 +158,21 @@ names(GPS_all_CD)
 dhs_all_CD <- dhs_all 
 
 #Cote d'Ivoire
-# dhs_all1 <- list(pr_downloads[[8]], pr_downloads[[9]])
-# names(dhs_all1) <- c("CI_2012", "CI_2021")
-# 
-# dhs_all <- dhs_all1 %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
-#   map(~distinct(.,)) #get cluster numbers by month and survey year
-# 
-# CI_2012 <- survey_gps_comb(x= "CI_2012", y= "CI_2012")
-# for(i in seq_along(CI_2012)) {names(CI_2012)[[i]] <- paste0(unique(CI_2012[[i]]$hv007), '_', unique(CI_2012[[i]]$hv006))}
-# 
-# CI_2021 <- survey_gps_comb(x= "CI_2021", y= "CI_2021")
-# for(i in seq_along(CI_2021)) {names(CI_2021)[[i]] <- paste0(unique(CI_2021[[i]]$hv007), '_', unique(CI_2021[[i]]$hv006))}
-# 
-# GPS_all_CI <- sapply(c(CI_2012, CI_2021), sf:::as_Spatial, simplify = F)
-# names(GPS_all_CI) 
-# dhs_all_CI <- dhs_all 
+dhs_all1 <- list(pr_downloads[[8]], pr_downloads[[9]])
+names(dhs_all1) <- c("CI_2012", "CI_2021")
+
+dhs_all <- dhs_all1 %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
+  map(~distinct(.,)) #get cluster numbers by month and survey year
+
+CI_2012 <- survey_gps_comb(x= "CI_2012", y= "CI_2012")
+for(i in seq_along(CI_2012)) {names(CI_2012)[[i]] <- paste0(unique(CI_2012[[i]]$hv007), '_', unique(CI_2012[[i]]$hv006))}
+
+CI_2021 <- survey_gps_comb(x= "CI_2021", y= "CI_2021")
+for(i in seq_along(CI_2021)) {names(CI_2021)[[i]] <- paste0(unique(CI_2021[[i]]$hv007), '_', unique(CI_2021[[i]]$hv006))}
+
+GPS_all_CI <- sapply(c(CI_2012, CI_2021), sf:::as_Spatial, simplify = F)
+names(GPS_all_CI)
+dhs_all_CI <- dhs_all
 
 
 # Cameroon
@@ -422,12 +425,12 @@ names(GPS_all_UG)
 
 
 #### Data extraction parameter lists 
-GPS_all <- list(GPS_all_OA, GPS_all_BF, GPS_all_BJ, GPS_all_BU, GPS_all_CD, #GPS_all_CI,  
-                GPS_all_CM, GPS_all_GH, GPS_all_GM, GPS_all_GN, GPS_all_MD, GPS_all_MR,
+GPS_all <- list(GPS_all_OA, GPS_all_BF, GPS_all_BJ, GPS_all_BU, GPS_all_CD, GPS_all_CI,  
+                GPS_all_CM, GPS_all_GH, GPS_all_GM, GPS_all_GN, GPS_all_MD, GPS_all_ML, GPS_all_MR,
                 GPS_all_MZ, GPS_all_NG, GPS_all_RW, GPS_all_SN, GPS_all_TG, GPS_all_TZ, GPS_all_UG)
 
-dhs_all <- list(dhs_all_OA, dhs_all_BF, dhs_all_BJ, dhs_all_BU, dhs_all_CD, #dhs_all_CI,  
-                dhs_all_CM, dhs_all_GH, dhs_all_GM, dhs_all_GN, dhs_all_MD, dhs_all_MR,
+dhs_all <- list(dhs_all_OA, dhs_all_BF, dhs_all_BJ, dhs_all_BU, dhs_all_CD, dhs_all_CI,  
+                dhs_all_CM, dhs_all_GH, dhs_all_GM, dhs_all_GN, dhs_all_MD, dhs_all_ML, dhs_all_MR,
                 dhs_all_MZ, dhs_all_NG, dhs_all_RW, dhs_all_SN, dhs_all_TG, dhs_all_TZ, dhs_all_UG)
 
 
@@ -546,8 +549,73 @@ for (k in 1:length(dhs_all)){
   write.csv(df_binded_RH, file = file.path(OutDir, paste0("RH_monthly_DHS.csv")),row.names = FALSE)
 }
 
+
+#### READ IN RASTER DATA- Temperature ####
+## Using a 2-month lag for temperature data
+
+# 2009- 2021
+list_temp <- list(temp_2009 <- brick(file.path(TempDir, 'temp_2009.grib')),
+                  temp_2010 <- brick(file.path(TempDir, 'temp_2010.grib')),
+                  temp_2011 <- brick(file.path(TempDir, 'temp_2011.grib')),
+                  temp_2012 <- brick(file.path(TempDir, 'temp_2012.grib')),
+                  temp_2013 <- brick(file.path(TempDir, 'temp_2013.grib')),
+                  temp_2014 <- brick(file.path(TempDir, 'temp_2014.grib')),
+                  temp_2015 <- brick(file.path(TempDir, 'temp_2015.grib')),
+                  temp_2016 <- brick(file.path(TempDir, 'temp_2016.grib')),
+                  temp_2017 <- brick(file.path(TempDir, 'temp_2017.grib')),
+                  temp_2018 <- brick(file.path(TempDir, 'temp_2018.grib')),
+                  temp_2019 <- brick(file.path(TempDir, 'temp_2019.grib')),
+                  temp_2020 <- brick(file.path(TempDir, 'temp_2020.grib')),
+                  temp_2021 <- brick(file.path(TempDir, 'temp_2021.grib')))
+
+
+for (i in 1:length(list_temp)){
+  names(list_temp[[i]]) <- paste0("temp_", month.abb) #redo for each file
+}
+
+nlayers(list_temp[[1]])
+
+plot(list_temp[[1]], 1) #Visually inspecting Relative humidity- Jan 2010
+
+names(list_temp) <- c("2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", 
+                    "2017", "2018", "2019","2020", "2021")
+
+
+#Apply over dhs_all list--- Repeat for each country
+
+df_list_temp <- list()
+
+for (k in 1:length(dhs_all)){
+  
+  temp_files <- lapply(dhs_all[[k]], get_month_str_RH)
+  
+  for (i in 1:length(temp_files)){
+    temp_files[[i]] <- temp_files[[i]] %>% 
+      pmap(~pick_files_temp(.y, .x)) #pick up month_lag and year to select the correct humidity raster files
+  }
+  
+  raster_all <- unlist(temp_files)
+  
+  for (i in 1:length(vars)) {
+    var_name <- paste0('temp_monthly_', as.character(vars[i]), 'm')
+    df <- map2(GPS_all[[k]], raster_all, get_crs)  #transform GPS coords to match raster projection
+    df <- pmap(list(raster_all, df, vars[i]), extract_fun_month)
+    df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('temp')))
+    df <- plyr::ldply(df)%>% dplyr::select(-c(ID))
+    df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1)
+  }
+  
+  df_list_temp[[k]] <- df
+  df_binded_temp <- df_list_temp %>% bind_rows()
+  write.csv(df_binded_temp, file = file.path(OutDir, paste0("temp_monthly_DHS.csv")),row.names = FALSE)
+}
+
+
 ### Merging all environemnt variables
 
-merged_df <- df_binded_EVI %>% left_join(df_binded_precip, by = c()) %>% left_join(df_binded_RH, by = c())
-write.csv(df_binded_RH, file = file.path(OutDir, paste0("all_geospatial_monthly_DHS.csv")),row.names = FALSE)
+merged_df <- df_binded_EVI %>% left_join(df_binded_precip, by = c()) %>% 
+  left_join(df_binded_RH, by = c()) %>% left_join(df_binded_temp, by = c()) %>% 
+  mutate(temp_monthly_2000m = temp_monthly_2000m - 273.15) # converting temp from kelvin to degrees Celsius 
+
+write.csv(merged_df, file = file.path(OutDir, paste0("all_geospatial_monthly_DHS.csv")),row.names = FALSE)
 #END

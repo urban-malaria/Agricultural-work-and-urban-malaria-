@@ -18,20 +18,20 @@ if ("ido0493" %in% user) {
   DriveDir <- file.path(user_path, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+  FigDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+  FigDir <- file.path(ManDir, "figures", "exploratory")
 } else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
   DriveDir <- file.path(Drive, 'Library', 'CloudStorage', 'OneDrive-NorthwesternUniversity', "urban_malaria")
   #DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+  FigDir <- file.path(ManDir, "figures", "exploratory")
 }
 
 ## -----------------------------------------
@@ -51,12 +51,14 @@ my_config <- set_rdhs_config(email = "cchiziba@gmail.com",#"ozodiegwui@gmail.com
                              project = "Net ownership by individual",#"Association of household member engagement in agricultural work and malaria",
                              config_path = "rdhs.json",
                              cache_path = "data",
-                             password_prompt = TRUE,
+                             #password_prompt = TRUE,
                              global = FALSE, timeout = 600)
 
 
 
-survs <- read.csv(file.path(ManDir, "csv", "surveyids_for_analysis.csv"))
+survs <- read.csv(file.path(ManDir, "csv", "surveyids_for_analysis.csv")) #%>%
+  #mutate(cntryId = stringr::str_extract(SurveyId, "^.{2}")) %>% group_by(cntryId) %>% 
+  #slice_max(SurveyYear) %>% ungroup()
 # 
 # obtaining country ids
 ids <- dhs_countries(returnFields=c("CountryName", "DHS_CountryCode", "SubregionName"))
@@ -66,9 +68,8 @@ ids <- dhs_countries(returnFields=c("CountryName", "DHS_CountryCode", "Subregion
 # ### Data loading  and transforming IR and MR datasets (no need to run commented out script unless dhs files need an update)
 # ## ---------------------------------------------------------------------------------------------------------------------
 # #download IR datasets 
-ir_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "IR") %>%
-  group_by(CountryName) %>%
-  slice_max(SurveyYear)
+ir_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "IR") #%>%
+  #group_by(CountryName) %>% slice_max(SurveyYear)
 
 ir_downloads <- list()
 
@@ -79,7 +80,8 @@ for (i in 1:nrow(ir_datasets)){
   # }
   # sending ir data link to the folder "project_one
   tryCatch({
-  df <- get_datasets(ir_datasets$FileName[i], download_option = "zip", verbose_argument= T)
+  df <- get_datasets(ir_datasets$FileName[i], output_dir_root =PopDir, download_option = "zip", verbose_argument= T)
+
   ir_downloads<- append(ir_downloads, df)
 
   }, error = function(e){cat("ERROR:", conditionMessage(e), "\n")})
@@ -89,16 +91,12 @@ for (i in 1:nrow(ir_datasets)){
 
 ## ---------------------------------------------------------------------------------------------------------------------
 #save ir_downloads and mr_downloads as RDS so no need to sign in to read dhs data until files are updated 
-#saveRDS(ir_downloads, file.path(PopDir, "analysis_dat/ir_downloads.rds"))
-#ir_downloads<- readRDS(file.path(PopDir, "analysis_dat/ir_downloads.rds"))
+saveRDS(ir_downloads, file.path(PopDir, "analysis_dat/ir_downloads.rds"))
+ir_downloads<- readRDS(file.path(PopDir, "analysis_dat/ir_downloads.rds"))
 
 #datasets to manaually download
 data.frame(SurveyId = setdiff(survs$SurveyId, ir_datasets$SurveyId))
 # 
-# manually have to download the rest 
-file_df <- list.files(path = file.path(PopDir, "data", "datasets", "IR"), pattern = "IR", full.names = TRUE, recursive = F)
-length(file_df)
-
 
 # creates lists of dataframes and cleans it up, adding NA columns where mutated variables are absent 
 dhs_ir_urban <- list()
@@ -106,18 +104,12 @@ dhs_ir_rural <- list()
 
 
 
-for (i in 1:length(file_df)){
-
-  unzip(file_df[[i]],  exdir = file.path(PopDir, "data/opened/IR"))
+for (i in 1:length(ir_downloads)){
   
-  link_ir<- str_replace(file_df[[i]], file.path(PopDir, "data/datasets/IR/"), file.path(PopDir, "data/opened/IR/"))
+  unzip(ir_downloads[[i]],  exdir = file.path(PopDir, "data/opened/IR"))
+  link_ir <- list.files(path = file.path(PopDir, "data", "opened", "IR"), pattern = "DTA", full.names = TRUE, recursive = F)
+  dhs_ir <- read_dta(link_ir[[i]])
   
-  link_ir<- str_replace(link_ir, ".ZIP|.zip", ".DTA")
-  
-  link_ir<- str_replace(link_ir, "DT", "FL")
-  
-  dhs_ir <- read_dta(link_ir)
-
 df <- dhs_ir %>%
   dplyr::select(matches("v000|v001|v002|v003|v005|v006|v007|v012|v021|v022|v025|v106|v157|v158|v159|v168|v190|v501|v505|v704|v704a|v705|v716|v717|v731|v732|v743a|s1108ai|s1108ba|s1108bc|s1108bd|s1108bf|b19|h11_1|h11_2|h11_3|h11_4|h11_5|h11_6")) %>%
   mutate(agri_partner=tryCatch(ifelse(v705 %in% c(4, 5), "A",ifelse(v705  %in% c(1, 2, 3, 6, 7,8, 9,96), "O", ifelse(v705 == 0, "U", NA))), error =function(e) return(NA)),
@@ -161,10 +153,7 @@ lapply(dhs_ir_urban, function(x) table(x$h11_6))
 lapply(dhs_ir_rural, function(x) table(x$h11_1))
 
 saveRDS(dhs_ir_urban, file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
-#dhs_ir_urban<- readRDS("dhs_ir_urban.rds")
-
-saveRDS(dhs_ir_rural, file.path(PopDir, "analysis_dat/dhs_ir_rural.rds"))
-#dhs_ir_rural<- readRDS("dhs_ir_rural.rds")
+dhs_ir_urban<- readRDS(file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
 
 # filter list to keep only datasets with agriculture workers that are partners as this eliminates countries with no agricultural data 
 #dhs_ir_urban <- dhs_ir_urban %>%purrr::discard(~all(is.na(.x$agri_partner)))
@@ -228,9 +217,9 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 ### Data loading  and transforming MR datasets
 ## --------------------------------------------
 # download MR datasets 
- mr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "MR") %>%
-   group_by(CountryName) %>%
-   slice_max(SurveyYear)
+ mr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "MR") #%>%
+   #group_by(CountryName) %>%
+   #slice_max(SurveyYear)
 # 
 # 
  mr_downloads <- list()
@@ -244,29 +233,22 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 # # 
  }
 # 
-# saveRDS(mr_downloads, "mr_downloads.rds")
-#mr_downloads<- readRDS("analysis_dat/mr_downloads.rds")
+ saveRDS(mr_downloads, file.path(PopDir, "analysis_dat/mr_downloads.rds"))
+ mr_downloads<- readRDS(file.path(PopDir, "analysis_dat/mr_downloads.rds"))
 # 
 #need download all 36 datasets for MR also 
 data.frame(SurveyId = setdiff(survs$SurveyId, mr_datasets$SurveyId))
- 
-file_df <- list.files(path = file.path(PopDir, "data", "datasets", "MR"), pattern = "MR", full.names = TRUE, recursive = F)
-length(file_df) 
+
  
 dhs_mr_urban <- list()
 dhs_mr_rural <- list()
 # 
-for (i in 1:length(file_df)){
+for (i in 1:length(mr_downloads)){
   
-  unzip(file_df[[i]],  exdir = file.path(PopDir, "data/opened/MR"))
+  unzip(mr_downloads[[i]],  exdir = file.path(PopDir, "data/opened/MR"))
+  link_mr <- list.files(path = file.path(PopDir, "data", "opened", "MR"), pattern = "DTA", full.names = TRUE, recursive = F)
+  dhs_mr <- read_dta(link_mr[[i]])
   
-  link_mr<- str_replace(file_df[[i]], file.path(PopDir, "data/datasets/MR/"), file.path(PopDir, "data/opened/MR/"))
-  
-  link_mr<- str_replace(link_mr, ".ZIP|.zip", ".DTA")
-  
-  link_mr<- str_replace(link_mr, "DT", "FL")
-  
-  dhs_mr <- read_dta(link_mr)
 
 df <- dhs_mr %>%
     dplyr::select(matches("mv000|mv001|mv002|mv005|mv007|mv012|mv022|mv021|mv025|mv106|mv190|mv717")) %>%
@@ -360,9 +342,9 @@ saveRDS(dhs_mr_rural, file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
 ## --------------------------------------------
 
 # download PR datasets 
-pr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "PR") %>%
-  group_by(CountryName) %>%
-  slice_max(SurveyYear)
+pr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "PR") #%>%
+  #group_by(CountryName) %>%
+  #slice_max(SurveyYear)
 
 pr_downloads <- list()
 
@@ -380,7 +362,7 @@ for (i in 1:nrow(pr_datasets)){
 
  }
 
-#saveRDS(pr_downloads, "pr_downloads.rds")
+saveRDS(pr_downloads, file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 pr_downloads<- readRDS(file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 
 
@@ -391,26 +373,20 @@ dhs_pr_rural <- list()
 
 
 #need download all 36 datasets for MR also 
-data.frame(SurveyId = setdiff(survs$SurveyId, mr_datasets$SurveyId))
-
-file_df <- list.files(path = file.path(PopDir, "data", "datasets", "PR"), pattern = "PR", full.names = TRUE, recursive = F)
-length(file_df) 
+data.frame(SurveyId = setdiff(survs$SurveyId, pr_datasets$SurveyId))
 
 dhs_pr_urban <- list()
 dhs_pr_rural <- list()
 # 
-for (i in 1:length(file_df)){
-  
-  unzip(file_df[[i]],  exdir = file.path(PopDir, "data/opened/PR"))
-  
-  link_pr<- str_replace(file_df[[i]], file.path(PopDir, "data/datasets/PR/"), file.path(PopDir, "data/opened/PR/"))
-  
-  link_pr<- str_replace(link_pr, ".ZIP|.zip", ".DTA")
-  
-  link_pr<- str_replace(link_pr, "DT", "FL")
-  
-  dhs_pr <- read_dta(link_pr)
+for (i in 1:length(pr_downloads)){
+  unzip(pr_downloads[[i]],  exdir = file.path(PopDir, "data/opened/PR"))
+}
 
+link_pr <- list.files(path = file.path(PopDir, "data", "opened", "PR"), pattern = "DTA", full.names = TRUE, recursive = F)
+
+for (i in 1:length(link_pr)){
+
+  dhs_pr <- read_dta(link_pr[[i]])
 
   df <- dhs_pr %>%
     dplyr::select(matches("hc1|hc60|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511"))
@@ -465,10 +441,10 @@ dhs_pr_urban <- dhs_pr_urban %>%purrr::discard(~all(is.na(.x$test_result)))
 dhs_pr_rural <- dhs_pr_rural %>%purrr::discard(~all(is.na(.x$test_result)))
 
 saveRDS(dhs_pr_urban, file.path(PopDir, "analysis_dat/dhs_pr_urban.rds"))
-#dhs_pr_urban<-readRDS("dhs_pr_urban.rds")
+dhs_pr_urban<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_urban.rds"))
 
 saveRDS(dhs_pr_rural, file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
-#dhs_pr_rural<-readRDS("dhs_pr_rural.rds")
+dhs_pr_rural<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 
 ## ------------------------------------------------
 ### Exploring data to see if it is fit for purpose
@@ -523,9 +499,15 @@ plot_u_df <- plyr::ldply(plot_u_df) %>%mutate(test_result = factor(test_result, 
 
 
 ## --------------------------------------------------------------------------------------------
-### get survey ids for dataset with > 1% positive malaria tests    
+### get survey ids for dataset with > 1% positive malaria tests and the most recent survey
 ## ---------------------------------------------------------------------------------------------
-df <- plot_u_df %>%  filter(test_result == "+ve" & percent > 1) %>%  select(code_year) 
+df <- plot_u_df %>%  filter(test_result == "+ve" & percent > 1) %>%
+  mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) %>%  
+  mutate(year = parse_number(code_year)) %>% group_by(cntryId) %>%
+  slice_max(year) %>% ungroup()%>%  select(code_year) 
+
+
+write_csv(df, file.path(PopDir, "analysis_dat/final_surveys.csv"))
 # 
 # 
 # 
@@ -545,36 +527,36 @@ pr_rural <- dhs_pr_rural %>%purrr::keep(~all(.x$code_year %in% df$code_year))
 
 #combine all ir datasets
 ir_urban %>% map(~dim(.x)[[2]]) # list column dimensions to get smallest column length in list and position
-ir_urban<- ir_urban %>%map(~dplyr::select(., colnames(ir_urban[[24]])))
+ir_urban<- ir_urban %>%map(~dplyr::select(., colnames(ir_urban[[5]])))
 ir_urban <- plyr::ldply(ir_urban)
 
 
 ir_rural %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-ir_rural<- ir_rural %>%map(~dplyr::select(., colnames(ir_rural[[24]])))
+ir_rural<- ir_rural %>%map(~dplyr::select(., colnames(ir_rural[[5]])))
 ir_rural <- plyr::ldply(ir_rural)
 
 
 #combine all mr datasets
 mr_urban %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[2]])))
+mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[5]])))
 mr_urban <- plyr::ldply(mr_urban)
 
 
 mr_rural %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[2]])))
+mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[5]])))
 mr_rural<- plyr::ldply(mr_rural)
 
 
 #combine all pr datasets
 pr_urban %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
 pr_urban<- pr_urban %>%map_if(~all(c('sh511') %in% colnames(.x)), ~dplyr::select(., -sh511))
-pr_urban<- pr_urban %>%map(~dplyr::select(., colnames(pr_urban[[22]])%>% discard(~ .x %in% c("hc11", "hc10", "hc12"))))
+pr_urban<- pr_urban %>%map(~dplyr::select(., colnames(pr_urban[[5]])%>% discard(~ .x %in% c("hc11", "hc10", "hc12"))))
 pr_urban <- plyr::ldply(pr_urban)
 
 
 pr_rural %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
 pr_rural<- pr_rural %>%map_if(~all(c('sh511') %in% colnames(.x)), ~dplyr::select(., -sh511))
-pr_rural<- pr_rural %>%map(~dplyr::select(., colnames(pr_rural[[22]])%>% discard(~ .x %in% c("hc11", "hc10", "hc12"))))
+pr_rural<- pr_rural %>%map(~dplyr::select(., colnames(pr_rural[[5]])%>% discard(~ .x %in% c("hc11", "hc10", "hc12"))))
 pr_rural<- plyr::ldply(pr_rural)
 
 
@@ -620,12 +602,12 @@ ir_mr_urban = ir_mr_urban %>%  mutate(occ_val6 = ifelse(is.na(occ_val5), "M", oc
 
 
 #pick up diarrheal disease values 
-# ir_mr_urban <- ir_mr_urban %>%  dplyr::mutate(across(c(h11_1:h11_6), ~ dplyr::case_when(. %in% c("2") ~ "1", 
-#                                                                                          . %in% c("8", "9") ~ NA,
-#                                                                                          TRUE ~ as.character(.)), .names = "rec_{col}")) %>%
-#   mutate(across(starts_with("rec"), ~as.numeric(.))) %>% 
-#   mutate(sum_dia = rowSums(select(., contains("rec_")), na.rm =TRUE))
-#   
+ir_mr_urban <- ir_mr_urban %>%  dplyr::mutate(across(c(h11_1:h11_6), ~ dplyr::case_when(. %in% c("2") ~ "1",
+                                                                                         . %in% c("8", "9") ~ NA,
+                                                                                         TRUE ~ as.character(.)), .names = "rec_{col}")) %>%
+  mutate(across(starts_with("rec"), ~as.numeric(.))) %>%
+  mutate(sum_dia = rowSums(select(., contains("rec_")), na.rm =TRUE))
+
 
 # plot to view urban agric data and save dataset  
 dhs_ir_mr_urban <- ir_mr_urban %>% group_by(code_year) %>% mutate(max_year = max(dhs_year)) %>% ungroup() %>% 
@@ -665,7 +647,7 @@ hh_ir_urban =  ir_mr_urban%>%  group_by(code_year) %>%
   mutate(year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
          country_year = paste0(CountryName, " ", year_combo)) %>% 
   group_by(country_year, code_year,v001,v002) %>% 
-  summarise(n = n(), home_type = paste0(occ_val7, collapse = "")) %>%#, total_diarrhea = sum(sum_dia, na.rm =TRUE)) %>% 
+  summarise(n = n(), home_type = paste0(occ_val7, collapse = ""), total_diarrhea = sum(sum_dia, na.rm =TRUE)) %>% 
   mutate(home_type2 = ifelse(grepl("A", home_type), "A", "O")) %>%  
   drop_na(home_type2) %>% ungroup()
 
@@ -781,11 +763,11 @@ ir_mr_rural = ir_mr_rural %>%  mutate(occ_val6 = ifelse(is.na(occ_val5), "M", oc
 
 
 #pick up diarrheal disease values 
-# ir_mr_rural <- ir_mr_rural %>%  dplyr::mutate(across(c(h11_1:h11_6), ~ dplyr::case_when(. %in% c("2") ~ "1", 
-#                                                                                         . %in% c("8", "9") ~ NA,
-#                                                                                         TRUE ~ as.character(.)), .names = "rec_{col}")) %>%
-#   mutate(across(starts_with("rec"), ~as.numeric(.))) %>% 
-#   mutate(sum_dia = rowSums(select(., contains("rec_")), na.rm =TRUE))
+ir_mr_rural <- ir_mr_rural %>%  dplyr::mutate(across(c(h11_1:h11_6), ~ dplyr::case_when(. %in% c("2") ~ "1",
+                                                                                        . %in% c("8", "9") ~ NA,
+                                                                                        TRUE ~ as.character(.)), .names = "rec_{col}")) %>%
+  mutate(across(starts_with("rec"), ~as.numeric(.))) %>%
+  mutate(sum_dia = rowSums(select(., contains("rec_")), na.rm =TRUE))
 
 
 # plot to view rural agric data and save dataset  
@@ -825,7 +807,7 @@ hh_ir_rural =  ir_mr_rural%>%  group_by(code_year) %>%
   mutate(year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
          country_year = paste0(CountryName, " ", year_combo)) %>% 
   group_by(country_year, code_year,v001,v002) %>% 
-  summarise(n = n(), home_type = paste0(occ_val7, collapse = "")) %>%#, total_diarrhea = sum(sum_dia, na.rm =TRUE)) %>% 
+  summarise(n = n(), home_type = paste0(occ_val7, collapse = ""), total_diarrhea = sum(sum_dia, na.rm =TRUE)) %>% 
   mutate(home_type2 = ifelse(grepl("A", home_type), "A", "O")) %>%  
   drop_na(home_type2) %>% ungroup()
 

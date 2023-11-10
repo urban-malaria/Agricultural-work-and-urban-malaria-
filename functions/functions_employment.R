@@ -286,3 +286,24 @@ pick_files_RH <- function(year, month_lag){
   RH_file <- x[[month_lag]]
   return(RH_file)
 }
+
+#Select the temperature rasterbrick files needed
+pick_files_temp <- function(year, month_lag){
+  x <- list_temp[[as.character(year)]]
+  
+  temp_file <- x[[month_lag]]
+  return(temp_file)
+}
+
+
+# box plot function
+box_plot_fun <- function(df, var1, var2){
+  ggplot(df, aes_string(y=var1,  x = var2, fill= var2)) + 
+    geom_boxplot()+
+    labs (x = "", y = "y_lab", title = "") +
+    scale_fill_manual(values=c( "darkgoldenrod1", "darkviolet"), name="home type") +
+    theme_manuscript() +
+    theme(legend.position = "none") + 
+    facet_wrap(~ hv025)
+  
+}

@@ -11,20 +11,29 @@ if ("ido0493" %in% user) {
   DriveDir <- file.path(user_path, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
+  ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
+  ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
   DriveDir <- file.path(Drive, 'Library', 'CloudStorage', 'OneDrive-NorthwesternUniversity', "urban_malaria")
   #DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "220623_new_figures")
+  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
+  ExpDir <- file.path(ManDir, "figures", "exploratory")
 }
 
 ## -----------------------------------------
@@ -42,12 +51,15 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 urban_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
 rural_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
 
+df_env <- read.csv(file.path(PopDir, "analysis_dat/all_geospatial_monthly_DHS.csv")) %>% 
+  mutate(code_year = paste(stringr::str_extract(.id, "^.{2}"), dhs_year, sep = "")) %>% select(-dhs_year)
+
 # obtaining country ids
 ids <- dhs_countries(returnFields=c("CountryName", "DHS_CountryCode", "SubregionName"))
 
 #add subregion 
-urban_df <- urban_df %>%  left_join(ids, by = ("DHS_CountryCode"))
-rural_df <- rural_df %>%  left_join(ids, by = ("DHS_CountryCode"))
+urban_df <- urban_df %>%  left_join(ids, by = ("DHS_CountryCode")) %>% left_join(df_env, by = c("code_year", "hv001")) 
+rural_df <- rural_df %>%  left_join(ids, by = ("DHS_CountryCode")) %>% left_join(df_env, by = c("code_year", "hv001")) 
 
 table(rural_df$u5_net_use)
 table(urban_df$home_type2)
@@ -141,7 +153,7 @@ p_cov <- plots[[1]]/ plots[[2]]+ plot_layout(guides = "collect")
 p_cov
 
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"likely_confounder_distribution.pdf"), p_cov, width = 8.5, height = 5) 
+ggsave(paste0(SupDir,"/", Sys.Date(),"likely_confounder_distribution.pdf"), p_cov, width = 8.5, height = 5) 
 
 
 #IRS - no difference between the two groups  
@@ -159,7 +171,7 @@ ggplot(df3, aes(fill=IRS, x= home_type2)) +
             color = "white")+ 
   labs(x = "")+
   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))
-ggsave(paste0(FigDir,"/", Sys.Date(),"IRS_distribution_urban.pdf"), width = 6, height = 5) 
+ggsave(paste0(ExpDir,"/", Sys.Date(),"IRS_distribution_urban.pdf"), width = 6, height = 5) 
 
 df3 <- rural_df %>%  select(home_type2,hv253) %>%  drop_na() %>% 
   mutate(IRS = ifelse(hv253 == 1, "House was sprayed", ifelse(hv253 == 0, "Not sprayed", NA)))%>% 
@@ -175,7 +187,7 @@ ggplot(df3, aes(fill=IRS, x= home_type2)) +
             color = "white")+ 
   labs(x = "")+
   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))
-ggsave(paste0(FigDir,"/", Sys.Date(),"IRS_distribution_rural.pdf"), width = 6, height = 5) 
+ggsave(paste0(ExpDir,"/", Sys.Date(),"IRS_distribution_rural.pdf"), width = 6, height = 5) 
 
 
 
@@ -215,11 +227,22 @@ p2 <- ggplot(plot_df, aes(x = home_type3, y = hh_size, fill = home_type3)) +
 
 p_hh_size = p1 +p2
 p_hh_size
-ggsave(paste0(FigDir,"/", Sys.Date(),"HH_size_distribution.pdf"), p_hh_size, width = 8.5, height = 4) 
+ggsave(paste0(SupDir,"/", Sys.Date(),"HH_size_distribution.pdf"), p_hh_size, width = 8.5, height = 4) 
 
 
 #adjusted model fit 
 #urban and rural
+
+#assessing env covariates for colaration 
+ev_cor <- urban_df %>% select(EVI_2000m, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>% cor()
+corr= ggcorrplot(ev_cor, lab = TRUE, legend.title = "Correlation coefficient")+ heme_corr()
+corr
+
+ev_cor_rural <- rural_df %>% select(EVI_2000m, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>% cor()
+corr_rural= ggcorrplot(ev_cor_rural, lab = TRUE, legend.title = "Correlation coefficient")+ theme_corr()
+corr_rural
+
+#correlation is very low with highest of -0.19
 
 dat <- list(urban_df, rural_df)
 
@@ -233,7 +256,9 @@ for (i in 1:length(dat)) {
   rename(agric_home = work_HH)
   
   svy_design <- svydesign.fun(mod_df)
-  result <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode, design = svy_design, family = binomial(link ="logit"))#fits model with no additional covariates 
+  result <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode + 
+                     EVI_2000m + preci_monthly_2000m + RH_monthly_2000m + temp_monthly_2000m, 
+                   design = svy_design, family = binomial(link ="logit"))#fits model with no additional covariates 
   mod_list[[i]] <- result
   res_sum <- summary(result)
   
@@ -266,7 +291,8 @@ mod_df <- urban_df %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0)
   rename(agric_home = work_HH)
 
 svy_design <- svydesign.fun(mod_df)
-result <- svyby(formula = malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size, by = ~ DHS_CountryCode, design = svy_design, FUN = svyglm)
+result <- svyby(formula = malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size +
+                  EVI_2000m + preci_monthly_2000m + RH_monthly_2000m + temp_monthly_2000m, by = ~ DHS_CountryCode, design = svy_design, FUN = svyglm)
 
 
 df <- result%>% mutate(odds = (exp(agric_home1))) %>% #odds ratio estimation 
@@ -329,10 +355,11 @@ pred_p <- ggplot() +
 
 all_p <- forest_b + pred_p
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"odds_pred_prob.pdf"), all_p, width = 8.5, height = 5) 
+ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_4_odds_pred_prob.pdf"), all_p, width = 8.5, height = 5) 
 
 
 
 ########################################################################
 # 
 #############################################################################
+
