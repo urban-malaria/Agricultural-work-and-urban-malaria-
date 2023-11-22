@@ -11,8 +11,7 @@ if ("ido0493" %in% user) {
   DriveDir <- file.path(user_path, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
@@ -20,8 +19,7 @@ if ("ido0493" %in% user) {
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else {
@@ -30,8 +28,7 @@ if ("ido0493" %in% user) {
   #DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 }
@@ -235,7 +232,7 @@ ggsave(paste0(SupDir,"/", Sys.Date(),"HH_size_distribution.pdf"), p_hh_size, wid
 
 #assessing env covariates for colaration 
 ev_cor <- urban_df %>% select(EVI_2000m, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>% cor()
-corr= ggcorrplot(ev_cor, lab = TRUE, legend.title = "Correlation coefficient")+ heme_corr()
+corr= ggcorrplot(ev_cor, lab = TRUE, legend.title = "Correlation coefficient")+ theme_corr()
 corr
 
 ev_cor_rural <- rural_df %>% select(EVI_2000m, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>% cor()
@@ -360,6 +357,66 @@ ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_4_odds_pred_prob.pdf"), all_p, wid
 
 
 ########################################################################
-# 
+# model tests
 #############################################################################
+dat <- list(urban_df, rural_df) %>% 
+  map(~select(.,(c(home_type2, u5_net_use, roof_type, wealth, hh_size, EVI_2000m, preci_monthly_2000m, dhs_year,
+                   RH_monthly_2000m, temp_monthly_2000m, strat, wt, id, test_result, DHS_CountryCode)))) %>% map(~drop_na(.,))
 
+mod_list2 <- list()
+  
+for (i in 1:length(dat)) {
+  mod_df <- dat[[i]] %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0)) %>% 
+    mutate(work_HH =  ifelse(home_type2 =="A", "1","0")) %>% 
+    rename(agric_home = work_HH)
+  
+  svy_design <- svydesign.fun(mod_df)
+  result <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode + 
+                     EVI_2000m + preci_monthly_2000m + RH_monthly_2000m + temp_monthly_2000m, 
+                   design = svy_design, family = binomial(link ="logit"))
+  
+  
+  result_evi <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode + 
+                     EVI_2000m, design = svy_design, family = binomial(link ="logit"))
+  
+  
+  result_preci <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode + 
+                         preci_monthly_2000m, design = svy_design, family = binomial(link ="logit"))
+  
+  result_RH <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode + 
+                         RH_monthly_2000m, design = svy_design, family = binomial(link ="logit"))
+  
+  result_temp <- svyglm(malaria_result ~ agric_home + u5_net_use + roof_type + wealth + hh_size + dhs_year + DHS_CountryCode + 
+                         temp_monthly_2000m, design = svy_design, family = binomial(link ="logit"))
+  
+  #result <- list(result_evi, result_preci, result_RH, result_temp)
+  mod_list2[[i]] <- result
+}
+
+#urban wald test
+regTermTest(result_evi, test.terms = ~ EVI_2000m,
+            df = degf(result_evi$survey.design), method = "LRT")
+
+regTermTest(result_temp, test.terms = ~ temp_monthly_2000m,
+            df = degf(result_temp$survey.design), method = "LRT")
+
+regTermTest(result_RH, test.terms = ~ RH_monthly_2000m,
+            df = degf(result_RH$survey.design), method = "LRT")
+
+regTermTest(result_preci, test.terms = ~ preci_monthly_2000m,
+            df = degf(result_preci$survey.design), method = "LRT")
+
+#test entire model urban
+urban_model <- mod_list2[[2]]
+regTermTest(urban_model, test.terms = ~ EVI_2000m,
+            df = degf(urban_model$survey.design), method = "LRT")
+
+regTermTest(urban_model, test.terms = ~  temp_monthly_2000m,
+            df = degf(urban_model$survey.design), method = "LRT")
+
+regTermTest(urban_model, test.terms = ~ RH_monthly_2000m,
+            df = degf(urban_model$survey.design), method = "LRT")
+
+regTermTest(urban_model, test.terms = ~ preci_monthly_2000m,
+            df = degf(urban_model$survey.design), method = "LRT")
+ 

@@ -94,20 +94,21 @@ for (i in 1:nrow(ir_datasets)){
 saveRDS(ir_downloads, file.path(PopDir, "analysis_dat/ir_downloads.rds"))
 ir_downloads<- readRDS(file.path(PopDir, "analysis_dat/ir_downloads.rds"))
 
-#datasets to manaually download
+#check datasets to manaually download
 data.frame(SurveyId = setdiff(survs$SurveyId, ir_datasets$SurveyId))
 # 
+
+for (i in 1:length(ir_downloads)){
+  unzip(ir_downloads[[i]],  exdir = file.path(PopDir, "data/opened/IR"))
+}
 
 # creates lists of dataframes and cleans it up, adding NA columns where mutated variables are absent 
 dhs_ir_urban <- list()
 dhs_ir_rural <- list()
 
+link_ir <- list.files(path = file.path(PopDir, "data", "opened", "IR"), pattern = "DTA", full.names = TRUE, recursive = F)
 
-
-for (i in 1:length(ir_downloads)){
-  
-  unzip(ir_downloads[[i]],  exdir = file.path(PopDir, "data/opened/IR"))
-  link_ir <- list.files(path = file.path(PopDir, "data", "opened", "IR"), pattern = "DTA", full.names = TRUE, recursive = F)
+for (i in 1:length(link_ir)){
   dhs_ir <- read_dta(link_ir[[i]])
   
 df <- dhs_ir %>%
@@ -501,10 +502,9 @@ plot_u_df <- plyr::ldply(plot_u_df) %>%mutate(test_result = factor(test_result, 
 ## --------------------------------------------------------------------------------------------
 ### get survey ids for dataset with > 1% positive malaria tests and the most recent survey
 ## ---------------------------------------------------------------------------------------------
-df <- plot_u_df %>%  filter(test_result == "+ve" & percent > 1) %>%
-  mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) %>%  
-  mutate(year = parse_number(code_year)) %>% group_by(cntryId) %>%
-  slice_max(year) %>% ungroup()%>%  select(code_year) 
+df <- plot_u_df  %>% mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) %>%  
+  mutate(year = parse_number(code_year)) %>% group_by(cntryId) %>% slice_max(year) %>%  
+  filter(test_result == "+ve" & percent > 1) %>% ungroup()%>%  select(code_year) 
 
 
 write_csv(df, file.path(PopDir, "analysis_dat/final_surveys.csv"))

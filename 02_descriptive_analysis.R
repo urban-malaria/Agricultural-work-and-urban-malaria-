@@ -11,7 +11,7 @@ if ("ido0493" %in% user) {
   DriveDir <- file.path(user_path, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
@@ -19,7 +19,7 @@ if ("ido0493" %in% user) {
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else {
@@ -28,7 +28,7 @@ if ("ido0493" %in% user) {
   #DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 }
@@ -71,16 +71,16 @@ all_df <- rbind(urban_df, rural_df) %>% mutate(country_year.x = ifelse(country_y
 
 df <- all_df%>% 
   group_by(country_year.x) %>%  summarise(percent =  round(total/sum(total) * 100, 0))
-all <- cbind(all_df, df) %>%select(-c("country_year.x")) 
+all <- cbind(all_df, df) %>% select(-c("country_year.x")) %>% mutate(plot_label = ifelse(type == "rural_data", percent, NA))
 
 
 
 p1 <- ggplot(all, aes(x = reorder(country_year.x, -total), y = total, fill =type, label = total)) +
   geom_bar( stat = "identity", alpha = 0.8) +
   scale_fill_manual(name = "", label = c("Rural", "Urban"), values = c("bisque", "darkorchid"))+
-  #geom_text(aes(label = paste0(percent, "%"), y = percent),
-           # position = position_stack(vjust = 0.5),
-            #color = "white") +
+  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+            position = position_stack(vjust = 0.5),
+            color = "black") +
   coord_flip()+
   theme_manuscript()+
   labs(x = "", y = "Number of children, 6 - 59 months tested for malaria 
@@ -114,7 +114,7 @@ p2 <- table_df %>% ggplot(aes(x = interview_month, y = percent, label =percent))
 
 p <- p1/p2
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"available_data_distribution_urban_rural_no_numbers.pdf"), p, width = 8, height = 7) 
+ggsave(paste0(FigDir,"/", Sys.Date(),"figure_1.pdf"), p, width = 8, height = 7) 
 
 
 #figure 2
@@ -132,11 +132,11 @@ p <-ggplot(plot_over2, aes(fill=test_result, x= home_type2)) +
             position = position_stack(vjust = 0.5),
             color = "white") +
   labs(x = "", y  = "Number of children, 6 - 59 months,
-  tested positive for malaria in 22 DHS datasets") +
+  tested positive for malaria in 16 DHS datasets") +
   theme(strip.text.x = element_text(
     size = 12, color = "black")) 
 
-ggsave(paste0(SupDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_all_countries.pdf"), p, width = 8.5, height = 6) 
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_1.pdf"), p, width = 8.5, height = 6) 
 
 
 
@@ -171,20 +171,24 @@ plot_country = plot_u_df2 %>%  group_by(country_year.x,home_type2, test_result) 
 
 df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
 
-plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x") 
+plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
 
-#supplement figure
+#supplement figure 2
 p<-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = test_result)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
   coord_flip() +
   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
   facet_grid(. ~ home_type2, scales = "free", space = "free") +
+  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+            position = position_stack(vjust = 0.5),
+            color = "black") +
   theme(legend.title = element_blank()) +
   labs(x = "", y = "Percentage of children, 6 - 59 months 
        tested for malaria in urban clusters per country")+
   theme_manuscript()+
   theme(legend.position = "bottom")
-ggsave(paste0(SupDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
+p
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_2.pdf"), p, width = 8.5, height = 6) 
 
 
 
@@ -242,24 +246,28 @@ p_2a
 plot_country = plot_u_df %>%  group_by(country_year.x,home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH")) %>% 
-  mutate(country_year.x = ifelse(country_year.x == "Cameroon 2018", "Cameroon 2018 - 19",country_year.x))
+  mutate(country_year.x = ifelse(country_year.x == "Cameroon 2018", "Cameroon 2018 - 19",country_year.x)) %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
 
 df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
 
 plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x") 
 
-p<-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = test_result)) +
+p_sup3 <-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = test_result)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
   coord_flip() +
   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
   facet_grid(. ~ home_type2, scales = "free", space = "free") +
+  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+            position = position_stack(vjust = 0.5),
+            color = "black") +
   theme(legend.title = element_blank()) +
   labs(x = "", y = "Percentage of children, 6 - 59 months 
        tested for malaria in rural clusters per country")+
   theme_manuscript()+
   theme(legend.position = "bottom")
+p_sup3
 
-ggsave(paste0(SupDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 8.5, height= 6) 
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_3.pdf"), p_sup3, width = 8.5, height= 6) 
 
 
 
@@ -392,18 +400,22 @@ plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")
 #plot by country urban 
 
 #supplement figure 4
-plot_country = plot_country %>%  
-  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net"))
-p<-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = net_use)) +
+plot_country = plot_country  %>%  
+  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% mutate(plot_label = ifelse(net_use == "Did not sleep \n under a net", percent, NA)) 
+p_sup4 <-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = net_use)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
   coord_flip() +
   scale_fill_manual(name = "",  values= color)+
   facet_grid(. ~ home_type2, scales = "free", space = "free") +
+  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+            position = position_stack(vjust = 0.5),
+            color = "white") +
   theme(legend.title = element_blank()) +
   labs(x = "", y = "Percent of children, 6 - 59 months \n tested for malaria in urban clusters per country")+
   theme_manuscript()+
   theme(legend.position = "bottom")
-ggsave(paste0(SupDir,"/", Sys.Date(),"net_use_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
+p_sup4
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_4.pdf"), p_sup4, width = 8.5, height = 6) 
 
 
 
@@ -443,18 +455,22 @@ plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")
 #plot by country rural
 
 #supplement figure
-plot_country = plot_country %>%  
-  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net"))
-p<-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = net_use)) +
+plot_country = plot_country %>% mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
+  mutate(plot_label = ifelse(net_use == "Did not sleep \n under a net", percent, NA)) 
+p_sup5 <-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = net_use)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
   coord_flip() +
   scale_fill_manual(name = "",  values= color)+
   facet_grid(. ~ home_type2, scales = "free", space = "free") +
+  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+            position = position_stack(vjust = 0.5),
+            color = "white") +
   theme(legend.title = element_blank()) +
   labs(x = "", y = "Percent of children, 6 - 59 months \n tested for malaria in rural clusters per country")+
   theme_manuscript()+
   theme(legend.position = "bottom")
-ggsave(paste0(SupDir,"/", Sys.Date(),"net_use_by agric_exposure_rural_by_country.pdf"), p, width = 8.5, height = 6) 
+p_sup5
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_5.pdf"), p_sup5, width = 8.5, height = 6) 
 
 #diff 
 
@@ -550,6 +566,30 @@ p_temp <- box_plot_fun(all_env_df, "temp_monthly_2000m", "home_type2")  + labs(t
 P_all_env <- p_evi + p_prec + p_RH + p_temp
 P_all_env
 
-ggsave(paste0(SupDir,"/", Sys.Date(),"_P_all_env.pdf"), P_all_env, width = 8.5, height= 6) 
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_fig_6.pdf"), P_all_env, width = 8.5, height= 6) 
+
+#mean difference test for environmental variables per household type. 
+
+df_list <-split(all_env_df, all_env_df$type)
+
+ttest_fun <- function(var1, dataset){
+  ttest_result <- t.test(var1 ~ home_type2, data = dataset, var.equal = TRUE)
+  
+  return(c(ttest_result$p.value))
+}
+
+vars <- c("EVI", "Precipiatation", "R. Humidity", "Temperature")
+#rural
+rural_urban_fun <- function(subscrp) {
+  ttest_evi_r <- ttest_fun(df_list[[subscrp]]$EVI_2000m, df_list[[subscrp]])
+  ttest_prec_r <- ttest_fun(df_list[[subscrp]]$preci_monthly_2000m, df_list[[subscrp]])
+  ttest_RH_r <- ttest_fun(df_list[[subscrp]]$RH_monthly_2000m, df_list[[subscrp]])
+  ttest_temp_r <- ttest_fun(df_list[[subscrp]]$temp_monthly_2000m, df_list[[subscrp]])
+  
+  return(data.frame(c(ttest_evi_r, ttest_prec_r, ttest_RH_r, ttest_temp_r), vars))
+}
+
+rural_pvalue <- rural_urban_fun(1)
+urban_pvalue <- rural_urban_fun(2)
 
 
