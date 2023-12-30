@@ -523,7 +523,7 @@ p_3b <-ggplot(p_dat, aes(x = start, y = reorder(country_year.x, end)))+
   theme(legend.position = "bottom") + 
   labs(y = "", x = "Percentage difference in net use 
       between agricultural worker HH and non-agricultural worker HH")
-
+p_3b
 p_figure3 <- p_net/p_3b
 ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_3.pdf"),p_figure3, width = 8.5, height= 9.5) 
 

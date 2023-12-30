@@ -3,18 +3,13 @@
 ## -----------------------------------------
 
 # # Reading in the necessary packages 
-list.of.packages <- c('readr', 'tidyr', 'plyr', 'dplyr', 'purrr', 'forcats',"survey", 
-                      "haven", "ggplot2", "purrr",  "stringr", "sp", "rgdal", "raster","sf",   "labelled", "plotrix", "arules", 
-                      "fuzzyjoin", 'cowplot', 'gridExtra', 'lme4', "patchwork", "readxl" , "janitor", 
-                      'ggsci', 'glue', 'ggrepel', 'jtools', "srvyr", "ggpubr", "collapse",
-                      'gtsummary', 'rstatix', 'ggcorrplot', 'viridis', 'effects', "rdhs", "microbenchmark",  "ggfittext", "forcats", "broom")
-
-
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
-lapply(list.of.packages, library, character.only = TRUE) #applying the library function to packages
-
+library(pacman)
+p_load(readr, tidyr, plyr, dplyr, purrr, forcats,survey, haven, 
+       ggplot2, purrr,  stringr, sp, raster,sf,   labelled, plotrix, 
+       arules, fuzzyjoin, cowplot, gridExtra, lme4, patchwork, readxl , 
+       janitor, ggsci, glue, ggrepel, jtools, srvyr, ggpubr, collapse,
+       gtsummary, rstatix, ggcorrplot, viridis, effects, rdhs, 
+       microbenchmark,  ggfittext, forcats, broom)
 
 #plotting functions
 bar_fun <- function(df, x, fill, title, xlab){ #facet_var, 
