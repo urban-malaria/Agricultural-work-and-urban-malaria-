@@ -354,7 +354,61 @@ all_p <- forest_b + pred_p
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_4_odds_pred_prob.pdf"), all_p, width = 8.5, height = 5) 
 
+##Environmental Variable effects
 
+eff <- Effect("EVI_2000m", m1)
+
+
+effect_df_fun <- function(model_, co_var){
+  effect_list_est <- summary(Effect(co_var, model_)) 
+  effect_list_est$effect %>% as.data.frame() %>% 
+    bind_cols(effect_list_est$lower %>% as.data.frame()) %>% 
+    bind_cols(effect_list_est$upper %>% as.data.frame()) %>% 
+    rename(effect = ....1, lower = ....2, upper = ....3) %>% 
+    tibble::rownames_to_column()
+}
+
+#predicted probability 
+effct_df_urban <- effect_df_fun(mod_list[[1]], "EVI_2000m") 
+effct_df_rural <- effect_df_fun(mod_list[[2]], "EVI_2000m")
+
+
+
+
+#predicted probability 
+
+
+vars <- c("EVI_2000m" , "preci_monthly_2000m" , "RH_monthly_2000m" , "temp_monthly_2000m")
+y_lim <- list(0.5, 0.5 ,0.5, 0.5)
+lables <- list("enhanced vegetation index", "precipitation", "relative humidity", "temperature")
+
+pred_fun <- function(model_number){
+  p <- list()
+  for (i in 1:length(vars)) { 
+    eff <- Effect(vars[[i]], mod_list[[model_number]])
+    eff_dt <- data.frame(eff)
+    eff_dt$fit <- (eff_dt$fit)#/2 #we are scaling by deviding by mean number of children tested in a cluster
+    eff_dt$lower <- (eff_dt$lower)#/2
+    eff_dt$upper <- (eff_dt$upper)#/2
+    pt = ggplot(eff_dt,aes_string(vars[[i]], 'fit'))+ 
+      geom_ribbon(aes(ymin=lower, ymax=upper), alpha =0.2, fill = "#666699")+
+      geom_line(color = "#666699", size = 1)+ theme_manuscript()+ 
+      ylim(0, y_lim[[1]]) + 
+      labs(x = paste0(as.character(lables[[i]]), ' ', as.character('')), y ='predicted probability to test positive')
+    p[[i]]<- pt
+    
+  }
+  
+  y=p[[1]]+ p[[2]] + p[[3]] + p[[4]]
+  return(y) 
+}
+
+
+#urban
+pred_fun(1)
+
+#rural
+pred_fun(2)
 
 ########################################################################
 # model tests
@@ -393,7 +447,7 @@ for (i in 1:length(dat)) {
   mod_list2[[i]] <- result
 }
 
-#urban wald test
+#rural wald test
 regTermTest(result_evi, test.terms = ~ EVI_2000m,
             df = degf(result_evi$survey.design), method = "LRT")
 
@@ -407,7 +461,7 @@ regTermTest(result_preci, test.terms = ~ preci_monthly_2000m,
             df = degf(result_preci$survey.design), method = "LRT")
 
 #test entire model urban
-urban_model <- mod_list2[[2]]
+urban_model <- mod_list2[[1]]
 regTermTest(urban_model, test.terms = ~ EVI_2000m,
             df = degf(urban_model$survey.design), method = "LRT")
 
@@ -420,3 +474,60 @@ regTermTest(urban_model, test.terms = ~ RH_monthly_2000m,
 regTermTest(urban_model, test.terms = ~ preci_monthly_2000m,
             df = degf(urban_model$survey.design), method = "LRT")
  
+
+
+
+#### testing 2LogLR percentage difference
+
+desin_list <- list()
+
+for (i in 1:length(dat)) {
+  mod_df <- dat[[i]] %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0)) %>% 
+    mutate(work_HH =  ifelse(home_type2 =="A", "1","0")) %>% 
+    rename(agric_home = work_HH)
+  
+  svy_design <- svydesign.fun(mod_df)
+  
+  desin_list[[i]] <- svy_design
+  
+}
+
+
+#baseline model
+result <- svyglm(malaria_result ~ agric_home,
+                 design = desin_list[[1]], family = binomial(link ="logit"))
+
+regTermTest(result_evi, test.terms = ~ agric_home,
+            df = degf(result_evi$survey.design), method = "LRT")
+
+#urban wald test
+
+
+#evi
+result_evi <- svyglm(malaria_result ~ EVI_2000m,
+                 design = svy_design, family = binomial(link ="logit"))
+
+
+regTermTest(result_evi, test.terms = ~ EVI_2000m,
+            df = degf(result_evi$survey.design), method = "LRT")
+
+#temp
+result_temp <- svyglm(malaria_result ~ temp_monthly_2000m,
+                     design = svy_design, family = binomial(link ="logit"))
+
+regTermTest(result_temp, test.terms = ~ temp_monthly_2000m,
+            df = degf(result_temp$survey.design), method = "LRT")
+
+#humidity
+result_RH <- svyglm(malaria_result ~ RH_monthly_2000m,
+                      design = svy_design, family = binomial(link ="logit"))
+
+regTermTest(result_RH, test.terms = ~ RH_monthly_2000m,
+            df = degf(result_RH$survey.design), method = "LRT")
+
+#humidity
+result_preci <- svyglm(malaria_result ~ preci_monthly_2000m,
+                    design = svy_design, family = binomial(link ="logit"))
+
+regTermTest(result_preci, test.terms = ~ preci_monthly_2000m,
+            df = degf(result_preci$survey.design), method = "LRT")
