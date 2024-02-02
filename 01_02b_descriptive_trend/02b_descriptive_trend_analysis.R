@@ -357,7 +357,7 @@ all_diff <- rbind(diff_d_u, diff_d_r) %>%
                                                "MZ" = "Mozambique 2011 Vs. 2015",
                                                "TZ" = "Tanzania 2011 - 12 Vs. 2015 - 16"))) %>%
   group_by(cntryId...4, title) %>% mutate(id = as.character(row_number())) %>% 
-  mutate(id = ifelse(id == "1", "Second most recent survey", "Most recent survey")) %>% group_by(cntryId, title) 
+  mutate(id = ifelse(id == "1", "Preceding survey", "Most recent survey")) %>% group_by(cntryId, title) 
 
 
 p_dat <- all_diff%>% 
@@ -566,7 +566,7 @@ all_diff <- rbind(diff_d_u, diff_d_r) %>%
                                                    "MZ" = "Mozambique 2011 Vs. 2015",
                                                    "TZ" = "Tanzania 2011 - 12 Vs. 2015 - 16"))) %>%
   group_by(cntryId...4, title) %>% mutate(id = as.character(row_number())) %>% 
-  mutate(id = ifelse(id == "1", "Second most recent survey", "Most recent survey")) %>% group_by(cntryId, title) 
+  mutate(id = ifelse(id == "1", "Preceding survey", "Most recent survey")) %>% group_by(cntryId, title) 
 
 
 p_dat <- all_diff%>% 
@@ -598,4 +598,10 @@ p_figure_3_2
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_3_2.png"),p_figure_3_2, width = 8.5, height= 3.5) 
 
+
+#combined, positivity and net use. 
+
+diffs <- p_figure_2_2 / p_figure_3_2 + plot_annotation(tag_levels = 'A')
+diffs
+ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_4.pdf"),diffs, width = 8.5, height= 7) 
 
