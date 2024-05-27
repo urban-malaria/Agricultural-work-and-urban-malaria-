@@ -6,9 +6,10 @@ rm(list = ls())
 ### Directories
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
-if ("ido0493" %in% user) {
-  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
-  DriveDir <- file.path(user_path, "urban_malaria")
+if ("ozodi" %in% user) {
+  Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
+  Drive <- file.path(gsub("[//]", "/", Drive))
+  DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
@@ -91,7 +92,9 @@ df <- rbind(urban_df, rural_df)
 
 #quick chi-squared test 
 table(df$home_type2, df$interview_month)
-chisq.test(df$home_type2, df$interview_month)
+test<- chisq.test(df$home_type2, df$interview_month)
+test$statistic 
+test$p.value
 
 svyd_df <- svydesign.fun(df)
 table_df <- svytable(~home_type2 + interview_month, svyd_df)%>% as.data.frame() %>% 
@@ -141,11 +144,11 @@ ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_1.pdf"), p, width = 8.5, heigh
 
 
 #urban
-plot_u_df2<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result) 
+plot_u_df2<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
 
 
-
-plot_overall = plot_u_df2 %>%  group_by(home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
+plot_overall = plot_u_df2 %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
+  group_by(home_type2, test_result) %>%  summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
 plot_overall$title = "Urban"
 
 p_urban<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) + 
