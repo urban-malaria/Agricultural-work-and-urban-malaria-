@@ -11,7 +11,7 @@ if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[//]", "/", Drive))
   DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
@@ -48,8 +48,8 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### read in analysis datasets 
 ## -------------------------------
 
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/240606_rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
 
 
 ## -------------------------------
@@ -87,7 +87,27 @@ p1 <- ggplot(all, aes(x = reorder(country_year.x, -total), y = total, fill =type
   labs(x = "", y = "Number of children, 6 - 59 months tested for malaria 
        by RDT or microscopy in urban and rural clusters, combined")
 
-#figure 1b
+#figure 1b - let's make a map 
+afr.shp.base<- st_read(file.path(DriveDir, "data", "Urban_malaria_net_ownership_data",
+                               "shapefiles", "africa_baundaries", "afr_g2014_2013_0.shp"))
+
+DHS_country_codes <- urban_df %>%  select(DHS_CountryCode,CountryName) %>%  distinct(DHS_CountryCode, CountryName) %>%  mutate(data_available = 1)
+
+#fix country codes 
+DHS_country_codes$DHS_CountryCode[which(DHS_country_codes$CountryName=='Madagascar')]<-'MG'
+DHS_country_codes$DHS_CountryCode[which(DHS_country_codes$CountryName=='Burundi')]<-'BI'
+
+afr_shape_dat <- afr.shp.base %>%  left_join(DHS_country_codes, by = c("ISO2" = "DHS_CountryCode")) %>%  
+  mutate(data_com = if_else(is.na(data_available), 0, data_available))
+table(afr_shape_dat$data_com)
+
+p2=ggplot() +
+  geom_sf(data = afr_shape_dat , aes(geometry = geometry, fill = data_available)) +
+  scale_fill_continuous(low ="#ffd5c6", high= "#d08288",  na.value = "white") +
+  map_theme() +
+  theme(legend.position="none")
+
+#figure 1c
 df <- rbind(urban_df, rural_df)
 
 #quick chi-squared test 
@@ -103,7 +123,7 @@ table_df <- svytable(~home_type2 + interview_month, svyd_df)%>% as.data.frame() 
 table_df <- table_df %>%  mutate(home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH")) %>% 
   group_by(home_type2) %>%  mutate(percent = round(Freq/sum(Freq)*100), 0)%>%  ungroup()
 
-p2 <- table_df %>% ggplot(aes(x = interview_month, y = percent, label =percent)) +
+p3 <- table_df %>% ggplot(aes(x = interview_month, y = percent, label =percent)) +
   geom_col(fill = "forestgreen", alpha=0.8) +
   geom_smooth(se = FALSE, color = "goldenrod2")+
   # geom_text(position = position_stack(vjust = 0.5),
@@ -115,39 +135,40 @@ p2 <- table_df %>% ggplot(aes(x = interview_month, y = percent, label =percent))
   #theme(strip.background = element_blank(), strip.text.x = element_blank())+
   scale_x_continuous(breaks = scales::pretty_breaks(n=12), expand = expansion(mult = c(0.02, 0.02)))
 
-p <- p1/p2
+p <- (p2 + p1)/p3
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"figure_1.pdf"), p, width = 8, height = 7) 
+ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1.pdf"), p, width = 8, height = 7) 
 
 
 #figure 2
 #overall
 color = c("#f2a5a1", "#c55c80")
-plot_over <- df %>%  dplyr::select(country_year.x, home_type2, code_year, test_result)
-plot_over2 = plot_over %>%  group_by(home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
-
-p <-ggplot(plot_over2, aes(fill=test_result, x= home_type2)) + 
-  geom_bar(aes(y = value), position="stack", stat = "identity")+
-  theme_manuscript()+
-  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
-  scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
-            position = position_stack(vjust = 0.5),
-            color = "white") +
-  labs(x = "", y  = "Number of children, 6 - 59 months,
-  tested positive for malaria in 16 DHS datasets") +
-  theme(strip.text.x = element_text(
-    size = 12, color = "black")) 
-
-ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_1.pdf"), p, width = 8.5, height = 6) 
-
-
-
-#urban
-plot_u_df2<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
+# plot_over <- df %>%  dplyr::select(country_year.x, home_type2, code_year, test_result)
+# plot_over2 = plot_over %>%  group_by(home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
+# 
+# p <-ggplot(plot_over2, aes(fill=test_result, x= home_type2)) + 
+#   geom_bar(aes(y = value), position="stack", stat = "identity")+
+#   theme_manuscript()+
+#   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
+#   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
+#   geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
+#             position = position_stack(vjust = 0.5),
+#             color = "white") +
+#   labs(x = "", y  = "Number of children, 6 - 59 months,
+#   tested positive for malaria in 16 DHS datasets") +
+#   theme(strip.text.x = element_text(
+#     size = 12, color = "black")) 
+# 
+# ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_1.pdf"), p, width = 8.5, height = 6) 
 
 
-plot_overall = plot_u_df2 %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
+
+#Figure 2 urban and rural
+#malaria 
+plot_df_um<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
+
+
+plot_overall = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
   group_by(home_type2, test_result) %>%  summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
 plot_overall$title = "Urban"
 
@@ -166,61 +187,10 @@ p_urban<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) +
     size = 12, color = "black")) +
   coord_cartesian(ylim = c(0, 44000))
 
+plot_df_rm<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
 
-#plot by country 
-plot_country = plot_u_df2 %>%  group_by(country_year.x,home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
-  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
-         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
-
-df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
-
-plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
-
-#supplement figure 2
-p<-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = test_result)) +
-  geom_bar(stat = "identity", position = "stack", width = 0.7) +
-  coord_flip() +
-  scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-  facet_grid(. ~ home_type2, scales = "free", space = "free") +
-  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
-            position = position_stack(vjust = 0.5),
-            color = "black") +
-  theme(legend.title = element_blank()) +
-  labs(x = "", y = "Percentage of children, 6 - 59 months 
-       tested for malaria in urban clusters per country")+
-  theme_manuscript()+
-  theme(legend.position = "bottom")
-p
-ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_2.pdf"), p, width = 8.5, height = 6) 
-
-
-
-#diff figure 2 urban
-plot_country = plot_country %>% filter(test_result == "+ve")
-diff_d_u <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
-  filter(home_type2 == "Non-Agricultural worker HH") 
-
-diff_d_u$title = "Urban"
-p_diff_u<-ggplot(diff_d_u , aes(x = reorder(country_year.x, -diff_val), y = diff_val, fill)) +
-  geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
-  geom_text(aes(label= diff_val), position = position_stack(vjust = 0.5),
-            color = "black") +
-  coord_flip() +
-  theme(legend.title = element_blank()) +
-  labs(x = "", y = "Percentage difference in malaria test positivity rates
-      between agricultural worker HH and non-agricultural worker HH")+
-  facet_wrap(vars(title))+
-  theme_manuscript()+
-  theme(legend.position = "bottom") + 
-  ylim(0, 28)
-
-
-
-#rural
-
-plot_u_df<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result) 
-
-plot_overall = plot_u_df %>%  group_by(home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
+plot_overall = plot_df_rm %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
+  group_by(home_type2, test_result) %>%   summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
 plot_overall$title = "Rural"
 p_rural<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) + 
   geom_bar(aes(y = value), position="stack", stat = "identity")+
@@ -243,6 +213,159 @@ p_rural<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) +
 p_2a = p_urban +p_rural+ plot_layout(guides = "collect") & theme(legend.position = 'bottom')
 p_2a
 #ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_HH_occupation_exposure_urban_rural.pdf"), p_2a, width = 6.8, height = 5)
+
+
+
+#net use vs occupation category 
+color = c( "#621244", "#efeddb")
+plot_urban = urban_df %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
+  group_by(home_type2, net_use) %>%  
+  summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
+plot_urban$title = "Urban"
+
+p_net_u<-ggplot(plot_urban, aes(fill=net_use, x= home_type2)) + 
+  geom_bar(aes(y = value), position="stack", stat = "identity")+
+  theme_manuscript()+
+  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
+  scale_fill_manual(name = "", values= color)+
+  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
+            position = position_stack(vjust = 0.5),
+            color = "white") +
+  labs(x = "", y  = "Number of children, 6 - 59 months,
+  tested positive for malaria in 22 DHS datasets") +
+  facet_wrap(vars(title))+
+  theme(strip.text.x = element_text(
+    size = 12, color = "black")) +
+  coord_cartesian(ylim = c(0, 44000))
+
+plot_rural = rural_df %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
+  group_by(home_type2, net_use) %>%  
+  ssummarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
+plot_rural$title = "Rural"
+
+p_net_r<-ggplot(plot_rural, aes(fill=net_use, x= home_type2)) + 
+  geom_bar(aes(y = value), position="stack", stat = "identity")+
+  theme_manuscript()+
+  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
+  scale_fill_manual(name = "", values= color)+
+  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
+            position = position_stack(vjust = 0.5),
+            color = "white") +
+  labs(x = "", y  = "Number of children, 6 - 59 months,
+  tested positive for malaria in 22 DHS datasets") +
+  facet_wrap(vars(title))+
+  theme(strip.text.x = element_text(
+    size = 12, color = "black")) +
+  coord_cartesian(ylim = c(0, 44000)) + 
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(), 
+        axis.title.y = element_blank())
+
+
+p_net_u + p_net_r
+p_2b = p_net_u + p_net_r + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+p_malaria_p_net = p_2a / p_2b
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural.pdf"),p_malaria_p_net, width = 8, height= 7) 
+
+#figure 3
+#diff agric worker, non agric worker malaria 
+plot_country = plot_df_um %>%  group_by(country_year.x,home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
+         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
+
+df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
+
+plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
+
+
+plot_country = plot_country %>% filter(test_result == "+ve")
+diff_d_u_malaria <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_urban_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
+  filter(home_type2 == "Non-Agricultural worker HH") 
+
+#diff agric  worker, non agric worker net use 
+plot_country = plot_country  %>%  
+  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% mutate(plot_label = ifelse(net_use == "Did not sleep \n under a net", percent, NA)) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+diff_d_u$title = "Urban"
+p_diff_u<-ggplot(diff_d_u , aes(x = reorder(country_year.x, -diff_val_urban_malaria), y = diff_val_urban_malaria, fill)) +
+  geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
+  geom_text(aes(label= diff_val), position = position_stack(vjust = 0.5),
+            color = "black") +
+  coord_flip() +
+  theme(legend.title = element_blank()) +
+  labs(x = "", y = "Percentage difference in malaria test positivity rates
+      between agricultural worker HH and non-agricultural worker HH")+
+  facet_wrap(vars(title))+
+  theme_manuscript()+
+  theme(legend.position = "bottom") + 
+  ylim(0, 28)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#plot by country 
+
+#supplement figure 2
+p<-ggplot(plot_country , aes(x = reorder(country_year.x, -total2), y = percent, fill = test_result)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.7) +
+  coord_flip() +
+  scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
+  facet_grid(. ~ home_type2, scales = "free", space = "free") +
+  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+            position = position_stack(vjust = 0.5),
+            color = "black") +
+  theme(legend.title = element_blank()) +
+  labs(x = "", y = "Percentage of children, 6 - 59 months 
+       tested for malaria in urban clusters per country")+
+  theme_manuscript()+
+  theme(legend.position = "bottom")
+p
+ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_2.pdf"), p, width = 8.5, height = 6) 
+
+
+
+#diff figure 2 urban
+
+
+
+
+#rural
+
 
 
 #rural by country figure for supplement 
@@ -276,10 +399,10 @@ ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_3.pdf"), p_sup3, width = 8.5, 
 
 #diff figure 2 rural
 plot_country = plot_country %>% filter(test_result == "+ve")
-diff_d_r <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
+diff_d_r_malaria <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_rural_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
   filter(home_type2 == "Non-Agricultural worker HH")
 diff_d_r$title = "Rural"
-p_diff_r<-ggplot(diff_d_r , aes(x = reorder(country_year.x, -diff_val), y = diff_val, fill)) +
+p_diff_r<-ggplot(diff_d_r , aes(x = reorder(country_year.x, -diff_val_rural_malaria), y = diff_val_rural_malaria, fill)) +
   geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
   geom_text(aes(label= diff_val), position = position_stack(vjust = 0.5),
                       color = "black") +
@@ -359,33 +482,6 @@ p<-ggplot(plot_urban, aes(fill=net_use, x= home_type2)) +
 
 
 
-plot_rural = rural_df %>% 
-  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
-  group_by(home_type2, net_use) %>%  
-  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
-plot_rural$title = "Rural"
-
-p1<-ggplot(plot_rural, aes(fill=net_use, x= home_type2)) + 
-  geom_bar(aes(y = value), position="stack", stat = "identity")+
-  theme_manuscript()+
-  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
-  scale_fill_manual(name = "", values= color)+
-  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
-            position = position_stack(vjust = 0.5),
-            color = "white") +
-  labs(x = "", y  = "Number of children, 6 - 59 months,
-  tested positive for malaria in 22 DHS datasets") +
-  facet_wrap(vars(title))+
-  theme(strip.text.x = element_text(
-    size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 44000)) + 
-  theme(axis.text.y = element_blank(), 
-        axis.ticks.y = element_blank(), 
-        axis.title.y = element_blank())
-
-p + p1
-p_net = p + p1 + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
-p_net
 
 ggsave(paste0(ExpDir,"/", Sys.Date(),"netuse_agric_rural_urban.pdf"),p_net, width = 7.5, height= 5) 
 

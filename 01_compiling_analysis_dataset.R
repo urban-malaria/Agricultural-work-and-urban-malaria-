@@ -13,12 +13,13 @@ library(rdhs)
 ### Directories
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
-if ("ido0493" %in% user) {
-  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
-  DriveDir <- file.path(user_path, "urban_malaria")
-  PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "exploratory")
+if ("ozodi" %in% user) {
+    Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
+    Drive <- file.path(gsub("[//]", "/", Drive))
+    DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
+    PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
+    ManDir <- file.path(DriveDir, "projects", "Manuscripts","ongoing", "agriculture_malaria_manuscript")
+    FigDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
   DriveDir <- file.path(Drive, "urban_malaria")
@@ -47,14 +48,14 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------------
 
 #login into dhs (email and password needs to be removed from this script before it becomes public)
-my_config <- set_rdhs_config(email = "cchiziba@gmail.com",#"ozodiegwui@gmail.com",
-                             project = "Net ownership by individual",#"Association of household member engagement in agricultural work and malaria",
+my_config <- set_rdhs_config(email = "ozodiegwui@gmail.com",
+                             project = "Association of household member engagement in agricultural work and malaria",
                              config_path = "rdhs.json",
                              cache_path = "data",
                              #password_prompt = TRUE,
                              global = FALSE, timeout = 600)
 
-
+get_rdhs_config()
 
 survs <- read.csv(file.path(ManDir, "csv", "surveyids_for_analysis.csv")) #%>%
   #mutate(cntryId = stringr::str_extract(SurveyId, "^.{2}")) %>% group_by(cntryId) %>% 
@@ -87,6 +88,8 @@ for (i in 1:nrow(ir_datasets)){
   }, error = function(e){cat("ERROR:", conditionMessage(e), "\n")})
 
 }
+
+
 # 
 
 ## ---------------------------------------------------------------------------------------------------------------------
@@ -150,11 +153,12 @@ print(paste("appending rural data from", unique(df_urban[["CountryName"]]), "to 
 dhs_ir_rural <- append(dhs_ir_rural, list(df_rural))
 }
 
-lapply(dhs_ir_urban, function(x) table(x$h11_6))
-lapply(dhs_ir_rural, function(x) table(x$h11_1))
+#lapply(dhs_ir_urban, function(x) table(x$h11_6)) #had diarrhea recently 
+#lapply(dhs_ir_rural, function(x) table(x$h11_1))
 
 saveRDS(dhs_ir_urban, file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
 dhs_ir_urban<- readRDS(file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
+saveRDS(dhs_ir_rural, file.path(PopDir, "analysis_dat/dhs_ir_rural.rds"))
 
 # filter list to keep only datasets with agriculture workers that are partners as this eliminates countries with no agricultural data 
 #dhs_ir_urban <- dhs_ir_urban %>%purrr::discard(~all(is.na(.x$agri_partner)))
@@ -177,9 +181,9 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 
 
 
-# do we have enough data for this analysis? we have 20 datasets to work with now. Reduced it from the initial 35
-# xlabel = "Occupation (A - Agricultural work, O - other, U - unemployed, M - Missing)"
-# color = c("#a7cece", "#e8a6bd", "#afb2cb", "#aaa3a2")
+# do we have enough data for this analysis? urban and rural data contains 40 countries 
+xlabel = "Occupation (A - Agricultural work, O - other, U - unemployed, M - Missing)"
+color = c("#a7cece", "#e8a6bd", "#afb2cb", "#aaa3a2")
 # p <- bar_fun(plot_u_df, "category" ,"category", "DHS datasets with agricultural worker data (urban areas)", xlabel)+
 #   scale_fill_manual(values= color)+
 #   facet_wrap(vars(country_year), scales="free")
@@ -194,7 +198,7 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 
 # Change to weighted percentage to compare across countries 
 # urban
-# plot_u_df <- dhs_ir_urban  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%  
+# plot_u_df <- dhs_ir_urban  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%
 #  map(~group_by(., category)) %>%  map(~summarize(., across(country_year), percent = survey_mean() *100,
 #                                             total = survey_total())) %>%  map(~distinct(., category, .keep_all = TRUE))
 # plot_u_df <- plyr::ldply(plot_u_df) %>%  mutate(category = factor(category, levels = c("M", "U", "O", "A")))
@@ -204,8 +208,8 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 # p <- col_fun(plot_u_df, "country_year", "percent", "category", "Weighted Percentage (urban areas)", color, label)
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_urban_DHS_datasets_agric_data_weighted_percent.png"), p, width = 13, height = 13)
 # 
-# # rural 
-# plot_r_df <- dhs_ir_rural  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%  
+# # rural
+# plot_r_df <- dhs_ir_rural  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%
 #   map(~group_by(., category)) %>%  map(~summarize(., across(country_year), percent = survey_mean() *100,
 #                                                   total = survey_total())) %>%  map(~distinct(., category, .keep_all = TRUE))
 # plot_r_df  <- plyr::ldply(plot_r_df) %>%  mutate(category = factor(category, levels = c("M", "U", "O", "A")))
@@ -289,15 +293,15 @@ saveRDS(dhs_mr_rural, file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
 ## ------------------------------------------------
 
 # plot to view agric data 
-# dhs_mr_urban <- dhs_mr_urban %>% map(~mutate(., max_year = max(dhs_year), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
-#                                              country_year = paste0(CountryName, " ", year_combo)))
-# dhs_mr_rural <- dhs_mr_rural %>% map(~mutate(., max_year = max(dhs_year), min_year = min(as.numeric(dhs_year)), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-", str_sub(max_year, -2))),
-#                                              country_year = paste0(CountryName, " ", year_combo)))
-# 
-# plot_u_df<- dhs_mr_urban %>% map(~dplyr::select(., country_year, agric_work_man_response2, code_year)) %>%  bind_rows(.id = "column_label") 
-# plot_r_df <- dhs_mr_rural %>% map(~dplyr::select(., country_year, agric_work_man_response2, code_year)) %>%  bind_rows(.id = "column_label") 
-# 
-# table(plot_u_df$agric_work_man_response2)
+dhs_mr_urban <- dhs_mr_urban %>% map(~mutate(., max_year = max(dhs_year), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
+                                             country_year = paste0(CountryName, " ", year_combo)))
+dhs_mr_rural <- dhs_mr_rural %>% map(~mutate(., max_year = max(dhs_year), min_year = min(as.numeric(dhs_year)), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-", str_sub(max_year, -2))),
+                                             country_year = paste0(CountryName, " ", year_combo)))
+
+plot_u_df<- dhs_mr_urban %>% map(~dplyr::select(., country_year, agric_work_man_response2, code_year)) %>%  bind_rows(.id = "column_label")
+plot_r_df <- dhs_mr_rural %>% map(~dplyr::select(., country_year, agric_work_man_response2, code_year)) %>%  bind_rows(.id = "column_label")
+
+table(plot_u_df$agric_work_man_response2)
 
 # do we have enough data for this analysis? we have 20 datasets to work with now. Reduced it from the initial 35
 # xlabel = "Occupation (A - Agricultural work, O - other, U - unemployed, M - Missing)"
@@ -306,7 +310,7 @@ saveRDS(dhs_mr_rural, file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
 #   scale_fill_manual(values= color)+
 #   facet_wrap(vars(country_year), scales="free")
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_men_survey_urban_DHS_datasets_agric_data.png"), p, width = 13, height = 13)
-# 
+# # 
 # p <- bar_fun(plot_r_df, "agric_work_man_response2" ,"agric_work_man_response2","DHS datasets with agricultural worker data based on responses from the men's survey (rural areas)", xlabel)+
 #   scale_fill_manual(values=color)+
 #   facet_wrap(vars(country_year), scales="free")
@@ -369,11 +373,11 @@ pr_downloads<- readRDS(file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 
 
 # creates lists of dataframes and cleans it up, adding NA columns where mutated variables are absent 
-dhs_pr_urban <- list()
-dhs_pr_rural <- list()
+# dhs_pr_urban <- list()
+# dhs_pr_rural <- list()
 
 
-#need download all 36 datasets for MR also 
+#need download all 36 datasets for PR also 
 data.frame(SurveyId = setdiff(survs$SurveyId, pr_datasets$SurveyId))
 
 dhs_pr_urban <- list()
@@ -538,12 +542,12 @@ ir_rural <- plyr::ldply(ir_rural)
 
 #combine all mr datasets
 mr_urban %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[5]])))
+mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[10]])))
 mr_urban <- plyr::ldply(mr_urban)
 
 
 mr_rural %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[5]])))
+mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[10]])))
 mr_rural<- plyr::ldply(mr_rural)
 
 
@@ -663,7 +667,7 @@ p <- bar_fun(plot_u_df, "home_type2" ,"home_type2", "Household exposure to agric
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_women_men_survey_urban.pdf"), p, width = 6.8, height = 5.5)
 
-#now join to pr dataset  (the pr dataset is 29394 and the hh ir dataset is 64727. joining resulted in 26843 obs after filtering missing test and home type data)
+#now join to pr dataset  (the pr dataset is 28300 and the hh ir dataset is 68-39. joining resulted in 26153 obs after filtering missing test and home type data)
 urban_df=left_join(pr_urban, hh_ir_urban, by =c("code_year", "hv001" ="v001", "hv002"="v002")) %>%
   filter(!is.na(test_result)) %>% 
   filter(!is.na(home_type2))
@@ -743,7 +747,7 @@ p<-ggplot(plot_country , aes(x = reorder(country_year.x, -percent), y = percent,
   
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
 
-write_csv(urban_df, file.path(PopDir, "analysis_dat/urban_df_for_analysis.csv"))
+write_csv(urban_df, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv"))
 
 ###################################################################rural##################################################
 #rural ir and mr 
@@ -823,7 +827,7 @@ p <- bar_fun(plot_u_df, "home_type2" ,"home_type2", "Household exposure to agric
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_women_men_survey_rural.pdf"), p, width = 6.8, height = 5.5)
 
-#now join to pr dataset  (the pr dataset is 64008 and the hh ir dataset is 114031. joining resulted in 59489 obs after filtering missing test and home type data)
+#now join to pr dataset  (the pr dataset is 57231 and the hh ir dataset is 112876. joining resulted in 53464 obs after filtering missing test and home type data)
 rural_df=left_join(pr_rural, hh_ir_rural, by =c("code_year", "hv001" ="v001", "hv002"="v002")) %>%
   filter(!is.na(test_result)) %>% 
   filter(!is.na(home_type2))
@@ -884,7 +888,7 @@ p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) +
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
 
-write_csv(rural_df, file.path(PopDir, "analysis_dat/rural_df_for_analysis.csv"))
+write_csv(rural_df, file.path(PopDir, "analysis_dat/240606_rural_df_for_analysis.csv"))
 
 
 
