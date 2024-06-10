@@ -218,7 +218,8 @@ p_2a
 
 #net use vs occupation category 
 color = c( "#621244", "#efeddb")
-plot_urban = urban_df %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+plot_df_un<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, u5_net_use, id, strat, wt) 
+plot_urban = plot_df_un %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
   group_by(home_type2, net_use) %>%  
   summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
@@ -242,7 +243,7 @@ p_net_u<-ggplot(plot_urban, aes(fill=net_use, x= home_type2)) +
 plot_rural = rural_df %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
   group_by(home_type2, net_use) %>%  
-  ssummarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
+  summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
 plot_rural$title = "Rural"
 
 p_net_r<-ggplot(plot_rural, aes(fill=net_use, x= home_type2)) + 
@@ -269,47 +270,32 @@ p_2b = p_net_u + p_net_r + plot_layout(guides = "collect") & theme(legend.positi
 p_malaria_p_net = p_2a / p_2b
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural.pdf"),p_malaria_p_net, width = 8, height= 7) 
-
+################################################################################################################################
 #figure 3
+###############################################################################################################################
 #diff agric worker, non agric worker malaria 
-plot_country = plot_df_um %>%  group_by(country_year.x,home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+#urban
+plot_country = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  group_by(country_year.x,home_type2, test_result) %>% 
+  summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
 
-df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
-
-plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
+# df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
+# 
+# plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
 
 
 plot_country = plot_country %>% filter(test_result == "+ve")
 diff_d_u_malaria <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_urban_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
   filter(home_type2 == "Non-Agricultural worker HH") 
 
-#diff agric  worker, non agric worker net use 
-plot_country = plot_country  %>%  
-  mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% mutate(plot_label = ifelse(net_use == "Did not sleep \n under a net", percent, NA)) 
+#visualize 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-diff_d_u$title = "Urban"
-p_diff_u<-ggplot(diff_d_u , aes(x = reorder(country_year.x, -diff_val_urban_malaria), y = diff_val_urban_malaria, fill)) +
+diff_d_u_malaria$title = "Urban"
+p_diff_u_malaria<-ggplot(diff_d_u_malaria , aes(x = reorder(country_year.x, -diff_val_urban_malaria), y = diff_val_urban_malaria, fill)) +
   geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
-  geom_text(aes(label= diff_val), position = position_stack(vjust = 0.5),
+  geom_text(aes(label= diff_val_urban_malaria), position = position_stack(vjust = 0.5),
             color = "black") +
   coord_flip() +
   theme(legend.title = element_blank()) +
@@ -319,6 +305,63 @@ p_diff_u<-ggplot(diff_d_u , aes(x = reorder(country_year.x, -diff_val_urban_mala
   theme_manuscript()+
   theme(legend.position = "bottom") + 
   ylim(0, 28)
+
+#diff agric  worker, non agric worker net use
+#urban
+plot_country = plot_df_un %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  group_by(country_year.x,home_type2, u5_net_use) %>% 
+  summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
+         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
+
+plot_country = plot_country %>% filter( u5_net_use == "1")
+diff_d_u_nets <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_urban_nets = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
+  filter(home_type2 == "Non-Agricultural worker HH") 
+
+
+#visualize 
+
+diff_d_u_nets$title = "Urban"
+p_diff_u_nets<-ggplot(diff_d_u_nets , aes(x = reorder(country_year.x, -diff_val_urban_nets), y = diff_val_urban_nets, fill)) +
+  geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
+  geom_text(aes(label= diff_val_urban_nets), position = position_stack(vjust = 0.5),
+            color = "black") +
+  coord_flip() +
+  theme(legend.title = element_blank()) +
+  labs(x = "", y = "Percentage difference in net use rates
+      between agricultural worker HH and non-agricultural worker HH")+
+  facet_wrap(vars(title))+
+  theme_manuscript()+
+  theme(legend.position = "bottom") 
+
+#join both dataframes (malaria and net use diff)
+
+diff_d_u_malaria <-   diff_d_u_malaria %>%  select(country_year.x , diff_val_urban_malaria)
+diff_d_u_nets <- diff_d_u_nets %>%  select(country_year.x, diff_val_urban_nets)
+
+df_m_n_country <- left_join(diff_d_u_malaria, diff_d_u_nets) %>% mutate(net_category = if_else(diff_val_urban_nets<0, "lower_agric_coverage", "higher_agric_coverage"))
+
+code_year <- plot_df_um %>%  select(country_year.x, code_year) %>%  distinct(country_year.x,code_year)
+
+df_m_n_country <- df_m_n_country %>%  left_join(code_year) %>%  mutate(code_year = if_else(is.na(code_year) & country_year.x== 'DRC 2013 - 14',"CD2013", code_year ))
+
+check =  df_m_n_country %>%  filter(diff_val_urban_nets)
+
+df_m_n_country$title = "Urban"
+ggplot(df_m_n_country , aes(x=diff_val_urban_nets, y=diff_val_urban_malaria, color = net_category, label=code_year))+
+  geom_point(shape=19, size= 5, alpha = 0.7)+
+  geom_text(hjust=0, vjust=0) +
+  scale_color_manual(values =c("#622c88", "#ae9bf3"))+
+  theme_manuscript()+
+  geom_vline(xintercept = 0) +
+  facet_wrap(vars(title))+
+  labs(x = "Difference in net use between agricultural worker HH and \n non-agricultural worker", y = "Difference in malaria test positivity rate \n between agricultural worker HH and non-agricultural worker")+
+  theme(legend.position = "none")
+
+
+
+
+
 
 
 
