@@ -162,9 +162,11 @@ color = c("#f2a5a1", "#c55c80")
 # ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_1.pdf"), p, width = 8.5, height = 6) 
 
 
-
+#################################################################################################################
 #Figure 2 urban and rural
+#################################################################################################################
 #malaria 
+#urban
 plot_df_um<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
 
 
@@ -186,6 +188,8 @@ p_urban<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) +
   theme(strip.text.x = element_text(
     size = 12, color = "black")) +
   coord_cartesian(ylim = c(0, 44000))
+
+#rural
 
 plot_df_rm<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
 
@@ -240,7 +244,8 @@ p_net_u<-ggplot(plot_urban, aes(fill=net_use, x= home_type2)) +
     size = 12, color = "black")) +
   coord_cartesian(ylim = c(0, 44000))
 
-plot_rural = rural_df %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+plot_df_rn<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, u5_net_use, id, strat, wt)
+plot_rural = plot_df_rn %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
   group_by(home_type2, net_use) %>%  
   summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
@@ -334,7 +339,7 @@ p_diff_u_nets<-ggplot(diff_d_u_nets , aes(x = reorder(country_year.x, -diff_val_
   theme_manuscript()+
   theme(legend.position = "bottom") 
 
-#join both dataframes (malaria and net use diff)
+#join both dataframes (malaria and net use diff) to make scatterplot
 
 diff_d_u_malaria <-   diff_d_u_malaria %>%  select(country_year.x , diff_val_urban_malaria)
 diff_d_u_nets <- diff_d_u_nets %>%  select(country_year.x, diff_val_urban_nets)
@@ -345,18 +350,202 @@ code_year <- plot_df_um %>%  select(country_year.x, code_year) %>%  distinct(cou
 
 df_m_n_country <- df_m_n_country %>%  left_join(code_year) %>%  mutate(code_year = if_else(is.na(code_year) & country_year.x== 'DRC 2013 - 14',"CD2013", code_year ))
 
-check =  df_m_n_country %>%  filter(diff_val_urban_nets)
 
 df_m_n_country$title = "Urban"
-ggplot(df_m_n_country , aes(x=diff_val_urban_nets, y=diff_val_urban_malaria, color = net_category, label=code_year))+
+country_m_n_urban<- ggplot(df_m_n_country , aes(x=diff_val_urban_nets, y=diff_val_urban_malaria, color = net_category, label=code_year))+
   geom_point(shape=19, size= 5, alpha = 0.7)+
   geom_text(hjust=0, vjust=0) +
-  scale_color_manual(values =c("#622c88", "#ae9bf3"))+
+  scale_color_manual(values =c("#622c88", "#622c88"))+
   theme_manuscript()+
   geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0)+
   facet_wrap(vars(title))+
-  labs(x = "Difference in net use between agricultural worker HH and \n non-agricultural worker", y = "Difference in malaria test positivity rate \n between agricultural worker HH and non-agricultural worker")+
-  theme(legend.position = "none")
+  labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
+  theme(legend.position = "none")+
+  ylim(-3, 28) +
+xlim(-20, 20) 
+
+
+#rural 
+#diff agric worker, non agric worker malaria
+plot_country = plot_df_rm %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  group_by(country_year.x,home_type2, test_result) %>% 
+  summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
+         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
+
+
+plot_country = plot_country %>% filter(test_result == "+ve")
+diff_d_r_malaria <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_rural_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
+  filter(home_type2 == "Non-Agricultural worker HH")
+
+#visualize 
+diff_d_r_malaria$title = "rural"
+p_diff_r_malaria<-ggplot(diff_d_r_malaria , aes(x = reorder(country_year.x, -diff_val_rural_malaria), y = diff_val_rural_malaria, fill)) +
+  geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
+  geom_text(aes(label= diff_val_rural_malaria), position = position_stack(vjust = 0.5),
+            color = "black") +
+  coord_flip() +
+  theme(legend.title = element_blank()) +
+  labs(x = "", y = "Percentage difference in malaria test positivity rates
+      between agricultural worker HH and non-agricultural worker HH")+
+  facet_wrap(vars(title))+
+  theme_manuscript()+
+  theme(legend.position = "bottom") 
+
+
+#diff agric  worker, non agric worker net use
+#rural
+plot_country = plot_df_rn %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  group_by(country_year.x,home_type2, u5_net_use) %>% 
+  summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
+         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
+
+plot_country = plot_country %>% filter( u5_net_use == "1")
+diff_d_r_nets <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_rural_nets = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
+  filter(home_type2 == "Non-Agricultural worker HH") 
+
+
+#visualize 
+diff_d_r_nets$title = "Urban"
+p_diff_r_nets<-ggplot(diff_d_r_nets , aes(x = reorder(country_year.x, -diff_val_rural_nets), y = diff_val_rural_nets, fill)) +
+  geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
+  geom_text(aes(label= diff_val_rural_nets), position = position_stack(vjust = 0.5),
+            color = "black") +
+  coord_flip() +
+  theme(legend.title = element_blank()) +
+  labs(x = "", y = "Percentage difference in net use rates
+      between agricultural worker HH and non-agricultural worker HH")+
+  facet_wrap(vars(title))+
+  theme_manuscript()+
+  theme(legend.position = "bottom") 
+
+
+
+
+#join both dataframes (malaria and net use diff) to make scatterplot (rural)
+
+diff_d_r_malaria <-   diff_d_r_malaria %>%  select(country_year.x , diff_val_rural_malaria)
+diff_d_r_nets <- diff_d_r_nets %>%  select(country_year.x, diff_val_rural_nets)
+
+df_m_n_country_rural <- left_join(diff_d_r_malaria, diff_d_r_nets) %>% mutate(net_category = if_else(diff_val_rural_nets<0, "lower_agric_coverage", "higher_agric_coverage"))
+
+code_year <- plot_df_rm %>%  select(country_year.x, code_year) %>%  distinct(country_year.x,code_year)
+
+df_m_n_country_rural <- df_m_n_country_rural %>%  left_join(code_year) %>%  mutate(code_year = if_else(is.na(code_year) & country_year.x== 'DRC 2013 - 14',"CD2013", code_year ))
+
+df_m_n_country_rural$title = "Rural"
+country_m_n_rural <- ggplot(df_m_n_country_rural , aes(x=diff_val_rural_nets, y=diff_val_rural_malaria, color = net_category, label=code_year))+
+  geom_point(shape=19, size= 5, alpha = 0.7)+
+  geom_text(hjust=0, vjust=0) +
+  scale_color_manual(values =c("#e07a5f", "#e07a5f"))+
+  theme_manuscript()+
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  facet_wrap(vars(title))+
+  labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
+  theme(legend.position = "none")+
+  ylim(-3,28) + 
+  xlim(-20, 20) +
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(), 
+        axis.title.y = element_blank())
+
+
+
+p_country_malaria_nets <- country_m_n_urban + country_m_n_rural
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural_by_country.pdf"),p_country_malaria_nets, width = 8, height= 5) 
+
+
+################################################
+# trend analysis 
+
+# ------------------------------------------------------------------------------------------------
+### read in analysis datasets from chilo's extraction in file called 02b_descriptive_trend_analysis  
+## ------------------------------------------------------------------------------------------------
+
+
+df_trend_malaria <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis_trend_malaria_chilo_created.csv"))
+df_trend_net<- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis_trend_net_chilo_created.csv"))
+
+
+#urban
+#malaria 
+urban_trend <- df_trend_malaria  %>%  filter(title == "Urban", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>%  select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_malaria, id) %>% 
+  rename(country_year = country_year.x...2, country_id = cntryId...5) %>%  mutate(id = if_else(country_year == "Mozambique 2015", "Preceding survey", id))
+
+#hardcode test positivity values for Mozambique 2022 from analysis above
+df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 27, non_agric_percent = 9, diff_val_malaria = 27 - 9, id = "Most recent survey", country_id  = "MZ")
+
+#join both files 
+urban_malaria_trend <- rbind(urban_trend, df)%>%  select(country_year, diff_val_malaria, id, country_id)
+
+#urban 
+#nets 
+urban_net_trend <- df_trend_net %>% filter(title == "Urban", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_net, id) %>% 
+  rename(country_year = country_year.x...2, country_id = cntryId...5) %>%  mutate(id = if_else(country_year == "Mozambique 2015", "Preceding survey", id))
+
+#hardcode test positivity values for Mozambique 2022 from analysis above
+df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 50, non_agric_percent = 55, diff_val_net = 50 - 55, id = "Most recent survey", country_id  = "MZ")
+
+#join both files 
+urban_net_trend <- rbind(urban_net_trend, df) %>%  select(country_year, diff_val_net, id, country_id)
+
+urban_mal_net_trend <- left_join(urban_malaria_trend, urban_net_trend)
+
+urban_mal_net_trend$title = "Urban"
+country_m_n_urban_trend <- ggplot(urban_mal_net_trend, aes(x=diff_val_net, y=diff_val_malaria, label=country_id))+
+  geom_point(shape=19, size= 5, alpha = 0.7, aes(color =id))+
+  geom_line(aes(group = country_id))+
+  geom_text(hjust=0, vjust=0) +
+  scale_color_manual(values =c("#622c88", "#ffc3f7"))+
+  theme_manuscript()+
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  facet_wrap(vars(title))+
+  labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+
+#rural
+#malaria 
+rural_mal_trend <- df_trend_malaria  %>%  filter(title == "Rural", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>%  select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_malaria, id) %>% 
+  rename(country_year = country_year.x...2, country_id = cntryId...5) %>%  mutate(id = if_else(country_year == "Mozambique 2015", "Preceding survey", id))
+
+
+#hardcode test positivity values for Mozambique 2022 from analysis above
+df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 38, non_agric_percent = 41, diff_val_malaria = 38 - 41, id = "Most recent survey", country_id  = "MZ")
+
+#join both 
+rural_malaria_trend <- rbind(rural_mal_trend, df)%>%  select(country_year, diff_val_malaria, id, country_id)
+
+#rural 
+#nets 
+rural_net_trend <- df_trend_net %>% filter(title == "Rural", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_net, id) %>% 
+  rename(country_year = country_year.x...2, country_id = cntryId...5) %>%  mutate(id = if_else(country_year == "Mozambique 2015", "Preceding survey", id))
+
+#hardcode test positivity values for Mozambique 2022 from analysis above
+df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 36, non_agric_percent = 37, diff_val_net = 36 - 37, id = "Most recent survey", country_id  = "MZ")
+
+#join both files 
+rural_net_trend <- rbind(rural_net_trend, df) %>%  select(country_year, diff_val_net, id, country_id)
+
+rural_mal_net_trend <- left_join(rural_malaria_trend, rural_net_trend)
+
+rural_mal_net_trend$title = "Rural"
+country_m_n_rural_trend <- ggplot(rural_mal_net_trend, aes(x=diff_val_net, y=diff_val_malaria, label=country_id))+
+  geom_point(shape=19, size= 5, alpha = 0.7, aes(color =id))+
+  geom_line(aes(group = country_id))+
+  geom_text(hjust=0, vjust=0) +
+  scale_color_manual(values =c("#e07a5f", #efdcac))+
+  theme_manuscript()+
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  facet_wrap(vars(title))+
+  labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
+  theme(legend.position = "bottom", legend.title = element_blank())
 
 
 
@@ -374,13 +563,8 @@ ggplot(df_m_n_country , aes(x=diff_val_urban_nets, y=diff_val_urban_malaria, col
 
 
 
-
-
-
-
-
-
-
+###############################################################
+#old
 #plot by country 
 
 #supplement figure 2
