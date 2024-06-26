@@ -6,11 +6,12 @@
 ### Directories
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
-if ("ido0493" %in% user) {
-  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
-  DriveDir <- file.path(user_path, "urban_malaria")
+if ("ozodi"  %in% user) {
+  Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
+  Drive <- file.path(gsub("[//]", "/", Drive))
+  DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "220623_new_figures")
   EviDir <- file.path(PopDir, "MAP_EVI_monthly")
   PrecDir <- file.path(PopDir, "chirps_monthly_precip")
@@ -78,8 +79,8 @@ pr_files <- list.files(path = file.path(PopDir, "data/opened/PR"),
 pr_downloads <- lapply(pr_files, read_dta)
 
 
-##proccsing by country
-# Angola
+##processing by country
+# Angola - need to fix manual labeling
 dhs_all1 <- list(pr_downloads[[1]])
 names(dhs_all1) <- c("AO_2015")
 

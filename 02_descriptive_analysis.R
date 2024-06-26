@@ -506,7 +506,9 @@ country_m_n_urban_trend <- ggplot(urban_mal_net_trend, aes(x=diff_val_net, y=dif
   geom_hline(yintercept = 0) +
   facet_wrap(vars(title))+
   labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
-  theme(legend.position = "bottom", legend.title = element_blank())
+  theme(legend.position = "bottom", legend.title = element_blank())+
+  ylim(-4,27)+
+  xlim(-38, 20) 
 
 
 #rural
@@ -539,24 +541,105 @@ country_m_n_rural_trend <- ggplot(rural_mal_net_trend, aes(x=diff_val_net, y=dif
   geom_point(shape=19, size= 5, alpha = 0.7, aes(color =id))+
   geom_line(aes(group = country_id))+
   geom_text(hjust=0, vjust=0) +
-  scale_color_manual(values =c("#e07a5f", #efdcac))+
+  scale_color_manual(values =c("#e07a5f", "#efdcac"))+
   theme_manuscript()+
   geom_vline(xintercept = 0) +
   geom_hline(yintercept = 0) +
   facet_wrap(vars(title))+
   labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
-  theme(legend.position = "bottom", legend.title = element_blank())
+  theme(legend.position = "bottom", legend.title = element_blank())+
+  ylim(-4, 27)+
+  xlim(-38, 20)+
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(), 
+        axis.title.y = element_blank())
 
 
+p_trend_m_nets <- country_m_n_urban_trend + country_m_n_rural_trend
+
+#add country plots and trend plots 
+
+all_country_descriptive <- p_country_malaria_nets / p_trend_m_nets + plot_annotation(tag_levels = 'A')
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural_by_country_with_trends.pdf"),all_country_descriptive, width = 8.1, height=9) 
+
+################################################################
+#supplement figures - look at differences bey variable type 
+####################################################################
+
+#household size 
+
+all_df <- rbind(urban_df, rural_df) %>%  mutate(home_type3 = ifelse(home_type2 == "A", "Agricultural worker \n Household (HH)", 
+                                                    "Non-Agricultural \n worker HH")) 
+all_df$type_f <- factor(all_df$type, levels=c("urban_data", "rural_data"))
+  
+p1 <- ggplot(all_df, aes(x = home_type3, y = hh_size, fill = home_type3)) +
+  scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
+  geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
+  geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "hh_size", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  labs(y = "Household size")+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))
+
+#roof 
+all_df2 <- all_df %>%
+  as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  mutate(roof = ifelse(roof_type == 1, "Low-risk", "High-risk")) %>% drop_na(roof) %>%
+  mutate(roof_f = factor(roof, levels=c("Low-risk", "High-risk"))) %>% 
+  group_by(type_f, home_type3, roof_f) %>% 
+  summarise(value = round(survey_total(),0)) %>%  
+  mutate(percent = round(value/sum(value) *100, 0))  
 
 
+p2<- ggplot(all_df2, aes(fill=roof_f, x= home_type3)) + 
+  geom_bar(aes(y = percent), position="stack", stat = "identity")+
+  scale_fill_manual(name = "", values = c("bisque", "forestgreen"))+
+  theme_manuscript() +
+  facet_wrap(vars(type_f)) +
+  labs(x = "Roof")
+
+#wealth 
+all_df$wealth_f <- factor(all_df$wealth, levels=c("1", "2", "3", "4", "5"))
+all_df2 <- all_df %>%
+  as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  group_by(type_f, home_type3, wealth_f) %>% 
+  summarise(value = round(survey_total(),0)) %>%  
+  mutate(percent = round(value/sum(value) *100, 0)) 
+
+  
+p2<- ggplot(all_df2, aes(fill=wealth_f, x= home_type3)) + 
+  geom_bar(aes(y = percent), position="stack", stat = "identity")+
+  scale_fill_manual(values= colorRampPalette(c("bisque", "forestgreen"))(5))+
+  theme_manuscript() +
+  facet_wrap(vars(type_f)) +
+  labs(x = "wealth")
 
 
+#################################
+# reading in environmental data 
+#################################
+glimpse(df_env)
+df_env <- read.csv(file.path(PopDir, "analysis_dat/all_geospatial_monthly_DHS.csv")) %>% 
+  mutate(code_year = paste(stringr::str_extract(.id, "^.{2}"), dhs_year, sep = "")) %>% select(-dhs_year)
+# check = df_env %>%  filter(code_year == "NG2018", hv001 == 1)
+# check2 = urban_df %>%  filter(code_year == "NG2018", hv001 == 1) %>% 
+#   select(code_year, hv001, interview_month)
+# 
+# test <- check2  %>% left_join(check, by = c("code_year",  "interview_month" = "month", "hv001")) 
 
+#add subregion 
+test <- urban_df  %>% left_join(df_env, by = c("code_year",  "interview_month" = "month", "hv001")) 
+rural_df <- rural_df  %>% left_join(df_env, by = c("code_year", "hv001")) 
 
-
-
-
+glimpse(urban_df)
+EVI_df <- test %>%  group_by(code_year, interview_month) %>% 
+  summarise(mean_EVI = mean(EVI_2000m, na.rm = T))
+ggplot(EVI_df,  aes(x= interview_month, y = mean_EVI)) +
+    geom_point()+ 
+      facet_wrap(vars(code_year)) 
 
 
 
