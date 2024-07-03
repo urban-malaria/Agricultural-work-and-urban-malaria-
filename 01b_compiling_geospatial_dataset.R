@@ -1,16 +1,18 @@
 
 #This script extracts environmental data at cluster level lagged two months before the survey month
 #Last updated: 2023-10-21
+rm(list = ls())
 
 ## -----------------------------------------
 ### Directories
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
-if ("ido0493" %in% user) {
-  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
-  DriveDir <- file.path(user_path, "urban_malaria")
+if ("ozodi"  %in% user) {
+  Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
+  Drive <- file.path(gsub("[//]", "/", Drive))
+  DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "220623_new_figures")
   EviDir <- file.path(PopDir, "MAP_EVI_monthly")
   PrecDir <- file.path(PopDir, "chirps_monthly_precip")
@@ -69,24 +71,49 @@ cntry_years <- list(all_GPS %>% bind_rows() %>% as.data.frame() %>% select(cntry
 names(all_GPS) <- c(cntry_years$cntry_year)
 
 ## -----------------------------------------
-### Reading and processing dhs dasets to obtain survey month
+### Reading and processing dhs datasets to obtain survey month
 ## -----------------------------------------
 #read dhs pr files
 pr_files <- list.files(path = file.path(PopDir, "data/opened/PR"), 
                        pattern = "*FL.DTA$", full.names = TRUE, recursive = F) 
 
 pr_downloads <- lapply(pr_files, read_dta)
+ 
 
+##processing by country _ attempt to shorten code 
+# dhs_dat <- list()
+# GPS_dat <- list()
+# 
+# for (i in 1:length(pr_downloads)){
+#   dhs_all1 <- list(pr_downloads[[i]])
+#   names(dhs_all1) <- paste0(str_sub(pr_downloads[[i]][1, "hv000"], 1, 2), "_", min(pr_downloads[[i]]$hv007))
+#   print(names(dhs_all1))
+#   names(dhs_all1) <- ifelse(names(dhs_all1) == "BJ_2011", "BJ_2012", names(dhs_all1))
+#   names(dhs_all1) <- ifelse(names(dhs_all1) == "CI_2011", "CI_2012", names(dhs_all1))
+#   names(dhs_all1) <- ifelse(names(dhs_all1) == "MR_2019", "MR_2020", names(dhs_all1))
+#   dhs_all<- dhs_all1 %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
+#     map(~distinct(.,)) #get cluster numbers by month and survey year
+#   
+#   survey_gps_dat <- survey_gps_comb(x= names(dhs_all1), y= names(dhs_all1))
+#   for(i in seq_along(survey_gps_dat)) {names(survey_gps_dat)[[i]] <- paste0(unique(survey_gps_dat[[i]]$DHSCC), "_",
+#     unique(survey_gps_dat[[i]]$hv007), '_', unique(survey_gps_dat[[i]]$hv006))}
+#   
+#   GPS_all <- sapply(c(survey_gps_dat), sf:::as_Spatial, simplify = F)
+#   dhs_dat <- append(dhs_dat, dhs_all)
+#   print(paste("appending", names(dhs_all), "to list of DHS dataframes"))
+#   GPS_dat <- append(GPS_dat, GPS_all)
+#   print(paste("appending", paste0(unique(GPS_all[[i]]$DHSCC),"_", unique(GPS_all[[i]]$DHSYEAR)), "to list of GPS dataframes"))
+# }
 
-##proccsing by country
-# Angola
+# Angola - need to fix manual labeling
 dhs_all1 <- list(pr_downloads[[1]])
-names(dhs_all1) <- c("AO_2015")
+names(dhs_all1) <- paste0(str_sub(pr_downloads[[1]][1, "hv000"], 1, 2), "_", min(pr_downloads[[1]]$hv007))
+print(names(dhs_all1))
 
 dhs_all <- dhs_all1 %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 
-AO_2015 <- survey_gps_comb(x= "AO_2015", y= "AO_2015")
+AO_2015 <- survey_gps_comb(x= names(dhs_all1), y= names(dhs_all1))
 for(i in seq_along(AO_2015)) {names(AO_2015)[[i]] <- paste0(unique(AO_2015[[i]]$hv007), '_', unique(AO_2015[[i]]$hv006))}
 
 GPS_all_OA <- sapply(c(AO_2015), sf:::as_Spatial, simplify = F)
@@ -96,15 +123,18 @@ dhs_all_OA <- dhs_all
 
 #Burkina Faso-
 dhs_all1 <- list(pr_downloads[[2]], pr_downloads[[3]])
-names(dhs_all1) <- c("BF_2010", "BF_2021")
+name1 <- paste0(str_sub(pr_downloads[[2]][1, "hv000"], 1, 2), "_", min(pr_downloads[[2]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[3]][1, "hv000"], 1, 2), "_", min(pr_downloads[[3]]$hv007))
+names(dhs_all1) <- c(name1, name2)
+print(names(dhs_all1))
 
 dhs_all <- dhs_all1 %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 
-BF_2010 <- survey_gps_comb(x= "BF_2010", y= "BF_2010")
+BF_2010 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(BF_2010)) {names(BF_2010)[[i]] <- paste0(unique(BF_2010[[i]]$hv007), '_', unique(BF_2010[[i]]$hv006))}
 
-BF_2021 <- survey_gps_comb(x= "BF_2021", y= "BF_2021")
+BF_2021 <- survey_gps_comb(x= name2, y= name2)
 for(i in seq_along(BF_2021)) {names(BF_2021)[[i]] <- paste0(unique(BF_2021[[i]]$hv007), '_', unique(BF_2021[[i]]$hv006))}
 
 GPS_all_BF <- sapply(c(BF_2010, BF_2021), sf:::as_Spatial, simplify = F)
@@ -113,15 +143,19 @@ dhs_all_BF <- dhs_all
 
 # Benin
 dhs_all1 <- list(pr_downloads[[4]], pr_downloads[[5]])
-names(dhs_all1) <- c("BJ_2012", "BJ_2017")
+name1 <- paste0(str_sub(pr_downloads[[4]][1, "hv000"], 1, 2), "_", max(pr_downloads[[4]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[5]][1, "hv000"], 1, 2), "_", min(pr_downloads[[5]]$hv007))
+names(dhs_all1) <- c(name1, name2)
+print(names(dhs_all1))
+
 
 dhs_all <- dhs_all1 %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 
-BJ_2012 <- survey_gps_comb(x= "BJ_2012", y= "BJ_2012")
+BJ_2012 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(BJ_2012)) {names(BJ_2012)[[i]] <- paste0(unique(BJ_2012[[i]]$hv007), '_', unique(BJ_2012[[i]]$hv006))}
 
-BJ_2017 <- survey_gps_comb(x= "BJ_2017", y= "BJ_2017")
+BJ_2017 <- survey_gps_comb(x= name2, y= name2)
 for(i in seq_along(BJ_2017)) {names(BJ_2017)[[i]] <- paste0(unique(BJ_2017[[i]]$hv007), '_', unique(BJ_2017[[i]]$hv006))}
 
 GPS_all_BJ <- sapply(c(BJ_2012, BJ_2017), sf:::as_Spatial, simplify = F)
@@ -131,12 +165,13 @@ dhs_all_BJ <- dhs_all
 
 # Burundi
 dhs_all1 <- list(pr_downloads[[6]])
-names(dhs_all1) <- c("BU_2016")
+names(dhs_all1) <- paste0(str_sub(pr_downloads[[6]][1, "hv000"], 1, 2), "_", min(pr_downloads[[6]]$hv007))
+print(names(dhs_all1))
 
 dhs_all <- dhs_all1 %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 
-BU_2016 <- survey_gps_comb(x= "BU_2016", y= "BU_2016")
+BU_2016 <- survey_gps_comb(x= names(dhs_all1), y= names(dhs_all1))
 for(i in seq_along(BU_2016)) {names(BU_2016)[[i]] <- paste0(unique(BU_2016[[i]]$hv007), '_', unique(BU_2016[[i]]$hv006))}
 
 GPS_all_BU <- sapply(c(BU_2016), sf:::as_Spatial, simplify = F)
@@ -145,7 +180,8 @@ dhs_all_BU <- dhs_all
 
 # DRC
 dhs_all <- list(pr_downloads[[7]])
-names(dhs_all) <- c("CD_2013")
+names(dhs_all) <- paste0(str_sub(pr_downloads[[7]][1, "hv000"], 1, 2), "_", min(pr_downloads[[7]]$hv007))
+print(names(dhs_all))
 
 dhs_all <- dhs_all %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
@@ -159,15 +195,19 @@ dhs_all_CD <- dhs_all
 
 #Cote d'Ivoire
 dhs_all1 <- list(pr_downloads[[8]], pr_downloads[[9]])
-names(dhs_all1) <- c("CI_2012", "CI_2021")
+name1 <- paste0(str_sub(pr_downloads[[8]][1, "hv000"], 1, 2), "_", max(pr_downloads[[8]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[9]][1, "hv000"], 1, 2), "_", min(pr_downloads[[9]]$hv007))
+names(dhs_all1) <- c(name1, name2)
+print(names(dhs_all1))
+
 
 dhs_all <- dhs_all1 %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 
-CI_2012 <- survey_gps_comb(x= "CI_2012", y= "CI_2012")
+CI_2012 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(CI_2012)) {names(CI_2012)[[i]] <- paste0(unique(CI_2012[[i]]$hv007), '_', unique(CI_2012[[i]]$hv006))}
 
-CI_2021 <- survey_gps_comb(x= "CI_2021", y= "CI_2021")
+CI_2021 <- survey_gps_comb(x= name2, y= name2)
 for(i in seq_along(CI_2021)) {names(CI_2021)[[i]] <- paste0(unique(CI_2021[[i]]$hv007), '_', unique(CI_2021[[i]]$hv006))}
 
 GPS_all_CI <- sapply(c(CI_2012, CI_2021), sf:::as_Spatial, simplify = F)
@@ -177,15 +217,18 @@ dhs_all_CI <- dhs_all
 
 # Cameroon
 dhs_all <- list(pr_downloads[[10]], pr_downloads[[11]])
-names(dhs_all) <- c("CM_2011", "CM_2018")
+name1 <- paste0(str_sub(pr_downloads[[10]][1, "hv000"], 1, 2), "_", max(pr_downloads[[10]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[11]][1, "hv000"], 1, 2), "_", min(pr_downloads[[11]]$hv007))
+names(dhs_all) <- c(name1, name2)
+print(names(dhs_all))
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 
-CM_2011 <- survey_gps_comb(x= "CM_2011", y= "CM_2011")
+CM_2011 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(CM_2011)) {names(CM_2011)[[i]] <- paste0(unique(CM_2011[[i]]$hv007), '_', unique(CM_2011[[i]]$hv006))}
 
-CM_2018 <- survey_gps_comb(x= "CM_2018", y= "CM_2018")
+CM_2018 <- survey_gps_comb(x= name2, y= name2)
 for(i in seq_along(CM_2018)) {names(CM_2018)[[i]] <- paste0(unique(CM_2018[[i]]$hv007), '_', unique(CM_2018[[i]]$hv006))}
 
 GPS_all_CM <- sapply(c(CM_2011, CM_2018), sf:::as_Spatial, simplify = F)
@@ -194,59 +237,72 @@ dhs_all_CM <- dhs_all
 
 
 # Ghana
-dhs_all <- list(pr_downloads[[12]])
-names(dhs_all) <- c("GH_2014")
+dhs_all <- list(pr_downloads[[12]], pr_downloads[[13]])
+name1 <- paste0(str_sub(pr_downloads[[12]][1, "hv000"], 1, 2), "_", min(pr_downloads[[12]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[13]][1, "hv000"], 1, 2), "_", min(pr_downloads[[13]]$hv007))
+names(dhs_all) <- c(name1, name2)
+print(names(dhs_all))
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
-dhs_all_GH <- dhs_all 
 
-GH_2014 <- survey_gps_comb(x= "GH_2014", y= "GH_2014")
+
+GH_2014 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(GH_2014)) {names(GH_2014)[[i]] <- paste0(unique(GH_2014[[i]]$hv007), '_', unique(GH_2014[[i]]$hv006))}
 
-GPS_all_GH <- sapply(c(GH_2014), sf:::as_Spatial, simplify = F)
+GH_2022 <- survey_gps_comb(x= name2, y= name2)
+for(i in seq_along(GH_2022)) {names(GH_2022)[[i]] <- paste0(unique(GH_2022[[i]]$hv007), '_', unique(GH_2022[[i]]$hv006))}
+
+GPS_all_GH <- sapply(c(GH_2014, GH_2022), sf:::as_Spatial, simplify = F)
 names(GPS_all_GH) 
+dhs_all_GH <- dhs_all 
+
 
 
 # Gambia
 #2013 GPS data not collected
-dhs_all <- list(pr_downloads[[14]])
-names(dhs_all) <- c("GM_2019")
+dhs_all <- list(pr_downloads[[15]])
+names(dhs_all) <- paste0(str_sub(pr_downloads[[15]][1, "hv000"], 1, 2), "_", min(pr_downloads[[15]]$hv007))
+print(names(dhs_all))
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_GM <- dhs_all 
 
-GM_2019 <- survey_gps_comb(x= "GM_2019", y= "GM_2019")
+GM_2019 <- survey_gps_comb(x= names(dhs_all), y= names(dhs_all))
 for(i in seq_along(GM_2019)) {names(GM_2019)[[i]] <- paste0(unique(GM_2019[[i]]$hv007), '_', unique(GM_2019[[i]]$hv006))}
 
 GPS_all_GM <- sapply(c(GM_2019), sf:::as_Spatial, simplify = F)
 names(GPS_all_GM) 
 
 # Guinea
-dhs_all <- list(pr_downloads[[15]])
-names(dhs_all) <- c("GN_2012")
+dhs_all <- list(pr_downloads[[16]])
+names(dhs_all) <- paste0(str_sub(pr_downloads[[16]][1, "hv000"], 1, 2), "_", min(pr_downloads[[16]]$hv007))
+print(names(dhs_all))
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_GN <- dhs_all 
 
-GN_2012 <- survey_gps_comb(x= "GN_2012", y= "GN_2012")
+GN_2012 <- survey_gps_comb(x= names(dhs_all), y= names(dhs_all))
 for(i in seq_along(GN_2012)) {names(GN_2012)[[i]] <- paste0(unique(GN_2012[[i]]$hv007), '_', unique(GN_2012[[i]]$hv006))}
 
 GPS_all_GN <- sapply(c(GN_2012), sf:::as_Spatial, simplify = F)
 names(GPS_all_GN) 
 
 # Madagascar 
-dhs_all <- list(pr_downloads[[16]])
-names(dhs_all) <- c("MD_2021")
+dhs_all <- list(pr_downloads[[17]])
+names(dhs_all) <- paste0(str_sub(pr_downloads[[17]][1, "hv000"], 1, 2), "_", min(pr_downloads[[17]]$hv007))
+print(names(dhs_all))
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_MD <- dhs_all
 
 
-MD_2021 <- survey_gps_comb(x= "MD_2021", y= "MD_2021")
+MD_2021 <- survey_gps_comb(x= names(dhs_all), y= names(dhs_all))
 for(i in seq_along(MD_2021)) {names(MD_2021)[[i]] <- paste0(unique(MD_2021[[i]]$hv007), '_', unique(MD_2021[[i]]$hv006))}
 
 
@@ -254,18 +310,21 @@ GPS_all_MD <- sapply(c(MD_2021), sf:::as_Spatial, simplify = F)
 names(GPS_all_MD) 
 
 # Mali
-dhs_all <- list(pr_downloads[[17]], pr_downloads[[18]])
-names(dhs_all) <- c("ML_2012", "ML_2018")
+dhs_all <- list(pr_downloads[[18]], pr_downloads[[19]])
+name1 <- paste0(str_sub(pr_downloads[[18]][1, "hv000"], 1, 2), "_", min(pr_downloads[[18]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[19]][1, "hv000"], 1, 2), "_", min(pr_downloads[[19]]$hv007))
+names(dhs_all) <- c(name1, name2)
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_ML <- dhs_all
 
-ML_2012 <- survey_gps_comb(x= "ML_2012", y= "ML_2012")
+ML_2012 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(ML_2012)) {names(ML_2012)[[i]] <- paste0(unique(ML_2012[[i]]$hv007), '_', unique(ML_2012[[i]]$hv006))}
 
 
-ML_2018 <- survey_gps_comb(x= "ML_2018", y= "ML_2018")
+ML_2018 <- survey_gps_comb(x= name2, y= name2)
 for(i in seq_along(ML_2018)) {names(ML_2018)[[i]] <- paste0(unique(ML_2018[[i]]$hv007), '_', unique(ML_2018[[i]]$hv006))}
 
 GPS_all_ML <- sapply(c(ML_2012, ML_2018), sf:::as_Spatial, simplify = F)
@@ -273,15 +332,16 @@ names(GPS_all_ML)
 
 
 # Mauritania
-dhs_all <- list(pr_downloads[[19]])
-names(dhs_all) <- c("MR_2020")
+dhs_all <- list(pr_downloads[[20]])
+names(dhs_all) <- paste0(str_sub(pr_downloads[[20]][1, "hv000"], 1, 2), "_", median(pr_downloads[[20]]$hv007))
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_MR <- dhs_all
 
 
-MR_2020 <- survey_gps_comb(x= "MR_2020", y= "MR_2020")
+MR_2020 <- survey_gps_comb(x= names(dhs_all), y= names(dhs_all))
 for(i in seq_along(MR_2020)) {names(MR_2020)[[i]] <- paste0(unique(MR_2020[[i]]$hv007), '_', unique(MR_2020[[i]]$hv006))}
 
 
@@ -289,26 +349,34 @@ GPS_all_MR <- sapply(c(MR_2020), sf:::as_Spatial, simplify = F)
 names(GPS_all_MR) 
 
 # Mozambique
-dhs_all <- list(pr_downloads[[20]], pr_downloads[[21]])
-names(dhs_all) <- c("MZ_2011", "MZ_2015")
+dhs_all <- list(pr_downloads[[21]], pr_downloads[[22]], pr_downloads[[23]])
+name1 <- paste0(str_sub(pr_downloads[[21]][1, "hv000"], 1, 2), "_", min(pr_downloads[[21]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[22]][1, "hv000"], 1, 2), "_", min(pr_downloads[[22]]$hv007))
+name3 <- paste0(str_sub(pr_downloads[[23]][1, "hv000"], 1, 2), "_", min(pr_downloads[[23]]$hv007))
+names(dhs_all) <- c(name1, name2, name3)
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_MZ <- dhs_all
 
-MZ_2011 <- survey_gps_comb(x= "MZ_2011", y= "MZ_2011")
+MZ_2011 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(MZ_2011)) {names(MZ_2011)[[i]] <- paste0(unique(MZ_2011[[i]]$hv007), '_', unique(MZ_2011[[i]]$hv006))}
 
-MZ_2015 <- survey_gps_comb(x= "MZ_2015", y= "MZ_2015")
+MZ_2015 <- survey_gps_comb(x= name2, y= name2)
 MZ_2015 <- MZ_2015[1:5] #Removed one list which contained one cluster (93) that is'nt available in the PR dataset
 for(i in seq_along(MZ_2015)) {names(MZ_2015)[[i]] <- paste0(unique(MZ_2015[[i]]$hv007), '_', unique(MZ_2015[[i]]$hv006))}
 
-GPS_all_MZ <- sapply(c(MZ_2011, MZ_2015), sf:::as_Spatial, simplify = F)
-names(GPS_all_MZ) 
+MZ_2022 <- survey_gps_comb(x= name3, y= name3)
+for(i in seq_along(MZ_2022)) {names(MZ_2022)[[i]] <- paste0(unique(MZ_2022[[i]]$hv007), '_', unique(MZ_2022[[i]]$hv006))}
+
+
+GPS_all_MZ <- sapply(c(MZ_2011, MZ_2015, MZ_2022), sf:::as_Spatial, simplify = F)
+names(GPS_all_MZ) #stopped here. Not sure where the NA is coming from 
 
 #Nigeria
-dhs_all <- list(pr_downloads[[22]])
-names(dhs_all) <- c("NG_2018")
+dhs_all <- list(pr_downloads[[24]])
+names(dhs_all) <- paste0(str_sub(pr_downloads[[24]][1, "hv000"], 1, 2), "_", min(pr_downloads[[24]]$hv007))
+print(names(dhs_all))
 
 #read GPS data in: read_GPS_cluster_shapefiles.R
 
@@ -316,74 +384,99 @@ dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_NG <- dhs_all
 
-NG_2018 <- survey_gps_comb(x= "NG_2018", y= "NG_2018")
+NG_2018 <- survey_gps_comb(x= names(dhs_all), y= names(dhs_all))
 for(i in seq_along(NG_2018)) {names(NG_2018)[[i]] <- paste0(unique(NG_2018[[i]]$hv007), '_', unique(NG_2018[[i]]$hv006))}
 
 GPS_all_NG <- sapply(c(NG_2018), sf:::as_Spatial, simplify = F)
 names(GPS_all_NG) # Clusters by survey month= GPS data points
 
 
-# Rwanda -- No GPS coordinates for clusters were provided for the 2017 survey 
-dhs_all <- list(pr_downloads[[23]], pr_downloads[[24]], pr_downloads[[25]])
-names(dhs_all) <- c("RW_2010", "RW_2014", "RW_2019")
+# Rwanda -- No GPS coordinates for clusters were provided for the 2017 survey - stopped here
+dhs_all <- list(pr_downloads[[25]], pr_downloads[[26]], pr_downloads[[27]])
+name1 <- paste0(str_sub(pr_downloads[[25]][1, "hv000"], 1, 2), "_", min(pr_downloads[[25]]$hv007))
+name2 <- paste0(str_sub(pr_downloads[[26]][1, "hv000"], 1, 2), "_", min(pr_downloads[[26]]$hv007))
+name3 <- paste0(str_sub(pr_downloads[[27]][1, "hv000"], 1, 2), "_", min(pr_downloads[[27]]$hv007))
+names(dhs_all) <- c(name1, name2, name3)
+print(names(dhs_all))
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_RW <- dhs_all
 
-RW_2010 <- survey_gps_comb(x= "RW_2010", y= "RW_2010")
+RW_2010 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(RW_2010)) {names(RW_2010)[[i]] <- paste0(unique(RW_2010[[i]]$hv007), '_', unique(RW_2010[[i]]$hv006))}
 
-RW_2014 <- survey_gps_comb(x= "RW_2014", y= "RW_2014")
+RW_2014 <- survey_gps_comb(x= name2, y= name2)
 for(i in seq_along(RW_2014)) {names(RW_2014)[[i]] <- paste0(unique(RW_2014[[i]]$hv007), '_', unique(RW_2014[[i]]$hv006))}
 
-RW_2019 <- survey_gps_comb(x= "RW_2019", y= "RW_2019")
+RW_2019 <- survey_gps_comb(x= name3, y= name3)
 for(i in seq_along(RW_2019)) {names(RW_2019)[[i]] <- paste0(unique(RW_2019[[i]]$hv007), '_', unique(RW_2019[[i]]$hv006))}
 
 GPS_all_RW <- sapply(c(RW_2010, RW_2014, RW_2019), sf:::as_Spatial, simplify = F)
 names(GPS_all_RW)
 
 # Senegal
-dhs_all <- list(pr_downloads[[26]], pr_downloads[[27]], pr_downloads[[28]], pr_downloads[[29]], pr_downloads[[30]], pr_downloads[[31]], pr_downloads[[32]])
-names(dhs_all) <- c("SN_2010", "SN_2012a", "SN_2012b", "SN_2014", "SN_2015", "SN_2016", "SN_2017")
+dhs_all <- list(pr_downloads[[28]], pr_downloads[[29]], pr_downloads[[30]], pr_downloads[[31]], pr_downloads[[32]], pr_downloads[[33]])
+name1 <- paste0(str_sub(pr_downloads[[28]][1, "hv000"], 1, 2), "_", min(pr_downloads[[28]]$hv007))
+#name2 <- paste0(str_sub(pr_downloads[[29]][1, "hv000"], 1, 2), "_", min(pr_downloads[[29]]$hv007))
+#name3 <- paste0(str_sub(pr_downloads[[30]][1, "hv000"], 1, 2), "_", max(pr_downloads[[30]]$hv007))
+name4 <- paste0(str_sub(pr_downloads[[31]][1, "hv000"], 1, 2), "_", min(pr_downloads[[31]]$hv007))
+name5 <- paste0(str_sub(pr_downloads[[32]][1, "hv000"], 1, 2), "_", min(pr_downloads[[32]]$hv007))
+name6 <- paste0(str_sub(pr_downloads[[33]][1, "hv000"], 1, 2), "_", min(pr_downloads[[33]]$hv007))
+
+
+names(dhs_all) <- c(name1, name4, name5, name6)
+print(names(dhs_all))
+
+#names(dhs_all) <- c("SN_2010", "SN_2012a", "SN_2012b", "SN_2014", "SN_2015", "SN_2016", "SN_2017")
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_SN <- dhs_all
 
-SN_2010 <- survey_gps_comb(x= "SN_2010", y= "SN_2010")
+dhs_all_SN[[6]] <- NULL
+dhs_all_SN[[5]] <- NULL
+
+SN_2010 <- survey_gps_comb(x= name1, y= name1)
 for(i in seq_along(SN_2010)) {names(SN_2010)[[i]] <- paste0(unique(SN_2010[[i]]$hv007), '_', unique(SN_2010[[i]]$hv006))}
 
-SN_2012a <- survey_gps_comb(x= "SN_2012a", y= "SN_2012a")
-for(i in seq_along(SN_2012a)) {names(SN_2012a)[[i]] <- paste0(unique(SN_2012a[[i]]$hv007), '_', unique(SN_2012a[[i]]$hv006))}
+#SN_2012a <- survey_gps_comb(x= "SN_2012a", y= "SN_2012a")
+#for(i in seq_along(SN_2012a)) {names(SN_2012a)[[i]] <- paste0(unique(SN_2012a[[i]]$hv007), '_', unique(SN_2012a[[i]]$hv006))}
 
-SN_2012b <- survey_gps_comb(x= "SN_2012b", y= "SN_2012b")
-for(i in seq_along(SN_2012b)) {names(SN_2012b)[[i]] <- paste0(unique(SN_2012b[[i]]$hv007), '_', unique(SN_2012b[[i]]$hv006))}
+# SN_2012 <- survey_gps_comb(x= name2, y= name2)
+# for(i in seq_along(SN_2012)) {names(SN_2012)[[i]] <- paste0(unique(SN_2012[[i]]$hv007), '_', unique(SN_2012[[i]]$hv006))}
 
-SN_2014 <- survey_gps_comb(x= "SN_2014", y= "SN_2014")
-for(i in seq_along(SN_2014)) {names(SN_2014)[[i]] <- paste0(unique(SN_2014[[i]]$hv007), '_', unique(SN_2014[[i]]$hv006))}
+# SN_2014 <- survey_gps_comb(x= name3, y= name3)
+# for(i in seq_along(SN_2014)) {names(SN_2014)[[i]] <- paste0(unique(SN_2014[[i]]$hv007), '_', unique(SN_2014[[i]]$hv006))}
 
-SN_2015 <- survey_gps_comb(x= "SN_2015", y= "SN_2015")
+SN_2015 <- survey_gps_comb(x= name4, y= name4)
 for(i in seq_along(SN_2015)) {names(SN_2015)[[i]] <- paste0(unique(SN_2015[[i]]$hv007), '_', unique(SN_2015[[i]]$hv006))}
+SN_2015[[10]] <- NULL
 
-SN_2016 <- survey_gps_comb(x= "SN_2016", y= "SN_2016")
+SN_2016 <- survey_gps_comb(x=  name5, y=  name5)
 for(i in seq_along(SN_2016)) {names(SN_2016)[[i]] <- paste0(unique(SN_2016[[i]]$hv007), '_', unique(SN_2016[[i]]$hv006))}
+SN_2016[[11]] <- NULL
 
-SN_2017 <- survey_gps_comb(x= "SN_2017", y= "SN_2017")
+
+SN_2017 <- survey_gps_comb(x= name6, y= name6)
 for(i in seq_along(SN_2017)) {names(SN_2017)[[i]] <- paste0(unique(SN_2017[[i]]$hv007), '_', unique(SN_2017[[i]]$hv006))}
+SN_2017[[10]] <- NULL
 
-GPS_all_SN <- sapply(c(SN_2010, SN_2012a, SN_2012b, SN_2014, SN_2015, SN_2016, SN_2017), sf:::as_Spatial, simplify = F)
+GPS_all_SN <- sapply(c(SN_2010, SN_2015, SN_2016, SN_2017), sf:::as_Spatial, simplify = F)
 names(GPS_all_SN)
 
 # Togo 
 dhs_all <- list(pr_downloads[[34]])
-names(dhs_all) <- c("TG_2013")
+names(dhs_all) <- paste0(str_sub(pr_downloads[[34]][1, "hv000"], 1, 2), "_", min(pr_downloads[[34]]$hv007))
+print(names(dhs_all))
+
 
 dhs_all <- dhs_all %>% map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_TG <- dhs_all
 
-TG_2013 <- survey_gps_comb(x= "TG_2013", y= "TG_2013")
+TG_2013 <- survey_gps_comb(x= names(dhs_all), y= names(dhs_all))
 for(i in seq_along(TG_2013)) {names(TG_2013)[[i]] <- paste0(unique(TG_2013[[i]]$hv007), '_', unique(TG_2013[[i]]$hv006))}
 
 GPS_all_TG <- sapply(c(TG_2013), sf:::as_Spatial, simplify = F)
@@ -391,36 +484,45 @@ names(GPS_all_TG)
 
 # Tanzania 
 dhs_all <- list(pr_downloads[[36]], pr_downloads[[37]])
-names(dhs_all) <- c("TZ_2012", "TZ_2015")
+names1 <- paste0(str_sub(pr_downloads[[36]][1, "hv000"], 1, 2), "_", max(pr_downloads[[36]]$hv007))
+names2 <- paste0(str_sub(pr_downloads[[37]][1, "hv000"], 1, 2), "_", min(pr_downloads[[37]]$hv007))
+names(dhs_all) <- c(names1, names2)
+print(names(dhs_all))
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_TZ <- dhs_all
 
-TZ_2012 <- survey_gps_comb(x= "TZ_2012", y= "TZ_2012")
+TZ_2012 <- survey_gps_comb(x= names1, y= names1)
 for(i in seq_along(TZ_2012)) {names(TZ_2012)[[i]] <- paste0(unique(TZ_2012[[i]]$hv007), '_', unique(TZ_2012[[i]]$hv006))}
 
-TZ_2015 <- survey_gps_comb(x= "TZ_2015", y= "TZ_2015")
+TZ_2015 <- survey_gps_comb(x= names2, y= names2)
 for(i in seq_along(TZ_2015)) {names(TZ_2015)[[i]] <- paste0(unique(TZ_2015[[i]]$hv007), '_', unique(TZ_2015[[i]]$hv006))}
 
 GPS_all_TZ <- sapply(c(TZ_2012, TZ_2015), sf:::as_Spatial, simplify = F)
 names(GPS_all_TZ)
 
 # Uganda
-dhs_all <- list(pr_downloads[[38]], pr_downloads[[39]])
-names(dhs_all) <- c("UG_2009", "UG_2016")
+dhs_all <- list(pr_downloads[[39]], pr_downloads[[40]])
+names1 <- paste0(str_sub(pr_downloads[[39]][1, "hv000"], 1, 2), "_", min(pr_downloads[[39]]$hv007))
+names2 <- paste0(str_sub(pr_downloads[[40]][1, "hv000"], 1, 2), "_", min(pr_downloads[[40]]$hv007))
+names(dhs_all) <- c(names1, names2)
+print(names(dhs_all))
+
 
 dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_UG <- dhs_all
+dhs_all_UG[[1]]<- NULL
 
-UG_2009 <- survey_gps_comb(x= "UG_2009", y= "UG_2009")
+UG_2009 <- survey_gps_comb(x= names1, y= names1)
 for(i in seq_along(UG_2009)) {names(UG_2009)[[i]] <- paste0(unique(UG_2009[[i]]$hv007), '_', unique(UG_2009[[i]]$hv006))}
 
-UG_2016 <- survey_gps_comb(x= "UG_2016", y= "UG_2016")
+UG_2016 <- survey_gps_comb(x=names2, y=names2)
 for(i in seq_along(UG_2016)) {names(UG_2016)[[i]] <- paste0(unique(UG_2016[[i]]$hv007), '_', unique(UG_2016[[i]]$hv006))}
 
-GPS_all_UG <- sapply(c(UG_2009, UG_2016), sf:::as_Spatial, simplify = F)
+GPS_all_UG <- sapply(c(UG_2016), sf:::as_Spatial, simplify = F)
 names(GPS_all_UG)
 
 
@@ -440,23 +542,23 @@ vars <- c(2000) #meters
 
 #Extracting EVI using list within a list of survey gps points: This may take some time to run
 df_list_evi <- list()
-for (k in 1:length(GPS_all)) {
+for (i in 1:length(GPS_all)) {
   
   #EVI rasters- this is the Part where the lag comes in! 
-  EVI_comb <- lapply(dhs_all[[k]], pick_month, filepath= EviDir)
+  EVI_comb <- lapply(dhs_all[[i]], pick_month, filepath= EviDir)
   EVI_comb_vc <- unlist(EVI_comb) #vector
   EVI_raster_all <- sapply(EVI_comb_vc, raster, simplify = F) #read in EVI raster files, with 2 month lag
   
-  for (i in 1:length(vars)) {
-    var_name <- paste0('EVI_', as.character(vars[i]), 'm')
-    df <- map2(GPS_all[[k]], EVI_raster_all, get_crs) 
-    df <- pmap(list(EVI_raster_all, df, vars[i]), extract_fun_month) 
+  #for (i in 1:length(vars)) {
+    var_name <- paste0('EVI_', as.character(vars[1]), 'm')
+    df <- map2(GPS_all[[i]], EVI_raster_all, get_crs) 
+    df <- pmap(list(EVI_raster_all, df, vars[1]), extract_fun_month) 
     df <- df %>%  map(~rename_with(., .fn=~paste0(var_name), .cols = contains('EVI')))
     df <- plyr::ldply(df) %>% dplyr::select(-c(ID)) 
     df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) #get data for the first month if more than one survey month in a cluster
     
-  }
-  df_list_evi[[k]] <- df
+  #}
+  df_list_evi[[i]] <- df
   df_binded_EVI <- df_list_evi %>% bind_rows()
   write.csv(df_binded_EVI, file = file.path(OutDir, paste0("EVI_DHS.csv")),row.names = FALSE)
 }
@@ -466,23 +568,23 @@ for (k in 1:length(GPS_all)) {
 #precipitation CHIRPS
 
 df_list_prec <- list()
-for (k in 1:length(GPS_all)) {
+for (i in 1:length(GPS_all)) {
   
   #precip rasters- this is the Part where the lag comes in! 
-  precip_comb <- lapply(dhs_all[[k]], pick_month, filepath= PrecDir)
+  precip_comb <- lapply(dhs_all[[i]], pick_month, filepath= PrecDir)
   precip_comb_vc <- unlist(precip_comb) #vector
   prec_raster_all <- sapply(precip_comb_vc, raster, simplify = F) #read in precip raster files, with 2 month lag
   
-  for (i in 1:length(vars)) {
-    var_name <- paste0('preci_monthly_', as.character(vars[i]), 'm')
-    df <- map2(GPS_all[[k]], prec_raster_all, get_crs) #list of 13 vs. list of 144 
-    df <- pmap(list(prec_raster_all, df, vars[i]), extract_fun_month) 
+  #for (i in 1:length(vars)) {
+    var_name <- paste0('preci_monthly_', as.character(vars[1]), 'm')
+    df <- map2(GPS_all[[i]], prec_raster_all, get_crs) #list of 13 vs. list of 144 
+    df <- pmap(list(prec_raster_all, df, vars[1]), extract_fun_month) 
     df <- df %>%  map(~rename_with(., .fn=~paste0(var_name), .cols = contains('chirps')))
     df <- plyr::ldply(df) %>% dplyr::select(-c(ID)) 
     df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) #get data for the first month if more than one survey month in a cluster
     
-  }
-  df_list_prec[[k]] <- df
+  #}
+  df_list_prec[[i]] <- df
   df_binded_precip <- df_list_prec %>% bind_rows()%>% mutate(preci_monthly_2000m = ifelse(preci_monthly_2000m < 0, NA, preci_monthly_2000m)) #Getting rid of negative values
   write.csv(df_binded_precip, file = file.path(OutDir, paste0("precip_DHS.csv")),row.names = FALSE)
 }
@@ -505,19 +607,22 @@ list_RH <- list(humidity_2009 <- brick(file.path(HumDir, 'rel_humidity_2009.grib
                 humidity_2018 <- brick(file.path(HumDir, 'rel_humidity_2018.grib')),
                 humidity_2019 <- brick(file.path(HumDir, 'rel_humidity_2019.grib')),
                 humidity_2020 <- brick(file.path(HumDir, 'rel_humidity_2020.grib')),
-                humidity_2021 <- brick(file.path(HumDir, 'rel_humidity_2021.grib')))
+                humidity_2021 <- brick(file.path(HumDir, 'rel_humidity_2021.grib')),
+                humidity_2022 <- brick(file.path(HumDir, 'rel_humidity_2022.grib')),
+                humidity_2023 <- brick(file.path(HumDir, 'rel_humidity_2023.grib'))
+                )
 
 
 for (i in 1:length(list_RH)){
   names(list_RH[[i]]) <- paste0("RH_", month.abb) #redo for each file
 }
 
-nlayers(list_RH[[1]])
+nlayers(list_RH[[14]])
 
 plot(list_RH[[1]], 1) #Visually inspecting Relative humidity- Jan 2010
 
 names(list_RH) <- c("2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", 
-                    "2017", "2018", "2019","2020", "2021")
+                    "2017", "2018", "2019","2020", "2021", "")
 
 
 #Apply over dhs_all list--- Repeat for each country
@@ -535,14 +640,14 @@ for (k in 1:length(dhs_all)){
   
   raster_all <- unlist(RH_files)
   
-  for (i in 1:length(vars)) {
-    var_name <- paste0('RH_monthly_', as.character(vars[i]), 'm')
+  #for (i in 1:length(vars)) {
+    var_name <- paste0('RH_monthly_', as.character(vars[1]), 'm')
     df <- map2(GPS_all[[k]], raster_all, get_crs)  #transform GPS coords to match raster projection
-    df <- pmap(list(raster_all, df, vars[i]), extract_fun_month)
+    df <- pmap(list(raster_all, df, vars[1]), extract_fun_month)
     df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('RH')))
     df <- plyr::ldply(df)%>% dplyr::select(-c(ID))
     df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1)
-  }
+  #}
   
   df_list_RH[[k]] <- df
   df_binded_RH <- df_list_RH %>% bind_rows()

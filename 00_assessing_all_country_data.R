@@ -6,13 +6,13 @@ rm(list = ls())
 ### Directories
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
-
-if ("ido0493" %in% user) {
-  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
-  DriveDir <- file.path(user_path, "urban_malaria")
-  PopDir <- file.path(DriveDir, "data", "Urban_malaria_net_ownership_data")
-  FigDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript", "figures", "220623_new_figures")
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+if ("ozodi" %in% user) {
+    Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
+    Drive <- file.path(gsub("[//]", "/", Drive))
+    DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
+    PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
+    ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
+    FigDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript", "figures", "220623_new_figures")
 } else if ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
   DriveDir <- file.path(Drive, "urban_malaria")

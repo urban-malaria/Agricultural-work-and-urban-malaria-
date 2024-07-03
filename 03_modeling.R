@@ -6,11 +6,12 @@ rm(list = ls())
 ### Directories
 ## -----------------------------------------
 user <- Sys.getenv("USERNAME")
-if ("ido0493" %in% user) {
-  user_path <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("OneDrive"))))
-  DriveDir <- file.path(user_path, "urban_malaria")
+if ("ozodi" %in% user) {
+  Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
+  Drive <- file.path(gsub("[//]", "/", Drive))
+  DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
@@ -62,7 +63,7 @@ table(rural_df$u5_net_use)
 table(urban_df$home_type2)
 table(urban_df$hv253)
 
-
+glimpse(urban_df)
 
 ## -------------------------------
 ### model  

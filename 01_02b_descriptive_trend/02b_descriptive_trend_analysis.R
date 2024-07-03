@@ -283,7 +283,7 @@ p_2b
 ###################################################################################
 
 #urban
-plot_u_df2<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result) 
+plot_u_df2<- urban_df %>% dplyr::select(id, strat, wt, country_year.x, home_type2, code_year, test_result) 
 
 
 
@@ -292,7 +292,9 @@ plot_overall$title = "Urban"
 
 
 #plot by country 
-plot_country = plot_u_df2 %>%  group_by(country_year.x, code_year, home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+plot_country = plot_u_df2 %>%  as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
+  group_by(country_year.x, code_year, home_type2, test_result) %>%  
+  summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
 
@@ -316,7 +318,7 @@ diff_d_u $title = "Urban"
 
 #rural
 
-plot_r_df2<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result) 
+plot_r_df2<- rural_df %>% dplyr::select(id, strat, wt, country_year.x, home_type2, code_year, test_result) 
 
 
 
@@ -325,7 +327,9 @@ plot_overall$title = "Rural"
 
 
 #plot by country 
-plot_country = plot_r_df2 %>%  group_by(country_year.x, code_year, home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+plot_country = plot_r_df2 %>%  as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>%
+  group_by(country_year.x, code_year, home_type2, test_result) %>% 
+summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
 
@@ -358,13 +362,17 @@ all_diff <- rbind(diff_d_u, diff_d_r) %>%
                                                "TZ" = "Tanzania 2011 - 12 Vs. 2015 - 16"))) %>%
   group_by(cntryId...4, title) %>% mutate(id = as.character(row_number())) %>% 
   mutate(id = ifelse(id == "1", "Preceding survey", "Most recent survey")) %>% group_by(cntryId, title) 
+ 
+all_diff2 = all_diff %>%  rename(agric_percent = percent...3, non_agric_percent = percent...7, diff_val_malaria = diff_val)
 
+write.csv(all_diff2, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis_trend_malaria_chilo_created.csv"))
 
 p_dat <- all_diff%>% 
   summarise(start = range(diff_val)[1], end = range(diff_val)[2]) %>% 
   ungroup() 
 
 p_dat$cntryId <- factor(p_dat$cntryId,levels=rev(unique(p_dat$cntryId)))
+
 
 #diff plot
 
@@ -492,7 +500,7 @@ ggplot() +
 
 
 #urban
-plot_u_df2<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, u5_net_use) 
+plot_u_df2<- urban_df %>% dplyr::select(id, strat, wt, country_year.x, home_type2, code_year, u5_net_use) 
 
 
 
@@ -501,7 +509,9 @@ plot_overall$title = "Urban"
 
 
 #plot by country 
-plot_country = plot_u_df2 %>%  group_by(country_year.x, code_year, home_type2, u5_net_use) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+plot_country = plot_u_df2 %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>%
+  group_by(country_year.x, code_year, home_type2, u5_net_use) %>%  
+  summarise(value = round(survey_total(),0))%>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
 
@@ -534,7 +544,9 @@ plot_overall$title = "Rural"
 
 
 #plot by country 
-plot_country = plot_r_df2 %>%  group_by(country_year.x, code_year, home_type2, u5_net_use) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
+plot_country = plot_r_df2 %>%  
+  as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>%
+  group_by(country_year.x, code_year, home_type2, u5_net_use) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0)) %>% 
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
 
@@ -567,6 +579,12 @@ all_diff <- rbind(diff_d_u, diff_d_r) %>%
                                                    "TZ" = "Tanzania 2011 - 12 Vs. 2015 - 16"))) %>%
   group_by(cntryId...4, title) %>% mutate(id = as.character(row_number())) %>% 
   mutate(id = ifelse(id == "1", "Preceding survey", "Most recent survey")) %>% group_by(cntryId, title) 
+
+
+
+all_diff = all_diff %>%  rename(agric_percent = percent...3, non_agric_percent = percent...7, diff_val_net = diff_val)
+
+write.csv(all_diff, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis_trend_net_chilo_created.csv"))
 
 
 p_dat <- all_diff%>% 

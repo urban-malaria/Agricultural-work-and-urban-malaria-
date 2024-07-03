@@ -302,3 +302,17 @@ box_plot_fun <- function(df, var1, var2){
     facet_wrap(~ hv025)
   
 }
+##########################################Plotting maps
+
+map_theme <- function(){
+  theme(axis.text.x = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_blank(),
+        axis.ticks = ggplot2::element_blank(),
+        rect = ggplot2::element_blank(),
+        plot.background = ggplot2::element_rect(fill = "white", colour = NA), 
+        plot.title = element_text(hjust = 0.5),
+        legend.title.align=0.5,
+        legend.title=element_text(size=8, colour = 'black'), 
+        legend.text =element_text(size = 8, colour = 'black'),
+        legend.key.height = unit(0.65, "cm"))
+}
