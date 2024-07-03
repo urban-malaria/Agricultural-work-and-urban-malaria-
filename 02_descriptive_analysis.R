@@ -564,7 +564,7 @@ all_country_descriptive <- p_country_malaria_nets / p_trend_m_nets + plot_annota
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural_by_country_with_trends.pdf"),all_country_descriptive, width = 8.1, height=9) 
 
 ################################################################
-#supplement figures - look at differences bey variable type 
+#supplement figures - look at differences by variable type 
 ####################################################################
 
 #household size 
