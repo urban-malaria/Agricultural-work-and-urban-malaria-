@@ -594,7 +594,7 @@ for (i in 1:length(GPS_all)) {
 #### READ IN RASTER DATA- Relative Humidity at 1 atm ####
 ## Using a 2-month lag for relative humidity data
 
-# 2009- 2021
+# 2009- 2023
 list_RH <- list(humidity_2009 <- brick(file.path(HumDir, 'rel_humidity_2009.grib')),
                 humidity_2010 <- brick(file.path(HumDir, 'rel_humidity_2010.grib')),
                 humidity_2011 <- brick(file.path(HumDir, 'rel_humidity_2011.grib')),
@@ -622,7 +622,7 @@ nlayers(list_RH[[14]])
 plot(list_RH[[1]], 1) #Visually inspecting Relative humidity- Jan 2010
 
 names(list_RH) <- c("2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", 
-                    "2017", "2018", "2019","2020", "2021", "")
+                    "2017", "2018", "2019","2020", "2021", "2022", "2023")
 
 
 #Apply over dhs_all list--- Repeat for each country
@@ -658,7 +658,7 @@ for (k in 1:length(dhs_all)){
 #### READ IN RASTER DATA- Temperature ####
 ## Using a 2-month lag for temperature data
 
-# 2009- 2021
+# 2009- 2023
 list_temp <- list(temp_2009 <- brick(file.path(TempDir, 'temp_2009.grib')),
                   temp_2010 <- brick(file.path(TempDir, 'temp_2010.grib')),
                   temp_2011 <- brick(file.path(TempDir, 'temp_2011.grib')),
@@ -671,7 +671,10 @@ list_temp <- list(temp_2009 <- brick(file.path(TempDir, 'temp_2009.grib')),
                   temp_2018 <- brick(file.path(TempDir, 'temp_2018.grib')),
                   temp_2019 <- brick(file.path(TempDir, 'temp_2019.grib')),
                   temp_2020 <- brick(file.path(TempDir, 'temp_2020.grib')),
-                  temp_2021 <- brick(file.path(TempDir, 'temp_2021.grib')))
+                  temp_2021 <- brick(file.path(TempDir, 'temp_2021.grib')),
+                  temp_2022 <- brick(file.path(TempDir, 'temp_2022.grib')),
+                  temp_2023 <- brick(file.path(TempDir, 'temp_2023.grib'))
+                  )
 
 
 for (i in 1:length(list_temp)){
@@ -683,7 +686,7 @@ nlayers(list_temp[[1]])
 plot(list_temp[[1]], 1) #Visually inspecting Relative humidity- Jan 2010
 
 names(list_temp) <- c("2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", 
-                    "2017", "2018", "2019","2020", "2021")
+                    "2017", "2018", "2019","2020", "2021", "2022", "2023")
 
 
 #Apply over dhs_all list--- Repeat for each country
@@ -701,14 +704,14 @@ for (k in 1:length(dhs_all)){
   
   raster_all <- unlist(temp_files)
   
-  for (i in 1:length(vars)) {
-    var_name <- paste0('temp_monthly_', as.character(vars[i]), 'm')
+  #for (i in 1:length(vars)) {
+    var_name <- paste0('temp_monthly_', as.character(vars[1]), 'm')
     df <- map2(GPS_all[[k]], raster_all, get_crs)  #transform GPS coords to match raster projection
-    df <- pmap(list(raster_all, df, vars[i]), extract_fun_month)
+    df <- pmap(list(raster_all, df, vars[1]), extract_fun_month)
     df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('temp')))
     df <- plyr::ldply(df)%>% dplyr::select(-c(ID))
     df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1)
-  }
+  #}
   
   df_list_temp[[k]] <- df
   df_binded_temp <- df_list_temp %>% bind_rows()
@@ -717,10 +720,15 @@ for (k in 1:length(dhs_all)){
 
 
 ### Merging all environemnt variables
+df_binded_EVI <- read.csv(file.path(OutDir, "EVI_DHS.csv"))
+df_binded_precip <- read.csv(file.path(OutDir, "precip_DHS.csv"))
+df_binded_RH  <- read.csv(file.path(OutDir, "RH_monthly_DHS.csv"))
+df_binded_temp <- read.csv(file.path(OutDir, "temp_monthly_DHS.csv"))
 
 merged_df <- df_binded_EVI %>% left_join(df_binded_precip, by = c()) %>% 
   left_join(df_binded_RH, by = c()) %>% left_join(df_binded_temp, by = c()) %>% 
-  mutate(temp_monthly_2000m = temp_monthly_2000m - 273.15) # converting temp from kelvin to degrees Celsius 
+  mutate(temp_monthly_2000m = ifelse(grepl("GH_2022|MZ_2022", .id), temp_monthly_2000m, temp_monthly_2000m - 273.15)) # converting temp from kelvin to degrees Celsius 
+
 
 write.csv(merged_df, file = file.path(OutDir, paste0("all_geospatial_monthly_DHS.csv")),row.names = FALSE)
 #END

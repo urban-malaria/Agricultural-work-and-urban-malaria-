@@ -48,8 +48,8 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### read in analysis datasets 
 ## -------------------------------
 
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/240606_rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") 
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/240606_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
 
 
 ## -------------------------------
@@ -72,7 +72,7 @@ all_df <- rbind(urban_df, rural_df) %>% mutate(country_year.x = ifelse(country_y
 
 df <- all_df%>% 
   group_by(country_year.x) %>%  summarise(percent =  round(total/sum(total) * 100, 0))
-all <- cbind(all_df, df) %>% select(-c("country_year.x")) %>% mutate(plot_label = ifelse(type == "rural_data", percent, NA))
+all <- cbind(all_df, df) %>% select(-c("country_year.x")) %>% mutate(plot_label = ifelse(type == "Rural", percent, NA))
 
 
 
@@ -571,75 +571,272 @@ ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban
 
 all_df <- rbind(urban_df, rural_df) %>%  mutate(home_type3 = ifelse(home_type2 == "A", "Agricultural worker \n Household (HH)", 
                                                     "Non-Agricultural \n worker HH")) 
-all_df$type_f <- factor(all_df$type, levels=c("urban_data", "rural_data"))
+all_df$type_f <- factor(all_df$type, levels=c("Urban", "Rural"))
+
+#t-test
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(hh_size, home_type3)  %>% drop_na
+t.test(test_df$hh_size ~ test_df$home_type3)
+
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$hh_size) - mean(test_df2[[2]]$hh_size)) / sqrt(((sd(test_df2[[1]]$hh_size)^2) + (sd(test_df2[[2]]$hh_size)^2)) / 2)
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(hh_size, home_type3)  %>% drop_na
+t.test(test_df$hh_size ~ test_df$home_type3)
+
   
 p1 <- ggplot(all_df, aes(x = home_type3, y = hh_size, fill = home_type3)) +
   scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
   geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
-  geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
-  labs(x = "", y = "hh_size", fill = "home type") +
+  #geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "Household size", fill = "home type") +
   theme_manuscript()+
   theme(legend.position = 'none')+
-  labs(y = "Household size")+
   facet_wrap(vars(type_f)) +
-  theme(strip.text.x = element_text(size = 12))
+  theme(strip.text.x = element_text(size = 12))+
+  ylim(0, 16)
+ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plot_HH_size.pdf"), p1, width = 4, height = 4)
 
 #roof 
 all_df2 <- all_df %>%
   as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
-  mutate(roof = ifelse(roof_type == 1, "Low-risk", "High-risk")) %>% drop_na(roof) %>%
-  mutate(roof_f = factor(roof, levels=c("Low-risk", "High-risk"))) %>% 
+  mutate(roof = ifelse(roof_type == 1, "Low-risk roof", "High-risk roof")) %>% drop_na(roof) %>%
+  mutate(roof_f = factor(roof, levels=c("Low-risk roof", "High-risk roof"))) %>% 
   group_by(type_f, home_type3, roof_f) %>% 
   summarise(value = round(survey_total(),0)) %>%  
   mutate(percent = round(value/sum(value) *100, 0))  
 
+#quick chi-squared test 
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(roof_type, home_type3)  %>% drop_na
+table(test_df$home_type3, test_df$roof_type)
+test<- chisq.test(test_df$home_type3, test_df$roof_type)
+test$statistic 
+test$p.value
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(roof_type, home_type3)  %>% drop_na
+table(test_df$home_type3, test_df$roof_type)
+test<- chisq.test(test_df$home_type3, test_df$roof_type)
+test$statistic 
+test$p.value
+
 
 p2<- ggplot(all_df2, aes(fill=roof_f, x= home_type3)) + 
-  geom_bar(aes(y = percent), position="stack", stat = "identity")+
+  geom_bar(aes(y = percent), position="stack", stat = "identity", show.legend = F)+
   scale_fill_manual(name = "", values = c("bisque", "forestgreen"))+
   theme_manuscript() +
   facet_wrap(vars(type_f)) +
-  labs(x = "Roof")
+  labs(x = "Roof")+
+  theme(strip.text.x = element_text(size = 12))
 
 #wealth 
-all_df$wealth_f <- factor(all_df$wealth, levels=c("1", "2", "3", "4", "5"))
+all_df$wealth_f <- factor(all_df$wealth, levels=c("5", "4", "3", "2", "1"), labels =c("Richest", "Rich", "Middle", "Poor", "Poorest"))
 all_df2 <- all_df %>%
   as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   group_by(type_f, home_type3, wealth_f) %>% 
   summarise(value = round(survey_total(),0)) %>%  
   mutate(percent = round(value/sum(value) *100, 0)) 
 
+#quick chi-squared test 
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(wealth, home_type3)  %>% drop_na
+table(test_df$home_type3, test_df$wealth)
+test<- chisq.test(test_df$home_type3, test_df$wealth)
+test$statistic 
+test$p.value
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(wealth, home_type3)  %>% drop_na
+table(test_df$home_type3, test_df$wealth)
+test<- chisq.test(test_df$home_type3, test_df$wealth)
+test$statistic 
+test$p.value
   
-p2<- ggplot(all_df2, aes(fill=wealth_f, x= home_type3)) + 
-  geom_bar(aes(y = percent), position="stack", stat = "identity")+
-  scale_fill_manual(values= colorRampPalette(c("bisque", "forestgreen"))(5))+
+p3<- ggplot(all_df2, aes(fill=wealth_f, x= home_type3)) + 
+  geom_bar(aes(y = percent), position="stack", stat = "identity",show.legend = F)+
+  scale_fill_manual(name = "Wealth Quintiles", values= colorRampPalette(c("#bbdefb", "#0d47a1"))(5))+
   theme_manuscript() +
   facet_wrap(vars(type_f)) +
-  labs(x = "wealth")
+  theme(strip.text.x = element_text(size = 12), legend.title = element_blank())+
+  labs(x= "")
 
 
 #################################
 # reading in environmental data 
 #################################
-glimpse(df_env)
+
 df_env <- read.csv(file.path(PopDir, "analysis_dat/all_geospatial_monthly_DHS.csv")) %>% 
-  mutate(code_year = paste(stringr::str_extract(.id, "^.{2}"), dhs_year, sep = "")) %>% select(-dhs_year)
-# check = df_env %>%  filter(code_year == "NG2018", hv001 == 1)
-# check2 = urban_df %>%  filter(code_year == "NG2018", hv001 == 1) %>% 
-#   select(code_year, hv001, interview_month)
-# 
-# test <- check2  %>% left_join(check, by = c("code_year",  "interview_month" = "month", "hv001")) 
+  mutate(code_year = paste(stringr::str_extract(.id, "^.{2}"), dhs_year, sep = "")) %>% select(-dhs_year) %>%  mutate(EVI_2000m_new = if_else(EVI_2000m < 0, 0, EVI_2000m))
+glimpse(df_env)
 
 #add subregion 
-test <- urban_df  %>% left_join(df_env, by = c("code_year",  "interview_month" = "month", "hv001")) 
-rural_df <- rural_df  %>% left_join(df_env, by = c("code_year", "hv001")) 
+urban_df2<- urban_df  %>% left_join(df_env, by = c("code_year",  "hv001")) 
+rural_df2 <- rural_df  %>% left_join(df_env, by = c("code_year",   "hv001")) 
 
-glimpse(urban_df)
-EVI_df <- test %>%  group_by(code_year, interview_month) %>% 
-  summarise(mean_EVI = mean(EVI_2000m, na.rm = T))
+all_df <- rbind(urban_df2, rural_df2) %>%  mutate(home_type3 = ifelse(home_type2 == "A", "Agricultural worker \n Household (HH)", 
+                                                                    "Non-Agricultural \n worker HH")) 
+all_df$type_f <- factor(all_df$type, levels=c("Urban", "Rural"))
+
+#check the number of missingness for all environmental variables 
+check <- all_df %>%  
+  select(code_year, hv001, EVI_2000m, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>%  
+  filter(temp_monthly_2000m <0)
+
+
+
+#checking the data 
+glimpse(urban_df2)
+EVI_df <- urban_df2 %>%  group_by(code_year, interview_month) %>% 
+  summarise(mean_EVI = mean(EVI_2000m_new, na.rm = T))
 ggplot(EVI_df,  aes(x= interview_month, y = mean_EVI)) +
     geom_point()+ 
       facet_wrap(vars(code_year)) 
+
+#t-test
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(home_type3, EVI_2000m_new)  %>% drop_na
+#result<- t.test(log(test_df$EVI_2000m_new) ~ test_df$home_type3)
+#log_conf_int <- result$conf.int
+#exp(log_conf_int)
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$EVI_2000m_new) - mean(test_df2[[2]]$EVI_2000m_new)) / sqrt(((sd(test_df2[[1]]$EVI_2000m_new)^2) + (sd(test_df2[[2]]$EVI_2000m_new)^2)) / 2)
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(home_type3, EVI_2000m_new)  %>% drop_na
+t.test(test_df$EVI_2000m ~ test_df$home_type3)
+
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$EVI_2000m) - mean(test_df2[[2]]$EVI_2000m_new)) / sqrt(((sd(test_df2[[1]]$EVI_2000m_new)^2) + (sd(test_df2[[2]]$EVI_2000m_new)^2)) / 2)
+
+
+
+#EVI box plot
+p4 <- ggplot(all_df, aes(x = home_type3, y = EVI_2000m_new, fill = home_type3)) +
+  scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
+  geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
+  #geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "Enhanced Vegetation Index", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))
+
+
+
+#t-test
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(home_type3, preci_monthly_2000m)  %>% drop_na
+result<- t.test(log(test_df$preci_monthly_2000m) ~ test_df$home_type3)
+log_conf_int <- result$conf.int
+exp(log_conf_int)
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(home_type3, preci_monthly_2000m)  %>% drop_na
+t.test(test_df$preci_monthly_2000m ~ test_df$home_type3)
+result<- t.test(log(test_df$preci_monthly_2000m) ~ test_df$home_type3)
+log_conf_int <- result$conf.int
+exp(log_conf_int)
+
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$preci_monthly_2000m) - mean(test_df2[[2]]$preci_monthly_2000m)) / sqrt(((sd(test_df2[[1]]$preci_monthly_2000m)^2) + (sd(test_df2[[2]]$preci_monthly_2000m)^2)) / 2)
+
+
+#precipitation box plot
+p5 <- ggplot(all_df, aes(x = home_type3, y = preci_monthly_2000m, fill = home_type3)) +
+  scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
+  geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
+  #geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "Precipitation (mm)", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))+
+  ylim(0, 510)
+
+
+#t-test
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(home_type3, RH_monthly_2000m)  %>% drop_na
+result<- t.test(log(test_df$RH_monthly_2000m) ~ test_df$home_type3)
+log_conf_int <- result$conf.int
+exp(log_conf_int)
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$RH_monthly_2000m) - mean(test_df2[[2]]$RH_monthly_2000m)) / sqrt(((sd(test_df2[[1]]$RH_monthly_2000m)^2) + (sd(test_df2[[2]]$RH_monthly_2000m)^2)) / 2)
+
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(home_type3, RH_monthly_2000m)  %>% drop_na
+result<- t.test(log(test_df$RH_monthly_2000m) ~ test_df$home_type3)
+log_conf_int <- result$conf.int
+exp(log_conf_int)
+
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$RH_monthly_2000m) - mean(test_df2[[2]]$RH_monthly_2000m)) / sqrt(((sd(test_df2[[1]]$RH_monthly_2000m)^2) + (sd(test_df2[[2]]$RH_monthly_2000m)^2)) / 2)
+
+
+#relative humidity box plot
+p6 <- ggplot(all_df, aes(x = home_type3, y = RH_monthly_2000m, fill = home_type3)) +
+  scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
+  geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
+  #geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "Relative Humidity (%)", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12)) +
+  ylim(0, 80)
+
+
+#t-test
+test_df <- all_df %>%  filter(type == "Urban") %>%  select(home_type3, temp_monthly_2000m)  %>% drop_na
+result<- t.test(log(test_df$temp_monthly_2000m) ~ test_df$home_type3)
+log_conf_int <- result$conf.int
+exp(log_conf_int)
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$temp_monthly_2000m) - mean(test_df2[[2]]$temp_monthly_2000m)) / sqrt(((sd(test_df2[[1]]$temp_monthly_2000m)^2) + (sd(test_df2[[2]]$temp_monthly_2000m)^2)) / 2)
+
+
+test_df <- all_df %>%  filter(type == "Rural") %>%  select(home_type3, temp_monthly_2000m)  %>% drop_na
+result<- t.test(log(test_df$temp_monthly_2000m) ~ test_df$home_type3)
+log_conf_int <- result$conf.int
+exp(log_conf_int)
+
+# cohen d
+test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
+# Calculate Cohen's d
+cohen_d <- (mean(test_df2[[1]]$temp_monthly_2000m) - mean(test_df2[[2]]$temp_monthly_2000m)) / sqrt(((sd(test_df2[[1]]$temp_monthly_2000m)^2) + (sd(test_df2[[2]]$temp_monthly_2000m)^2)) / 2)
+
+
+p7 <- ggplot(all_df, aes(x = home_type3, y = temp_monthly_2000m, fill = home_type3)) +
+  scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
+  geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
+  #geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "Temperature (\u00B0C)", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))+
+  ylim(0, 35)
+
+all_p1 <- wrap_plots(p1,p4, p5, p6, p7) 
+ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plots.pdf"), all_p1, width = 8.5, height = 6)
+
+all_p2 <- wrap_plots(p2, p3) 
+ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plots_2.pdf"), all_p2, width = 8.5, height = 4)
+
+
+
+
+
+
+
+
+
+
 
 
 
