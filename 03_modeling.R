@@ -41,10 +41,41 @@ if ("ozodi" %in% user) {
 #devtools::install_github("ropensci/rdhs")
 source("functions/functions_employment.R")
 options(survey.lonely.psu="adjust")  # this option allows admin units with only one cluster to be analyzed
-
+library(svylme) #use glmer package instead 
 ## -------------------------------
 ### read in analysis datasets 
 ## -------------------------------
+all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv")) 
+
+urban_df <-all_df %>%  filter(type == "Urban") %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0))
+
+glimpse(urban_df)
+
+var <- list("hh_size", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m")
+
+urban_df_new <- urban_df %>%  drop_na(EVI_2000m_new)
+unadj_df <- list()
+
+for (i in 1:length(var)) {
+
+  svy_design <- svydesign.fun(urban_df_new)
+  result <- svy2lme(malaria_result ~ EVI_2000m_new + (1|hv001), design = svy_design, family = binomial(link ="logit"))#fits model with no additional covariates 
+  res_sum <- summary(result)
+  
+  
+  df <-  tidy(result)#tidies the result 
+  df <- df %>%  filter(term != "(Intercept)")%>% rename_at(3, ~"SE")
+  df <- data.frame(df)%>% mutate(odds = (exp(estimate))) %>% #odds ratio estimation 
+    mutate(lower_ci = (exp(-1.96*SE+estimate))) %>% 
+    mutate(upper_ci = (exp(1.96*SE+estimate))) %>% tibble::rownames_to_column() %>%  
+    mutate(type = "unadjusted") 
+  unadj_df[[i]] <- df
+  
+}
+
+
+
+
 
 urban_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 
 rural_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis.csv")) %>%  mutate(type ="rural_data")
