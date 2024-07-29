@@ -394,7 +394,7 @@ for (i in 1:length(link_pr)){
   dhs_pr <- read_dta(link_pr[[i]])
 
   df <- dhs_pr %>%
-    dplyr::select(matches("hc1|hc60|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511"))
+    dplyr::select(matches("hc1|hc27|hc53|hc60|hc70|hc71|hc72|hc73|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511"))
 
   if(paste0(unique(df[["hv000"]]), unique(df[["hv007"]]))[1] == "CM62011"){
 
@@ -542,12 +542,12 @@ ir_rural <- plyr::ldply(ir_rural)
 
 #combine all mr datasets
 mr_urban %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[10]])))
+mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[9]])))
 mr_urban <- plyr::ldply(mr_urban)
 
 
 mr_rural %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[10]])))
+mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[9]])))
 mr_rural<- plyr::ldply(mr_rural)
 
 
@@ -747,7 +747,7 @@ p<-ggplot(plot_country , aes(x = reorder(country_year.x, -percent), y = percent,
   
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
 
-write_csv(urban_df, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv"))
+write_csv(urban_df, file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv"))
 
 ###################################################################rural##################################################
 #rural ir and mr 
@@ -888,7 +888,7 @@ p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) +
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
 
-write_csv(rural_df, file.path(PopDir, "analysis_dat/240606_rural_df_for_analysis.csv"))
+write_csv(rural_df, file.path(PopDir, "analysis_dat/240729_rural_df_for_analysis.csv"))
 
 
 

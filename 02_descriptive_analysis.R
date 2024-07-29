@@ -48,8 +48,8 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### read in analysis datasets 
 ## -------------------------------
 
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/240606_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") 
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
 
 
 ## -------------------------------
@@ -674,6 +674,14 @@ rural_df2 <- rural_df  %>% left_join(df_env, by = c("code_year",   "hv001"))
 all_df <- rbind(urban_df2, rural_df2) %>%  mutate(home_type3 = ifelse(home_type2 == "A", "Agricultural worker \n Household (HH)", 
                                                                     "Non-Agricultural \n worker HH")) 
 all_df$type_f <- factor(all_df$type, levels=c("Urban", "Rural"))
+glimpse(all_df)
+#########################################
+#nutritional status 
+########################################
+all_df$stunting <- ifelse(all_df$hc70 < -200, 1, 0)
+all_df$wasting <- ifelse(all_df$hc72 < -200, 1, 0) #no kid have this condition 
+all_df$underweight <- ifelse(all_df$hc71 < -200, 1, 0) #no kid has this condition 
+
 
 #read out final analysis dataset 
 write.csv(all_df, file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv"))
@@ -832,9 +840,9 @@ all_p2 <- wrap_plots(p2, p3)
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plots_2.pdf"), all_p2, width = 8.5, height = 4)
 
 
-
-
-
+########################################################################
+#nutritional status 
+##########################################################################
 
 
 
