@@ -48,12 +48,14 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv"))
 
 
-urban_df <-all_df %>%  filter(type == "Urban") %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0))
-urban_df_new <- urban_df %>%  drop_na(EVI_2000m_new)
+urban_df <-all_df %>%  filter(type == "Urban") %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0),
+                                                           EVI = case_when(is.na(EVI_2000m_new) ~ NA,
+                                                                           TRUE ~ EVI_2000m_new * 10))
+urban_df_new <- urban_df %>%  drop_na(EVI)
 glimpse(urban_df_new)
 
 svy_design <- svydesign.fun(urban_df_new)
-result <- svyglm(malaria_result ~ EVI_2000m_new,   design = svy_design, family = binomial(link ="logit"), data=urban_df_new)#fits model with no additional covariates 
+result <- svyglm(malaria_result ~ EVI,   design = svy_design, family = binomial(link ="logit"), data=urban_df_new)#fits model with no additional covariates 
 res_sum <- summary(result)
 
 
