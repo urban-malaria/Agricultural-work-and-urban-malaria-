@@ -47,33 +47,80 @@ library(svylme) #use glmer package instead
 ## -------------------------------
 all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv")) 
 
-urban_df <-all_df %>%  filter(type == "Urban") %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0))
+urban_df <-all_df %>%  filter(type == "Urban") %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
+                                                           EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
+                                                                           TRUE ~ EVI_2000m_new * 10),
+                                                           wealth_index = ifelse(wealth < 4, 0, 1))
 
 glimpse(urban_df)
 
-var <- list("hh_size", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m")
 
-urban_df_new <- urban_df %>%  drop_na(EVI_2000m_new)
-unadj_df <- list()
+# Combine results for all location types
+var <- list("hh_size", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "roof_type", "wealth_index")
+location_types <- c("Urban", "Rural")
 
-for (i in 1:length(var)) {
+all_results <- list() # To store results for each location type
 
-  svy_design <- svydesign.fun(urban_df_new)
-  result <- svy2lme(malaria_result ~ EVI_2000m_new + (1|hv001), design = svy_design, family = binomial(link ="logit"))#fits model with no additional covariates 
-  res_sum <- summary(result)
+for (location in location_types) {
+  # Filter the data based on location type
+  df <- all_df %>%
+    filter(type == location) %>%
+    mutate(
+      malaria_result = ifelse(test_result == "+ve", 1, 0),
+      EVI_2000m_new = case_when(
+        is.na(EVI_2000m_new) ~ NA_real_,
+        TRUE ~ EVI_2000m_new * 10
+      ),
+      wealth_index = ifelse(wealth < 4, 0, 1)
+    )
   
+  # Drop NA values
+  df_new <- df %>% drop_na(EVI_2000m_new)
+  unadj_df <- list()
   
-  df <-  tidy(result)#tidies the result 
-  df <- df %>%  filter(term != "(Intercept)")%>% rename_at(3, ~"SE")
-  df <- data.frame(df)%>% mutate(odds = (exp(estimate))) %>% #odds ratio estimation 
-    mutate(lower_ci = (exp(-1.96*SE+estimate))) %>% 
-    mutate(upper_ci = (exp(1.96*SE+estimate))) %>% tibble::rownames_to_column() %>%  
-    mutate(type = "unadjusted") 
-  unadj_df[[i]] <- df
+  for (i in 1:length(var)) {
+    svy_design <- svydesign.fun(df_new)
+    
+    # Construct the formula dynamically
+    formula <- as.formula(paste("malaria_result ~", var[[i]], "+ (1|hv001)"))
+    
+    # Fit the model
+    result <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
+    
+    # Summarize and tidy the result
+    df_result <- tidy(result)
+    
+    # Filter and calculate additional metrics
+    df_result <- df_result %>%
+      filter(term != "(Intercept)") %>%
+      rename_at(3, ~"SE") %>%
+      mutate(odds = exp(estimate)) %>%
+      mutate(lower_ci = exp(-1.96 * SE + estimate)) %>%
+      mutate(upper_ci = exp(1.96 * SE + estimate)) %>%
+      tibble::rownames_to_column() %>%
+      mutate(type = "unadjusted", location = location) # Add location information
+    
+    unadj_df[[i]] <- df_result
+  }
   
+  # Combine results for this location type
+  all_results[[location]] <- bind_rows(unadj_df)
 }
 
+# Combine results for all location types
+# Combine results for all location types and format
+all_results_combined <- bind_rows(all_results) %>%
+  transmute(
+    term,
+    estimate = sprintf("%.2f (%.2f – %.2f)", odds, lower_ci, upper_ci), # Format odds and CIs
+    location
+  ) %>%
+  pivot_wider(
+    names_from = location,
+    values_from = estimate
+  )
 
+print(all_results_combined)
 
 
 
