@@ -9,7 +9,7 @@ p_load(readr, tidyr, plyr, dplyr, purrr, forcats,survey, haven,
        arules, fuzzyjoin, cowplot, gridExtra, lme4, patchwork, readxl , 
        janitor, ggsci, glue, ggrepel, jtools, srvyr, ggpubr, collapse,
        gtsummary, rstatix, ggcorrplot, viridis, effects, rdhs, 
-       microbenchmark,  ggfittext, forcats, broom)
+       microbenchmark,  ggfittext, forcats, broom, writexl)
 
 #plotting functions
 bar_fun <- function(df, x, fill, title, xlab){ #facet_var, 

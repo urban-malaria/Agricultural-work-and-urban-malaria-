@@ -45,18 +45,28 @@ library(svylme) #use glmer package instead
 ## -------------------------------
 ### read in analysis datasets 
 ## -------------------------------
-all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv")) 
+all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv")) %>% 
+  mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
+         EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
+                                   TRUE ~ EVI_2000m_new * 10),
+         wealth_index = ifelse(wealth < 4, 0, 1),
+         sex = ifelse(hc27 == 2, 0, 1))
 
-urban_df <-all_df %>%  filter(type == "Urban") %>%  mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
-                                                           EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
-                                                                           TRUE ~ EVI_2000m_new * 10),
-                                                           wealth_index = ifelse(wealth < 4, 0, 1))
+urban_df <-all_df %>%  filter(type == "Urban")  
 
 glimpse(urban_df)
 
 
 # Combine results for all location types
-var <- list("hh_size", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "roof_type", "wealth_index")
+var <- list("home_type2", "hc1", "sex", "stunting", "u5_net_use", "hh_size", "roof_type", 
+            "wealth_index", "dhs_year", "interview_month", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m")
+
+table_names <- c("Household occupation category", "Age", "Gender", "Stunting", 
+                 "Net use among children under the age of five years", "Household size", "Roof type", "Wealth quintiles", 
+                 "DHS Year", "Interview month", "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature")
+all_df_renamed_vars <- all_df
+all_df_renamed_vars$
+
 location_types <- c("Urban", "Rural")
 
 all_results <- list() # To store results for each location type
@@ -64,15 +74,7 @@ all_results <- list() # To store results for each location type
 for (location in location_types) {
   # Filter the data based on location type
   df <- all_df %>%
-    filter(type == location) %>%
-    mutate(
-      malaria_result = ifelse(test_result == "+ve", 1, 0),
-      EVI_2000m_new = case_when(
-        is.na(EVI_2000m_new) ~ NA_real_,
-        TRUE ~ EVI_2000m_new * 10
-      ),
-      wealth_index = ifelse(wealth < 4, 0, 1)
-    )
+    filter(type == location)
   
   # Drop NA values
   df_new <- df %>% drop_na(EVI_2000m_new)
@@ -120,7 +122,10 @@ all_results_combined <- bind_rows(all_results) %>%
     values_from = estimate
   )
 
+all_results_combined$term <- table_names
 print(all_results_combined)
+
+write_xlsx(all_results_combined, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
 
 
 
