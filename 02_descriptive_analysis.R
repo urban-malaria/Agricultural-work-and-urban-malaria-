@@ -16,10 +16,10 @@ if ("ozodi" %in% user) {
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
-  Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
-  DriveDir <- file.path(Drive, "urban_malaria")
-  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  Drive <- file.path("C:/Users/CHZCHI003/Dropbox")
+  DriveDir <- file.path("C:/Users/CHZCHI003/OneDrive/urban_malaria")
+  PopDir <- file.path(Drive)
+  ManDir <- file.path(Drive, "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
@@ -48,9 +48,11 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### read in analysis datasets 
 ## -------------------------------
 
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/240606_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") 
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
 
+urban__trend_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv")) %>%  mutate(type ="Urban") 
+rural__trend_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis_trend.csv")) %>%  mutate(type ="Rural")
 
 ## -------------------------------
 ### Plots  
@@ -63,7 +65,7 @@ rural_df <- read_csv(file.path(PopDir,"analysis_dat/240606_rural_df_for_analysis
 
 
 #figure 1 sample description 
-all_df <- rbind(urban_df, rural_df) %>% mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",
+all_df <- rbind(urban__trend_df, rural__trend_df) %>% mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",
                                                                        ifelse(country_year.x == "Uganda 2009", "Uganda 2009 - 10",
                                                                           ifelse(country_year.x == "Cameroon 2018", "Cameroon 2018 - 19",country_year.x)))) %>% 
   as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
