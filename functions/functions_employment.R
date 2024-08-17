@@ -316,3 +316,11 @@ map_theme <- function(){
         legend.text =element_text(size = 8, colour = 'black'),
         legend.key.height = unit(0.65, "cm"))
 }
+
+
+
+name_clean_fun <- function(df) {
+  df %>%  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",
+                                         ifelse(country_year.x == "Uganda 2009", "Uganda 2009 - 10",
+                                                ifelse(country_year.x == "Cameroon 2018", "Cameroon 2018 - 19",country_year.x))))
+}

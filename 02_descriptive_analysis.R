@@ -48,11 +48,20 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### read in analysis datasets 
 ## -------------------------------
 
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban") %>% 
+  transmute(country_year.x, country_year.x, id, strat, wt, type) %>%  name_clean_fun()
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural") %>% 
+  transmute(country_year.x, country_year.x, id, strat, wt, type)  %>%  name_clean_fun()
 
-urban__trend_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv")) %>%  mutate(type ="Urban") 
-rural__trend_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis_trend.csv")) %>%  mutate(type ="Rural")
+recent_to_remove <- urban_df$country_year.x %>% unique()
+
+
+urban_trend_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv")) %>%  mutate(type ="Urban")  %>% 
+  filter(!country_year.x %in% recent_to_remove) %>% 
+  transmute(country_year.x, country_year.x, id, strat, wt, type)  %>%  name_clean_fun()
+rural_trend_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis_trend.csv")) %>%  mutate(type ="Rural") %>% 
+  filter(!country_year.x %in% recent_to_remove) %>% 
+  transmute(country_year.x, country_year.x, id, strat, wt, type)  %>%  name_clean_fun()
 
 ## -------------------------------
 ### Plots  
@@ -65,33 +74,48 @@ rural__trend_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis
 
 
 #figure 1 sample description 
-all_df <- rbind(urban__trend_df, rural__trend_df) %>% mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",
-                                                                       ifelse(country_year.x == "Uganda 2009", "Uganda 2009 - 10",
-                                                                          ifelse(country_year.x == "Cameroon 2018", "Cameroon 2018 - 19",country_year.x)))) %>% 
+
+
+all_df <- rbind(urban_df, rural_df, urban_trend_df, rural_trend_df) %>%
+  
+  
   as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
- group_by(country_year.x, type) %>%  summarize(total = round(survey_total(),0)) %>%  ungroup() 
+  group_by(country_year.x, type) %>%  summarize(total = round(survey_total(),0)) %>%  ungroup() 
 
 
-df <- all_df%>% 
-  group_by(country_year.x) %>%  summarise(percent =  round(total/sum(total) * 100, 0))
-all <- cbind(all_df, df) %>% select(-c("country_year.x")) %>% mutate(plot_label = ifelse(type == "Rural", percent, NA))
+df <- all_df %>% 
+  group_by(country_year.x) %>%  
+  summarise(percent = round(total / sum(total) * 100, 0))
 
+all <- cbind(all_df, df) %>% 
+  select(-c("country_year.x")) %>% 
+  mutate(plot_label = ifelse(type == "Rural", percent, NA)) %>% 
+  mutate(survey = ifelse(country_year.x %in% recent_to_remove, "Recent Survey", "Preceding Survey"))
 
-
-p1 <- ggplot(all, aes(x = reorder(country_year.x, -total), y = total, fill =type, label = total)) +
-  geom_bar( stat = "identity", alpha = 0.8) +
-  scale_fill_manual(name = "", label = c("Rural", "Urban"), values = c("bisque", "darkorchid"))+
-  geom_text(aes(label = paste0(plot_label, "%"), y = plot_label),
+# Create the plot, excluding NA% labels
+p1bc <- ggplot(all, aes(x = reorder(country_year.x, -total), y = total, fill = type, label = total)) +
+  geom_bar(stat = "identity", alpha = 0.6) +
+  scale_fill_manual(name = "", labels = c("Rural", "Urban"), values = c("#E07A5F", "darkorchid")) +
+  geom_text(aes(label = ifelse(!is.na(plot_label), paste0(plot_label, "%"), "")), 
             position = position_stack(vjust = 0.5),
             color = "black") +
-  coord_flip()+
-  theme_manuscript()+
-  labs(x = "", y = "Number of children, 6 - 59 months tested for malaria 
-       by RDT or microscopy in urban and rural clusters, combined")
+  coord_flip() +
+  facet_grid(rows = vars(survey), scales = "free") +
+  theme_manuscript() +
+  labs(x = "", 
+       y = "Number of children, 6 - 59 months tested for malaria 
+       by RDT or microscopy in urban and rural clusters, combined") +
+  theme(legend.position = "none")
 
-#figure 1b - let's make a map 
+p1bc
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1bc.pdf"), p1bc, width = 4.5, height = 6)
+
+#figure 1a - let's make a map 
 afr.shp.base<- st_read(file.path(DriveDir, "data", "Urban_malaria_net_ownership_data",
                                "shapefiles", "africa_baundaries", "afr_g2014_2013_0.shp"))
+
+
 
 DHS_country_codes <- urban_df %>%  select(DHS_CountryCode,CountryName) %>%  distinct(DHS_CountryCode, CountryName) %>%  mutate(data_available = 1)
 
@@ -103,13 +127,21 @@ afr_shape_dat <- afr.shp.base %>%  left_join(DHS_country_codes, by = c("ISO2" = 
   mutate(data_com = if_else(is.na(data_available), 0, data_available))
 table(afr_shape_dat$data_com)
 
-p2=ggplot() +
+p1a=ggplot() +
   geom_sf(data = afr_shape_dat , aes(geometry = geometry, fill = data_available)) +
   scale_fill_continuous(low ="#ffd5c6", high= "#d08288",  na.value = "white") +
   map_theme() +
   theme(legend.position="none")
 
+p1a
+
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1a.pdf"), p1a, width = 4, height = 8) 
+
 #figure 1c
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  mutate(type ="Urban")
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%  mutate(type ="Rural")
+
 df <- rbind(urban_df, rural_df)
 
 #quick chi-squared test 
@@ -137,9 +169,9 @@ p3 <- table_df %>% ggplot(aes(x = interview_month, y = percent, label =percent))
   #theme(strip.background = element_blank(), strip.text.x = element_blank())+
   scale_x_continuous(breaks = scales::pretty_breaks(n=12), expand = expansion(mult = c(0.02, 0.02)))
 
-p <- (p2 + p1)/p3
+#p <- (p2 + p1)/p3
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1.pdf"), p, width = 8, height = 7) 
+#ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1.pdf"), p, width = 8, height = 7) 
 
 
 #figure 2
@@ -598,7 +630,8 @@ p1 <- ggplot(all_df, aes(x = home_type3, y = hh_size, fill = home_type3)) +
   facet_wrap(vars(type_f)) +
   theme(strip.text.x = element_text(size = 12))+
   ylim(0, 16)
-ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plot_HH_size.pdf"), p1, width = 4, height = 4)
+p1
+ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plot_HH_size.pdf"), p1 , width = 4, height = 4)
 
 #roof 
 all_df2 <- all_df %>%
@@ -682,7 +715,7 @@ write.csv(all_df, file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_
 
 #check the number of missingness for all environmental variables 
 check <- all_df %>%  
-  select(code_year, hv001, EVI_2000m, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>%  
+  select(code_year, hv001, EVI_2000m_new, preci_monthly_2000m, RH_monthly_2000m, temp_monthly_2000m) %>%  
   filter(temp_monthly_2000m <0)
 
 
@@ -706,12 +739,12 @@ test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
 cohen_d <- (mean(test_df2[[1]]$EVI_2000m_new) - mean(test_df2[[2]]$EVI_2000m_new)) / sqrt(((sd(test_df2[[1]]$EVI_2000m_new)^2) + (sd(test_df2[[2]]$EVI_2000m_new)^2)) / 2)
 
 test_df <- all_df %>%  filter(type == "Rural") %>%  select(home_type3, EVI_2000m_new)  %>% drop_na
-t.test(test_df$EVI_2000m ~ test_df$home_type3)
+t.test(test_df$EVI_2000m_new ~ test_df$home_type3)
 
 # cohen d
 test_df2 <- test_df %>% group_by(home_type3) %>%  group_split()
 # Calculate Cohen's d
-cohen_d <- (mean(test_df2[[1]]$EVI_2000m) - mean(test_df2[[2]]$EVI_2000m_new)) / sqrt(((sd(test_df2[[1]]$EVI_2000m_new)^2) + (sd(test_df2[[2]]$EVI_2000m_new)^2)) / 2)
+cohen_d <- (mean(test_df2[[1]]$EVI_2000m_new) - mean(test_df2[[2]]$EVI_2000m_new)) / sqrt(((sd(test_df2[[1]]$EVI_2000m_new)^2) + (sd(test_df2[[2]]$EVI_2000m_new)^2)) / 2)
 
 
 
@@ -725,7 +758,7 @@ p4 <- ggplot(all_df, aes(x = home_type3, y = EVI_2000m_new, fill = home_type3)) 
   theme(legend.position = 'none')+
   facet_wrap(vars(type_f)) +
   theme(strip.text.x = element_text(size = 12))
-
+p4
 
 
 #t-test
@@ -827,23 +860,80 @@ p7 <- ggplot(all_df, aes(x = home_type3, y = temp_monthly_2000m, fill = home_typ
   theme(strip.text.x = element_text(size = 12))+
   ylim(0, 35)
 
-all_p1 <- wrap_plots(p1,p4, p5, p6, p7) 
+#age
+p8 <- ggplot(all_df, aes(x = home_type3, y = hc1, fill = home_type3)) +
+  scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
+  geom_boxplot(outlier.size = -1, color="black", alpha = 0.7) +
+  #geom_point(aes(fill = home_type3), shape = 21,size=2, alpha=0.6, stroke=0, color = '#979797')+
+  labs(x = "", y = "Age (months)", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))+
+  ylim(0, 59)
+p8 
+
+
+all_p1 <- wrap_plots(p1,p4, p5, p6, p7, p8) 
+
+all_p1
+
+
+
+
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plots.pdf"), all_p1, width = 8.5, height = 6)
 
 all_p2 <- wrap_plots(p2, p3) 
+
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_paper_covariate_plots_2.pdf"), all_p2, width = 8.5, height = 4)
 
 
+#gender and stunting 
+all_df <- all_df %>% mutate(gender = ifelse(hc27 == 2, "Female", "Male"), 
+                  stunting_new = ifelse(hc70 < -300, "stunted", ifelse(hc70 > 8000, NA, "Not stunted")))
+#gender
+p_gender <- ggplot(all_df, aes(x = home_type3, fill = gender)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format(scale = 100), limits = c(0, 1)) +
+  # geom_text(aes(label = scales::percent(..count../sum(..count..), accuracy = 0.1), group = gender),
+  #           stat = "count",
+  #           position = position_fill(vjust = 0.5),
+  #           color = "black") + 
+  scale_fill_manual(values =c("#efdcac", "#e07a5f"))+
+  labs(x = "", y = "Gender", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))
+
+p_gender 
 
 
+#stunting
 
+p_stunting <- ggplot(all_df %>% drop_na(stunting_new), aes(x = home_type3, fill = stunting_new)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format(scale = 100), limits = c(0, 1)) +
+  # geom_text(aes(label = scales::percent(..count../sum(..count..), accuracy = 0.1), group = stunting_new),
+  #           stat = "count",
+  #           position = position_fill(vjust = 0.5),
+  #           color = "white") +
+  scale_fill_manual(values =c("#d391fa", "#3e00b3"))+
+  labs(x = "", y = "Stunting", fill = "home type") +
+  theme_manuscript()+
+  theme(legend.position = 'none')+
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))
 
+p_stunting 
 
+figure4_bottom <- p2 + p3 + p_gender + p_stunting 
+figure4_bottom
 
+p_figure_4 <- all_p1 / figure4_bottom + plot_annotation(tag_levels = 'A')
+p_figure_4
 
-
-
-
+ggsave(paste0(FigDir,"/", Sys.Date(),"figure_4.pdf"), p_figure_4, width = 8.5, height = 11) 
 
 
 

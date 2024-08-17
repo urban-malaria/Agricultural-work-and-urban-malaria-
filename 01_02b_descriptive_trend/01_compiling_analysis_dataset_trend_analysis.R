@@ -438,13 +438,13 @@ lapply(dhs_pr_rural, function(x) table(x$hv253))
 
 
 # filter list to keep only datasets with malaria test data  
-dhs_pr_urban <- dhs_pr_urban %>%purrr::discard(~all(is.na(.x$test_result)))
-dhs_pr_rural <- dhs_pr_rural %>%purrr::discard(~all(is.na(.x$test_result)))
+dhs_pr_urban1 <- dhs_pr_urban %>%purrr::discard(~all(is.na(.x$test_result)))
+dhs_pr_rural1 <- dhs_pr_rural %>%purrr::discard(~all(is.na(.x$test_result)))
 
-saveRDS(dhs_pr_urban, file.path(PopDir, "analysis_dat/dhs_pr_urban.rds"))
+saveRDS(dhs_pr_urban1, file.path(PopDir, "analysis_dat/dhs_pr_urban.rds"))
 dhs_pr_urban<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_urban.rds"))
 
-saveRDS(dhs_pr_rural, file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
+saveRDS(dhs_pr_rural1, file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 dhs_pr_rural<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 
 ## ------------------------------------------------
@@ -452,9 +452,9 @@ dhs_pr_rural<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 ## ------------------------------------------------
 
 # plot to view malaria data 
-dhs_pr_urban <- dhs_pr_urban %>% map(~mutate(., max_year = max(dhs_year), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
+dhs_pr_urban <- dhs_pr_urban1 %>% map(~mutate(., max_year = max(dhs_year), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
                                              country_year = paste0(CountryName, " ", year_combo)))
-dhs_pr_rural <- dhs_pr_rural %>% map(~mutate(., max_year = max(dhs_year), min_year = min(as.numeric(dhs_year)), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-", str_sub(max_year, -2))),
+dhs_pr_rural <- dhs_pr_rural1 %>% map(~mutate(., max_year = max(dhs_year), min_year = min(as.numeric(dhs_year)), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-", str_sub(max_year, -2))),
                                              country_year = paste0(CountryName, " ", year_combo)))
 
 plot_u_df<- dhs_pr_urban %>% map(~dplyr::select(., country_year, test_result, code_year)) %>%  bind_rows(.id = "column_label")
