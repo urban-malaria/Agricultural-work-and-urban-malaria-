@@ -23,6 +23,14 @@ if ("ozodi" %in% user) {
   FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
+} else if  ("cchiz" %in% user) {
+  Drive <- file.path("C:/Users/cchiz/Dropbox")
+  DriveDir <- file.path("C:/Users/cchiz/OneDrive/urban_malaria")
+  PopDir <- file.path(Drive)
+  ManDir <- file.path(Drive, "agriculture_malaria_manuscript")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
+  ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
   DriveDir <- file.path(Drive, 'Library', 'CloudStorage', 'OneDrive-NorthwesternUniversity', "urban_malaria")
@@ -92,24 +100,46 @@ all <- cbind(all_df, df) %>%
   mutate(plot_label = ifelse(type == "Rural", percent, NA)) %>% 
   mutate(survey = ifelse(country_year.x %in% recent_to_remove, "Recent Survey", "Preceding Survey"))
 
-# Create the plot, excluding NA% labels
-p1bc <- ggplot(all, aes(x = reorder(country_year.x, -total), y = total, fill = type, label = total)) +
-  geom_bar(stat = "identity", alpha = 0.6) +
-  scale_fill_manual(name = "", labels = c("Rural", "Urban"), values = c("#E07A5F", "darkorchid")) +
-  geom_text(aes(label = ifelse(!is.na(plot_label), paste0(plot_label, "%"), "")), 
-            position = position_stack(vjust = 0.5),
-            color = "black") +
-  coord_flip() +
-  facet_grid(rows = vars(survey), scales = "free") +
-  theme_manuscript() +
-  labs(x = "", 
-       y = "Number of children, 6 - 59 months tested for malaria 
-       by RDT or microscopy in urban and rural clusters, combined") +
-  theme(legend.position = "none")
+# Creates the plot, excluding NA% labels
+generate_survey_plot <- function(data, survey_type, titles, remove_x_axis = FALSE) {
+  p <- ggplot(data %>% filter(survey == survey_type), aes(x = reorder(country_year.x, -total), y = total, fill = type, label = total)) +
+    geom_bar(stat = "identity", alpha = 0.6) +
+    scale_fill_manual(values = c("#E07A5F", "darkorchid")) +
+    geom_text(aes(label = ifelse(!is.na(plot_label), paste0(plot_label, "%"), "")), 
+              position = position_stack(vjust = 0.5),
+              color = "black") +
+    coord_flip() +
+    theme_manuscript() +
+    labs(x = "", y = "") +
+    scale_y_continuous(position = "right") +
+    ylim(0, 11500) +
+    theme(legend.position = "none") +  # Remove the legend
+    annotate("text", x = 8, y = 7000, label = "Urban", color = "darkorchid", hjust = 0) +
+    annotate("text", x = 9, y = 7000, label = "Rural", color = "#E07A5F", hjust = 0)
+  
+  if (remove_x_axis) {
+    p <- p + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  }
+  
+  return(p)
+}
 
-p1bc
+# Generates plots for both surveys
+p1bc_survey1 <- generate_survey_plot(all, "Preceding Survey", "Preceding Survey", remove_x_axis = TRUE)
+p1bc_survey2 <- generate_survey_plot(all, "Recent Survey", "Recent Survey") + 
+  labs(x = "", y = str_wrap("Number of children, 6 - 59 months tested for malaria by RDT or 
+                            microscopy in urban and rural clusters, combined", width = 60))
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1bc.pdf"), p1bc, width = 4.5, height = 6)
+# Reduces the space between plots
+p1bc_combined_plot <- p1bc_survey1 / plot_spacer() / p1bc_survey2 + 
+  plot_layout(heights = c(1, -0.1, 2)) # Adjust heights; second value controls the spacing
+
+
+# Displays the combined plot
+p1bc_combined_plot
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"_figure_1bc.pdf"), p1bc_combined_plot, width = 4.5, height = 6) 
+
 
 #figure 1a - let's make a map 
 afr.shp.base<- st_read(file.path(DriveDir, "data", "Urban_malaria_net_ownership_data",
