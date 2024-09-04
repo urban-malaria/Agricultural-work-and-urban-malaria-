@@ -239,11 +239,11 @@ plot_overall = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weigh
 plot_overall$title = "Urban"
 
 p_urban<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) + 
-  geom_bar(aes(y = value), position="stack", stat = "identity")+
+  geom_bar(aes(y = percent), position="stack", stat = "identity")+
   theme_manuscript()+
   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
+  geom_text(aes(label = paste0(percent,"%", " ", "(", value, ")"), y = percent),
             position = position_stack(vjust = 0.5),
             color = "white") +
   labs(x = "", y  = "Number of children, 6 - 59 months,
@@ -251,7 +251,7 @@ p_urban<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) +
   facet_wrap(vars(title))+
   theme(strip.text.x = element_text(
     size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 44000))
+  coord_cartesian(ylim = c(0, 100))
 
 #rural
 
@@ -261,26 +261,26 @@ plot_overall = plot_df_rm %>% as_survey_design(ids= id,strata=strat,nest=T,weigh
   group_by(home_type2, test_result) %>%   summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
 plot_overall$title = "Rural"
 p_rural<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) + 
-  geom_bar(aes(y = value), position="stack", stat = "identity")+
+  geom_bar(aes(y = percent), position="stack", stat = "identity")+
   theme_manuscript()+
   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
+  geom_text(aes(label = paste0(percent,"%", " ", "(", value, ")"), y = percent),
             position = position_stack(vjust = 0.5),
             color = "white") +
   labs(x = "", y  = "") +
   facet_wrap(vars(title))+
   theme(strip.text.x = element_text(
     size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 44000)) + 
+  coord_cartesian(ylim = c(0, 100)) + 
   theme(axis.text.y = element_blank(), 
         axis.ticks.y = element_blank(), 
         axis.title.y = element_blank())
 
 
-p_2a = p_urban +p_rural+ plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+p_2a = p_urban +p_rural+ plot_layout(guides = "collect") & theme(legend.position = 'none')
 p_2a
-#ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_HH_occupation_exposure_urban_rural.pdf"), p_2a, width = 6.8, height = 5)
+ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_HH_occupation_exposure_urban_rural.pdf"), p_2a, width = 8, height = 3)
 
 
 

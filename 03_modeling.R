@@ -15,6 +15,14 @@ if ("ozodi" %in% user) {
   FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
+} else if  ("cchiz" %in% user) {
+  Drive <- file.path("C:/Users/cchiz/OneDrive")
+  DriveDir <- file.path(Drive, "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
+  ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
   DriveDir <- file.path(Drive, "urban_malaria")
@@ -49,8 +57,11 @@ all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for
   mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
          EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
                                    TRUE ~ EVI_2000m_new * 10),
-         wealth_index = ifelse(wealth < 4, 0, 1),
-         sex = ifelse(hc27 == 2, 0, 1))
+         home_type_factor = ifelse(home_type2 =="A", 1, 0),
+         wealth_index = as.factor(wealth),
+         dhs_year_factor = as.factor(dhs_year),
+         sex = ifelse(hc27 == 2, 0, 1),
+         stunting = ifelse(hc70 < -300, "Stunted", ifelse(hc70 > 8000, NA, "Not stunted")))
 
 urban_df <-all_df %>%  filter(type == "Urban")  
 
@@ -59,13 +70,17 @@ glimpse(urban_df)
 
 # Combine results for all location types
 var <- list("home_type2", "hc1", "sex", "stunting", "u5_net_use", "hh_size", "roof_type", 
-            "wealth_index", "dhs_year", "interview_month", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m")
+            "wealth_index", "dhs_year_factor", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m")
 
-table_names <- c("Household occupation category", "Age", "Gender", "Stunting", 
-                 "Net use among children under the age of five years", "Household size", "Roof type", "Wealth quintiles", 
-                 "DHS Year", "Interview month", "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature")
+table_names <- c("Household occupation category: agricultural", "Age", "Gender: male", "Stunting: stunted", 
+                 "Net use among children under the age of five years: use", "Household size", "Roof type: improved", 
+                 "Wealth: poor", "Wealth: middle", "Wealth: rich", "Wealth: richest",
+                 "DHS Year: 2013", "DHS Year: 2014", "DHS Year: 2015", "DHS Year: 2016", "DHS Year: 2017", 
+                 "DHS Year: 2018", "DHS Year: 2019", "DHS Year: 2021", "DHS Year: 2022", "DHS Year: 2023", 
+                 "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature")
+
 all_df_renamed_vars <- all_df
-all_df_renamed_vars$
+#all_df_renamed_vars$
 
 location_types <- c("Urban", "Rural")
 
@@ -109,12 +124,12 @@ for (location in location_types) {
   all_results[[location]] <- bind_rows(unadj_df)
 }
 
-# Combine results for all location types
 # Combine results for all location types and format
 all_results_combined <- bind_rows(all_results) %>%
   transmute(
     term,
-    estimate = sprintf("%.2f (%.2f – %.2f)", odds, lower_ci, upper_ci), # Format odds and CIs
+    estimate = sprintf("%.3f (%.3f – %.3f)", 
+                       round(odds, 3), round(lower_ci, 3), round(upper_ci, 3)), # Round and format odds and CIs
     location
   ) %>%
   pivot_wider(
@@ -122,10 +137,21 @@ all_results_combined <- bind_rows(all_results) %>%
     values_from = estimate
   )
 
-all_results_combined$term <- table_names
-print(all_results_combined)
+all_results_combined
 
-write_xlsx(all_results_combined, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
+
+all_results_combined$term <- table_names 
+
+ref_df <- data.frame(term = c("Gender: female", "Stunting: not stunted", 
+                              "Household occupation category: none agricultural worker HH",
+                              "Net use among children under the age of five years: did not use", 
+                              "Roof type: poor","Wealth: poorest", "DHS Year: 2012"), 
+                     Urban = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000"), 
+                     Rural = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000"))
+
+all_results_final <- all_results_combined %>% bind_rows(ref_df) %>% arrange(term)
+
+write_xlsx(all_results_final, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
 
 
 
