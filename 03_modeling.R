@@ -57,10 +57,12 @@ all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for
   mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
          EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
                                    TRUE ~ EVI_2000m_new * 10),
-         home_type_factor = ifelse(home_type2 =="A", 1, 0),
+         home_type_factor = ifelse(home_type2 =="A", "Z_Agric", "Non-agric"),
          wealth_index = as.factor(wealth),
          dhs_year_factor = as.factor(dhs_year),
-         sex = ifelse(hc27 == 2, 0, 1),
+         sex = ifelse(hc27 == 2, "Female", "Male"),
+         u5_net_use_factor = ifelse(u5_net_use == 1, "Z_Used", "not_used"),
+         roof_type_factor = ifelse(roof_type == 1, "Z_Improved", "poor"),
          stunting = ifelse(hc70 < -300, "Stunted", ifelse(hc70 > 8000, NA, "Not stunted")))
 
 urban_df <-all_df %>%  filter(type == "Urban")  
@@ -69,7 +71,7 @@ glimpse(urban_df)
 
 
 # Combine results for all location types
-var <- list("home_type2", "hc1", "sex", "stunting", "u5_net_use", "hh_size", "roof_type", 
+var <- list("home_type_factor", "hc1", "sex", "stunting", "u5_net_use_factor", "hh_size", "roof_type_factor", 
             "wealth_index", "dhs_year_factor", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m")
 
 table_names <- c("Household occupation category: agricultural", "Age", "Gender: male", "Stunting: stunted", 
@@ -152,6 +154,156 @@ ref_df <- data.frame(term = c("Gender: female", "Stunting: not stunted",
 all_results_final <- all_results_combined %>% bind_rows(ref_df) %>% arrange(term)
 
 write_xlsx(all_results_final, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
+
+
+##################Mediation analyis########
+
+# Define a function to create the survey design object
+svydesign_fun <- function(df) {
+  # Assuming df contains appropriate id, strata, and weights columns
+  svydesign(ids = ~hv001, strata = ~strat, weights = ~wt, data = df, nest = TRUE)
+}
+
+# Define a function to run survey-weighted logistic or linear regression
+run_svyglm <- function(formula, data) {
+  # Create survey design
+  svy_design <- svydesign_fun(data)
+  
+  # Check if the outcome variable is binary for logistic regression
+  outcome_var <- all.vars(formula)[1]
+  
+  if (is.factor(data[[outcome_var]]) || length(unique(data[[outcome_var]])) == 2) {
+    # Logistic regression using survey design
+    model <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
+    
+    # Tidy the model and calculate odds ratios and confidence intervals
+    tidy_model <- tidy(model) %>%
+      filter(term != "(Intercept)") %>%  # Remove intercept
+      rename(SE = std.error) %>%         # Standard error
+      mutate(OR = exp(estimate),         # Odds ratio
+             lower_ci = exp(estimate - 1.96 * SE),  # Lower bound of 95% CI
+             upper_ci = exp(estimate + 1.96 * SE))  # Upper bound of 95% CI
+    
+    tidy_model <- tidy_model %>%
+      select(term, OR, lower_ci, upper_ci, p.value)
+    
+  } else {
+    # Linear regression using survey design
+    model <- svyglm(formula, design = svy_design)
+    
+    # Tidy the model and extract coefficients and confidence intervals
+    tidy_model <- tidy(model) %>%
+      filter(term != "(Intercept)") %>%
+      rename_at(3, ~"SE") %>%
+      #mutate(odds = exp(estimate)) %>%
+      mutate(lower_ci = exp(-1.96 * SE + estimate)) %>%
+      mutate(upper_ci = exp(1.96 * SE + estimate)) %>%
+      tibble::rownames_to_column() %>%
+      mutate(type = "unadjusted", location = location)
+  }
+  
+  return(tidy_model)
+}
+
+# Assuming your dataset is named 'all_df2', and 'typem' has "Urban" and "Rural"
+all_df2 <- all_df %>% 
+  mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
+         EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
+                                   TRUE ~ EVI_2000m_new * 10),
+         home_type_dep = ifelse(home_type2 =="A", 1, 0),
+         home_type_dep = as.factor(home_type_dep),
+         wealth_index = as.factor(wealth),
+         dhs_year_factor = as.factor(dhs_year),
+         sex = ifelse(hc27 == 2, "Female", "Male"),
+         u5_net_use_dep = as.factor(u5_net_use),
+         roof_type_dep = as.factor(roof_type),
+         stunting_dep = ifelse(hc70 < -300, 1, ifelse(hc70 > 8000, NA, 0)),
+         stunting_dep = as.factor(stunting_dep))
+
+# Filter the data for Urban and Rural models
+urban_df <- all_df2 %>% filter(type == "Urban")
+rural_df <- all_df2 %>% filter(type == "Rural")
+
+# Define the variables to run the regressions on
+formulas <- list(
+  stunting_dep  ~ wealth_index,
+  home_type_dep ~ stunting,
+  home_type_dep ~ wealth_index,
+  roof_type_dep ~ home_type_factor,
+  u5_net_use_dep ~ temp_monthly_2000m,
+  hh_size ~ wealth_index,
+  u5_net_use_dep ~ RH_monthly_2000m,
+  temp_monthly_2000m ~ RH_monthly_2000m)
+
+# Run the regressions separately for Urban and Rural
+urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
+rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
+
+# Bind the results into a single dataframe with an indicator for Urban and Rural
+urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
+  mutate(location = "Urban")
+rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
+  mutate(location = "Rural")
+
+# Combine the results into one dataframe
+final_results <- bind_rows(urban_results_df, rural_results_df)  %>% 
+  mutate(p.value = round(p.value, 4))%>%
+  mutate(model_number = case_when(
+    model_number == 1 ~ "stunting_dep ~ wealth_index",
+    model_number == 2 ~ "home_type_dep ~ stunting",
+    model_number == 3 ~ "home_type_dep ~ wealth_index",
+    model_number == 4 ~ "roof_type_dep ~ home_type_factor",
+    model_number == 5 ~ "u5_net_use_dep ~ temp_monthly_2000m",
+    model_number == 6 ~ "hh_size ~ wealth_index",
+    model_number == 7 ~ "u5_net_use_dep ~ RH_monthly_2000m",
+    model_number == 8 ~ "temp_monthly_2000m ~ RH_monthly_2000m",
+    TRUE ~ model_number ))
+
+# Display the final results
+final_results
+
+
+#phase two
+
+formulas <- list(
+  malaria_result ~ stunting_dep  + wealth_index,
+  malaria_result ~ home_type_dep + stunting,
+  malaria_result ~ home_type_dep + wealth_index,
+  malaria_result ~ roof_type_dep + home_type_factor,
+  malaria_result ~ u5_net_use_dep + temp_monthly_2000m,
+  malaria_result ~ hh_size + wealth_index,
+  malaria_result ~ u5_net_use_dep + RH_monthly_2000m,
+  malaria_result ~ temp_monthly_2000m + RH_monthly_2000m)
+
+# Run the regressions separately for Urban and Rural
+urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
+rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
+
+# Bind the results into a single dataframe with an indicator for Urban and Rural
+urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
+  mutate(location = "Urban")
+rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
+  mutate(location = "Rural")
+
+# Combine the results into one dataframe
+final_results <- bind_rows(urban_results_df, rural_results_df)  %>% 
+  mutate(p.value = round(p.value, 4))%>%
+  mutate(model_number = case_when(
+    model_number == 1 ~ "stunting_dep ~ wealth_index",
+    model_number == 2 ~ "home_type_dep ~ stunting",
+    model_number == 3 ~ "home_type_dep ~ wealth_index",
+    model_number == 4 ~ "roof_type_dep ~ home_type_factor",
+    model_number == 5 ~ "u5_net_use_dep ~ temp_monthly_2000m",
+    model_number == 6 ~ "hh_size ~ wealth_index",
+    model_number == 7 ~ "u5_net_use_dep ~ RH_monthly_2000m",
+    model_number == 8 ~ "temp_monthly_2000m ~ RH_monthly_2000m",
+    TRUE ~ model_number ))
+
+# Display the final results
+final_results
+
+
+###############################End of mediation
 
 
 

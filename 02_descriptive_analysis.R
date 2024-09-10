@@ -234,48 +234,71 @@ color = c("#f2a5a1", "#c55c80")
 plot_df_um<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
 
 
-plot_overall = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
-  group_by(home_type2, test_result) %>%  summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
+plot_overall <- plot_df_um %>% 
+  as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+  group_by(home_type2, test_result) %>%   
+  summarise(
+    value = survey_mean(vartype = "se")
+  ) %>%
+  mutate(lower_ci = value - (1.96 * value_se),  # Lower bound of 95% CI
+         upper_ci = value + (1.96 * value_se),  # Upper bound of 95% CI
+         percent = round(value * 100, 0))        # Convert to percentages
+  
 plot_overall$title = "Urban"
 
-p_urban<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) + 
-  geom_bar(aes(y = percent), position="stack", stat = "identity")+
-  theme_manuscript()+
-  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
-  scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-  geom_text(aes(label = paste0(percent,"%", " ", "(", value, ")"), y = percent),
-            position = position_stack(vjust = 0.5),
-            color = "white") +
-  labs(x = "", y  = "Number of children, 6 - 59 months,
-  tested positive for malaria in 22 DHS datasets") +
-  facet_wrap(vars(title))+
-  theme(strip.text.x = element_text(
-    size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 100))
+p_urban<-ggplot(plot_overall, aes(fill = test_result, x = home_type2)) + 
+  geom_bar(aes(y = percent), position = "dodge", stat = "identity") +
+  geom_errorbar(aes(ymin = lower_ci * 100, ymax = upper_ci * 100), colour = "darkgray", 
+                position = position_dodge(width = 0.9), width = 0.25) +  # Add error bars
+  theme_manuscript() +
+  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH")) +
+  scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
+  geom_text(aes(label = paste0(percent, "%", " ", "(", round(value * 100, 0), ")"), y = percent),
+            position = position_dodge(width = 0.9),
+            color = "black", vjust = 2) + 
+  labs(x = "", y = "") +
+  facet_wrap(vars(title)) +
+  theme(strip.text.x = element_text(size = 12, color = "black")) +
+  coord_cartesian(ylim = c(0, 90)) 
+
+p_urban
 
 #rural
 
 plot_df_rm<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt) 
 
-plot_overall = plot_df_rm %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
-  group_by(home_type2, test_result) %>%   summarise(value = round(survey_total(),0)) %>% mutate(percent = round(value/sum(value) *100, 0))
-plot_overall$title = "Rural"
-p_rural<-ggplot(plot_overall, aes(fill=test_result, x= home_type2)) + 
-  geom_bar(aes(y = percent), position="stack", stat = "identity")+
-  theme_manuscript()+
-  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
-  scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-  geom_text(aes(label = paste0(percent,"%", " ", "(", value, ")"), y = percent),
-            position = position_stack(vjust = 0.5),
-            color = "white") +
-  labs(x = "", y  = "") +
-  facet_wrap(vars(title))+
-  theme(strip.text.x = element_text(
-    size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 100)) + 
+plot_overall <- plot_df_rm %>% 
+  as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+  group_by(home_type2, test_result) %>%   
+  summarise(
+    value = survey_mean(vartype = "se")
+  ) %>%
+  mutate(
+    lower_ci = value - (1.96 * value_se),  # Lower bound of 95% CI
+    upper_ci = value + (1.96 * value_se),  # Upper bound of 95% CI
+    percent = round(value * 100, 0)        # Convert to percentages
+  )
+plot_overall$title <- "Rural"
+
+p_rural <- ggplot(plot_overall, aes(fill = test_result, x = home_type2)) + 
+  geom_bar(aes(y = percent), position = "dodge", stat = "identity") +
+  geom_errorbar(aes(ymin = lower_ci * 100, ymax = upper_ci * 100), colour = "darkgray",
+                position = position_dodge(width = 0.9), width = 0.25) +  # Add error bars
+  theme_manuscript() +
+  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH")) +
+  scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
+  geom_text(aes(label = paste0(percent, "%", " ", "(", round(value * 100, 0), ")"), y = percent),
+            position = position_dodge(width = 0.9),
+            color = "black", vjust = 2) + 
+  labs(x = "", y = "") +
+  facet_wrap(vars(title)) +
+  theme(strip.text.x = element_text(size = 12, color = "black")) +
+  coord_cartesian(ylim = c(0, 80)) +
   theme(axis.text.y = element_blank(), 
         axis.ticks.y = element_blank(), 
         axis.title.y = element_blank())
+
+p_rural
 
 
 p_2a = p_urban +p_rural+ plot_layout(guides = "collect") & theme(legend.position = 'none')
