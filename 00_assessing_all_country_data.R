@@ -1,6 +1,6 @@
 # ==========================================================================================================================================
 # Script Name: Assessing All Country Data
-# Author: ?
+# Author: Dr. Ifeoma Ozodiegwu
 # Edited by: Grace Legris, Research Data Analyst (gracebea@gmail.com)
 # Edited: [2024-09-25]
 # Purpose: To identify surveys that have the variables that we need for the analysis. 
@@ -123,7 +123,7 @@ barplot <- ggplot(plot_dat, aes(x= name, y = as.numeric(value), fill=name)) +
   geom_bar(stat = "identity")+ 
   facet_wrap(~SurveyId) +
   scale_fill_manual(values = color, label =label) +
-  #theme_manuscript() +
+  theme_manuscript() +
   theme(legend.title=element_blank(), legend.position = "top") +
   labs(x = "", y = "Percentage")
   ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_malaria_agric_all_data.png"), p, width = 13, height = 14)
