@@ -156,7 +156,9 @@ all_results_final <- all_results_combined %>% bind_rows(ref_df) %>% arrange(term
 write_xlsx(all_results_final, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
 
 
-##################Mediation analyis########
+## -----------------------------------------
+### Mediation analysis
+## -----------------------------------------
 
 # Define a function to create the survey design object
 svydesign_fun <- function(df) {
@@ -205,7 +207,7 @@ run_svyglm <- function(formula, data) {
   return(tidy_model)
 }
 
-# Assuming your dataset is named 'all_df2', and 'typem' has "Urban" and "Rural"
+
 all_df2 <- all_df %>% 
   mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
          EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
@@ -226,14 +228,18 @@ rural_df <- all_df2 %>% filter(type == "Rural")
 
 # Define the variables to run the regressions on
 formulas <- list(
-  stunting_dep  ~ wealth_index,
-  home_type_dep ~ stunting,
-  home_type_dep ~ wealth_index,
-  roof_type_dep ~ home_type_factor,
-  u5_net_use_dep ~ temp_monthly_2000m,
-  hh_size ~ wealth_index,
-  u5_net_use_dep ~ RH_monthly_2000m,
-  temp_monthly_2000m ~ RH_monthly_2000m)
+  stunting_dep  ~ home_type_dep,
+  roof_type_dep ~ home_type_dep,
+  u5_net_use_dep ~ home_type_dep,
+  hh_size ~ home_type_dep,
+  temp_monthly_2000m ~ home_type_dep,
+  wealth  ~ home_type_dep,
+  home_type_dep ~ stunting_dep,
+  home_type_dep ~ roof_type_dep,
+  home_type_dep ~ u5_net_use_dep,
+  home_type_dep ~ hh_size,
+  home_type_dep ~ temp_monthly_2000m,
+  home_type_dep ~ wealth_index)
 
 # Run the regressions separately for Urban and Rural
 urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
@@ -249,31 +255,35 @@ rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
 final_results <- bind_rows(urban_results_df, rural_results_df)  %>% 
   mutate(p.value = round(p.value, 4))%>%
   mutate(model_number = case_when(
-    model_number == 1 ~ "stunting_dep ~ wealth_index",
-    model_number == 2 ~ "home_type_dep ~ stunting",
-    model_number == 3 ~ "home_type_dep ~ wealth_index",
-    model_number == 4 ~ "roof_type_dep ~ home_type_factor",
-    model_number == 5 ~ "u5_net_use_dep ~ temp_monthly_2000m",
-    model_number == 6 ~ "hh_size ~ wealth_index",
-    model_number == 7 ~ "u5_net_use_dep ~ RH_monthly_2000m",
-    model_number == 8 ~ "temp_monthly_2000m ~ RH_monthly_2000m",
+    model_number == 1 ~ "stunting_dep  ~ home_type2",
+    model_number == 2 ~ "roof_type_dep ~ home_type2",
+    model_number == 3 ~ "u5_net_use_dep ~ home_type2",
+    model_number == 4 ~ "hh_size ~ home_type2",
+    model_number == 5 ~ "temp_monthly_2000m ~ home_type2",
+    model_number == 6 ~ "wealth  ~ home_type2",
+    model_number == 7 ~ "home_type_dep ~ stunting",
+    model_number == 8 ~ "home_type_dep ~ roof_type",
+    model_number == 9 ~ "home_type_dep ~ u5_net_use",
+    model_number == 10 ~ "home_type_dep ~ hh_size",
+    model_number == 11 ~ "home_type_dep ~ temp_monthly_2000m",
+    model_number == 12 ~ "home_type_dep ~ wealth",
     TRUE ~ model_number ))
 
 # Display the final results
 final_results
+
+write_xlsx(final_results, file.path(PopDir, "analysis_dat", "mediation_first_phase_results.xlsx"))
 
 
 #phase two
 
 formulas <- list(
-  malaria_result ~ stunting_dep  + wealth_index,
   malaria_result ~ home_type_dep + stunting,
-  malaria_result ~ home_type_dep + wealth_index,
-  malaria_result ~ roof_type_dep + home_type_factor,
-  malaria_result ~ u5_net_use_dep + temp_monthly_2000m,
-  malaria_result ~ hh_size + wealth_index,
-  malaria_result ~ u5_net_use_dep + RH_monthly_2000m,
-  malaria_result ~ temp_monthly_2000m + RH_monthly_2000m)
+  malaria_result ~ home_type_dep + roof_type,
+  malaria_result ~ home_type_dep + u5_net_use,
+  malaria_result ~ home_type_dep + hh_size,
+  malaria_result ~ home_type_dep + temp_monthly_2000m,
+  malaria_result ~ home_type_dep + wealth_index)
 
 # Run the regressions separately for Urban and Rural
 urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
@@ -286,25 +296,161 @@ rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
   mutate(location = "Rural")
 
 # Combine the results into one dataframe
-final_results <- bind_rows(urban_results_df, rural_results_df)  %>% 
+final_results_phase2 <- bind_rows(urban_results_df, rural_results_df)  %>% 
   mutate(p.value = round(p.value, 4))%>%
   mutate(model_number = case_when(
-    model_number == 1 ~ "stunting_dep ~ wealth_index",
-    model_number == 2 ~ "home_type_dep ~ stunting",
-    model_number == 3 ~ "home_type_dep ~ wealth_index",
-    model_number == 4 ~ "roof_type_dep ~ home_type_factor",
-    model_number == 5 ~ "u5_net_use_dep ~ temp_monthly_2000m",
-    model_number == 6 ~ "hh_size ~ wealth_index",
-    model_number == 7 ~ "u5_net_use_dep ~ RH_monthly_2000m",
-    model_number == 8 ~ "temp_monthly_2000m ~ RH_monthly_2000m",
+    model_number == 1 ~ "malaria_result ~ home_type_dep + stunting",
+    model_number == 2 ~ "malaria_result ~ home_type_dep + roof_type",
+    model_number == 3 ~ "malaria_result ~ home_type_dep + u5_net_use",
+    model_number == 4 ~ "malaria_result ~ home_type_dep + hh_size",
+    model_number == 5 ~ "malaria_result ~ home_type_dep + temp_monthly_2000m",
+    model_number == 6 ~ "malaria_result ~ home_type_dep + wealth",
     TRUE ~ model_number ))
 
 # Display the final results
-final_results
+final_results_phase2
+
+write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_final_phase_results.xlsx"))
+
+## -----------------------------------------
+### Mediation analysis Predicted probabilities and OR plots
+## -----------------------------------------
+
+svy_design <- svydesign_fun(urban_df)
+
+fun_model <- function(model_formula){
+  svyglm(model_formula, design = svy_design, family = binomial(link = "logit"))
+}
+
+formulas <- list(
+  malaria_result ~ home_type_dep,
+  malaria_result ~ home_type_dep + stunting,
+  malaria_result ~ home_type_dep + roof_type,
+  malaria_result ~ home_type_dep + u5_net_use,
+  malaria_result ~ home_type_dep + hh_size,
+  malaria_result ~ home_type_dep + temp_monthly_2000m,
+  malaria_result ~ home_type_dep + wealth_index)
 
 
-###############################End of mediation
+# Define the term names based on formulas
+term_names <- c(
+  "home type",
+  "home type + stunting",
+  "home type + roof type",
+  "home type + u5 net use",
+  "home type + household size",
+  "home type + temperature",
+  "home type + wealth index"
+)
 
+# Apply the formulas to generate model results
+model_datasets_results <- lapply(formulas, fun_model)
+
+### OR generation and plotting
+
+# Function to tidy and process the model results
+fun_or <- function(model_){
+  df <- tidy(model_) %>%
+    filter(term != "(Intercept)") %>%
+    rename(SE = std.error) %>%
+    mutate(
+      odds = exp(estimate),
+      lower_ci = exp(estimate - 1.96 * SE),
+      upper_ci = exp(estimate + 1.96 * SE)
+    ) %>%
+    tibble::rownames_to_column()
+  
+  return(df)
+}
+
+# Process all model results and bind them into one dataframe
+df_or <- lapply(model_datasets_results, fun_or) %>% 
+  bind_rows(.id = "formula_id") %>% 
+  filter(term == "home_type_dep1") %>% 
+  mutate(formula_name = term_names[as.numeric(formula_id)])
+
+# Rename the 'term' column to 'formula_name'
+df_or <- df_or %>% rename(variables = formula_name) %>% 
+  select(variables, odds, lower_ci, upper_ci) 
+
+color_list <- c("forestgreen", "darkorchid4", "#d391fa", "#3e00b3", "#c55c80", "#e07a5f", "#0d47a1")
+
+forest_b <- ggplot(df_or, aes(x = odds, y = variables)) + 
+  geom_vline(aes(xintercept = 1, color = variables), size = .25, linetype = "dashed") + 
+  geom_errorbarh(aes(xmax = lower_ci, xmin = upper_ci), size = .5, height = .2) + 
+  geom_point(aes(color = variables), size = 2.5)+
+  scale_color_manual(name ="", values = color_list) +
+  theme_bw()+
+  theme(panel.grid.minor = element_blank())+ 
+  theme(panel.border = element_blank())+
+  ylab("")+
+  xlab(str_wrap("Odds ratio for testing positive for malaria with RDT or microscopy 
+  among children, 6 - 59 months, in an agricultural worker HH compared to a 
+        compared to a non-agricultural worker HH and controling for other variables", width = 80)) +
+  theme_manuscript()+
+  theme(legend.position = "none")+
+  xlim(0.5,3.7) + 
+  theme(axis.text.y = element_text(colour=color_list))
+forest_b
+
+### Predicted probabilities generation and ploting
+
+# Define the term names based on formulas
+term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7"), 
+                         variable = c("home type",
+                                       "home type + stunting",
+                                       "home type + roof type",
+                                       "home type + u5 net use",
+                                       "home type + household size",
+                                       "home type + temperature",
+                                       "home type + wealth index"))
+  
+
+# Process all model results and bind them into one dataframe
+effect_df_fun <- function(model_) {
+  effect_list_est <- summary(Effect("home_type_dep", model_)) 
+  effect_list_est$effect %>% as.data.frame() %>% 
+    bind_cols(effect_list_est$lower %>% as.data.frame()) %>% 
+    bind_cols(effect_list_est$upper %>% as.data.frame()) %>% 
+    rename(effect = ....1, lower = ....2, upper = ....3) %>% 
+    tibble::rownames_to_column(var = "term_name") 
+}
+
+# Combine all effect dataframes and add term names
+df_effect <- lapply(model_datasets_results, effect_df_fun) %>% 
+  bind_rows(.id = "model_id") %>% left_join(term_names, by = "model_id") %>% 
+  filter(term_name == "1")
+
+
+#predicted probability 
+pred_p <- ggplot() + 
+  geom_errorbar(data = df_effect, aes(y = effect, x = variable, ymax = lower, ymin = upper, color = variable), size = .5, width = .2) + 
+  geom_point(data = df_effect, aes(y = effect, x = variable, color = variable), size = 2.5) +
+  theme(panel.grid.minor = element_blank()) + 
+  theme(panel.border = element_blank(), axis.title.x = element_blank(),
+        plot.title = element_blank()) +  # Use plot.title instead of main.title.x
+  scale_color_manual(name ="", values = color_list) +
+  theme_manuscript() +
+  labs(x = "", y = "Predicted probability of testing positive for malaria\nwith RDT or microscopy among children,\n6 - 59 months") +
+  ylim(0, 0.5) +
+  theme(legend.position = "none") +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +  # Adjust width as necessary
+  theme(axis.text.x = element_text(colour=color_list)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Tilt x-axis labels
+
+pred_p
+
+all_p <- forest_b + pred_p
+all_p
+
+ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_4_odds_pred_prob.pdf"), all_p, width = 8.5, height = 5) 
+
+
+
+
+## -----------------------------------------
+### Initial Analysis 
+## -----------------------------------------
 
 
 urban_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis.csv")) %>%  mutate(type ="urban_data") 

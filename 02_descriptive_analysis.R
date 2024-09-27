@@ -247,19 +247,17 @@ plot_overall <- plot_df_um %>%
 plot_overall$title = "Urban"
 
 p_urban<-ggplot(plot_overall, aes(fill = test_result, x = home_type2)) + 
-  geom_bar(aes(y = percent), position = "dodge", stat = "identity") +
-  geom_errorbar(aes(ymin = lower_ci * 100, ymax = upper_ci * 100), colour = "darkgray", 
-                position = position_dodge(width = 0.9), width = 0.25) +  # Add error bars
+  geom_bar(aes(y = percent), position = "stack", stat = "identity") +  # Change to stacked position
   theme_manuscript() +
   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH")) +
   scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
-  geom_text(aes(label = paste0(percent, "%", " ", "(", round(value * 100, 0), ")"), y = percent),
-            position = position_dodge(width = 0.9),
-            color = "black", vjust = 2) + 
+  geom_text(aes(label = paste0(percent, "% (se=", round(value_se * 100, 1), ")"), y = percent),  # Include "se" in brackets
+            position = position_stack(vjust = 0.5),  # Adjust label position for stack
+            color = "black", vjust = 0.5) + 
   labs(x = "", y = "") +
   facet_wrap(vars(title)) +
   theme(strip.text.x = element_text(size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 90)) 
+  coord_cartesian(ylim = c(0, 100))  # Adjust y-limit for stacked bars 
 
 p_urban
 
@@ -281,19 +279,17 @@ plot_overall <- plot_df_rm %>%
 plot_overall$title <- "Rural"
 
 p_rural <- ggplot(plot_overall, aes(fill = test_result, x = home_type2)) + 
-  geom_bar(aes(y = percent), position = "dodge", stat = "identity") +
-  geom_errorbar(aes(ymin = lower_ci * 100, ymax = upper_ci * 100), colour = "darkgray",
-                position = position_dodge(width = 0.9), width = 0.25) +  # Add error bars
+  geom_bar(aes(y = percent), position = "stack", stat = "identity") +  # Change to stacked position
   theme_manuscript() +
   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH")) +
   scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
-  geom_text(aes(label = paste0(percent, "%", " ", "(", round(value * 100, 0), ")"), y = percent),
-            position = position_dodge(width = 0.9),
-            color = "black", vjust = 2) + 
+  geom_text(aes(label = paste0(percent, "% (se=", round(value_se * 100, 1), ")"), y = percent),  # Include "se" in brackets
+            position = position_stack(vjust = 0.5),  # Adjust label position for stack
+            color = "black", vjust = 0.5) + 
   labs(x = "", y = "") +
   facet_wrap(vars(title)) +
   theme(strip.text.x = element_text(size = 12, color = "black")) +
-  coord_cartesian(ylim = c(0, 80)) +
+  coord_cartesian(ylim = c(0, 100)) +
   theme(axis.text.y = element_blank(), 
         axis.ticks.y = element_blank(), 
         axis.title.y = element_blank())
@@ -544,6 +540,34 @@ country_m_n_rural <- ggplot(df_m_n_country_rural , aes(x=diff_val_rural_nets, y=
 p_country_malaria_nets <- country_m_n_urban + country_m_n_rural
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural_by_country.pdf"),p_country_malaria_nets, width = 8, height= 5) 
+
+
+### Difference in difference scatter plot for malaria vs nets
+ddf_df <- bind_rows(df_m_n_country %>% 
+                      transmute(diff_val_malaria = diff_val_urban_malaria, 
+                                diff_val_nets = diff_val_urban_nets, title), 
+                    df_m_n_country_rural%>% 
+                      transmute(diff_val_malaria = diff_val_rural_malaria, 
+                                diff_val_nets = diff_val_rural_nets, title))
+
+ggplot(data = ddf_df, aes(x = diff_val_nets, y = diff_val_malaria)) +
+  geom_point(shape = 19, size = 5, alpha = 0.7, color = "#0d47a1") +
+  # Add the regression line and ribbon
+  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "blue", fill = "lightblue", alpha = 0.3) +
+  # Add the p-value
+  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
+           method = "pearson", 
+           label.x = 0.5, 
+           label.y = max(df_m_n_country_rural$diff_val_rural_malaria, na.rm = TRUE)) +
+  theme_manuscript() +
+  facet_wrap(~ title) + 
+  labs(x = "Difference in net use", y = "Difference in malaria test positivity rate") +
+  theme(legend.position = "none")
+
+
+
+
+
 
 
 ################################################
