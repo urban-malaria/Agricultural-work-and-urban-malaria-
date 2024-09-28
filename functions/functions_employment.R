@@ -1,6 +1,15 @@
+
+# ==========================================================================================================================================
+# Script Name: Functions
+# Author: Dr. Ifeoma Ozodiegwu
+# Edited by: Grace Legris, Research Data Analyst (gracebea@gmail.com)
+# Edited: [2024-09-26]
+# Purpose: Data Processing and Visualization Functions for Agricultural Malaria Analysis
+# ==========================================================================================================================================
+=======
 # -----------------------------------------
 ### Required functions and settings
-## -----------------------------------------
+## ----------------------------------------
 
 # # Reading in the necessary packages 
 library(pacman)
