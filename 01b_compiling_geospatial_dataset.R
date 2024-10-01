@@ -1,12 +1,19 @@
+# ==========================================================================================================================================
+# Script Name: Compiling Geospatial Datasets
+# Author: Dr. Ifeoma Ozodiegwu (last updated: 2023-10-21)
+# Edited by: Grace Legris, Research Data Analyst (gracebea@gmail.com)
+# Edited: [2024-09-30]
+# Purpose: Extracts environmental and geospatial data at cluster level lagged two months before the survey month
+# ==========================================================================================================================================
 
-#This script extracts environmental data at cluster level lagged two months before the survey month
-#Last updated: 2023-10-21
+# clear current workspace
 rm(list = ls())
 
-## -----------------------------------------
-### Directories
-## -----------------------------------------
-user <- Sys.getenv("USERNAME")
+## =========================================================================================================================================
+### Directory Management and File Paths
+## =========================================================================================================================================
+
+user <- Sys.getenv("USER")
 if ("ozodi"  %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
@@ -30,6 +37,17 @@ if ("ozodi"  %in% user) {
   HumDir <- file.path(PopDir, "ERA5_rel_humidity_monthly")
   TempDir <- file.path(PopDir, "ERA5_temperature")
   OutDir <- file.path(PopDir, "analysis_dat")
+} else if ("grace" %in% user) {
+  Drive <- "/Users/grace/Urban Malaria Proj Dropbox"
+  DriveDir <- file.path(Drive, "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
+  FigDir <- file.path(ManDir, "figures", "exploratory")
+  EviDir <- file.path(PopDir, "MAP_EVI_monthly")
+  PrecDir <- file.path(PopDir, "chirps_monthly_precip")
+  HumDir <- file.path(PopDir, "ERA5_rel_humidity_monthly")
+  TempDir <- file.path(PopDir, "ERA5_temperature")
+  OutDir <- file.path(PopDir, "analysis_dat")
 } else {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", Sys.getenv("HOME"))))
   DriveDir <- file.path(Drive, 'Library', 'CloudStorage', 'OneDrive-NorthwesternUniversity', "urban_malaria")
@@ -44,41 +62,63 @@ if ("ozodi"  %in% user) {
   OutDir <- file.path(PopDir, "analysis_dat")
 }
 
-## -----------------------------------------
-### Required functions and settings
-## -----------------------------------------
+## =========================================================================================================================================
+### Required Functions, Settings, and Processing
+## =========================================================================================================================================
+
 #note before sourcing functions and packages, run the code below to download rdhs if you don't already have it
 #devtools::install_github("ropensci/rdhs", force = T)
 source("functions/functions_employment.R")
 options(survey.lonely.psu="adjust")  # this option allows admin units with only one cluster to be analyzed
 
-## -----------------------------------------
-### Reading and processing dhs gps coordinates
-## -----------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Reading and Processing DHS GPS Coordinates
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
+# list all shapefiles in the DHS_coordinate folder with the .shp extension
 ge_files <-  list.files(path = file.path(PopDir, "DHS_coordinate"), 
                         pattern = "*FL.shp$", full.names = TRUE, recursive = T) 
 
-all_GPS <- lapply(ge_files, st_read) %>% purrr::map(~mutate(., cntry_year = paste0(DHSCC, "_", DHSYEAR)))
+# read the shapefiles and create a new column 'cntry_year' that combines 'DHSCC' and 'DHSYEAR'
+all_GPS <- lapply(ge_files, st_read) %>% 
+  purrr::map(~mutate(., cntry_year = paste0(DHSCC, "_", DHSYEAR)))
 
-#Assign names to SP dataframes in list 
-cntry_years <- list(all_GPS %>% bind_rows() %>% as.data.frame() %>% select(cntry_year) %>%  unique() %>% 
-                      mutate(cntry_year = ifelse(cntry_year == "SN_2012", "SN_2012a", cntry_year)), 
-                    all_GPS %>% bind_rows() %>% as.data.frame() %>% select(cntry_year) %>%  unique() %>% 
-                      mutate(cntry_year = ifelse(cntry_year == "SN_2012", "SN_2012b", cntry_year))) %>% 
-  bind_rows()  %>%  unique() %>% arrange(cntry_year)
+# handle the case for 'SN_2012', splitting it into 'SN_2012a' and 'SN_2012b'
+# create a list that will store two data frames:
+# 1. a data frame of unique 'cntry_year' values from all_GPS where "SN_2012" is replaced with "SN_2012a"
+# 2. a data frame of unique 'cntry_year' values from all_GPS where "SN_2012" is replaced with "SN_2012b"
+cntry_years <- list(
+  # bind rows of all GPS data into a single data frame, extract 'cntry_year', get unique values
+  # if 'cntry_year' is "SN_2012", rename it to "SN_2012a"
+  all_GPS %>% bind_rows() %>% as.data.frame() %>% 
+    select(cntry_year) %>% unique() %>% 
+    mutate(cntry_year = ifelse(cntry_year == "SN_2012", "SN_2012a", cntry_year)),
+  
+  # rename 'SN_2012' to "SN_2012b" instead
+  all_GPS %>% bind_rows() %>% as.data.frame() %>% 
+    select(cntry_year) %>% unique() %>% 
+    mutate(cntry_year = ifelse(cntry_year == "SN_2012", "SN_2012b", cntry_year))
+) %>% 
+  bind_rows() %>% # bind the two data frames in the list into a single data frame
+  unique() %>% # ensure only unique 'cntry_year' values are kept
+  arrange(cntry_year) # sort the data by 'cntry_year' in ascending order
 
+# update the names of the all_GPS list based on the 'cntry_years' column
 names(all_GPS) <- c(cntry_years$cntry_year)
 
-## -----------------------------------------
-### Reading and processing dhs datasets to obtain survey month
-## -----------------------------------------
-#read dhs pr files
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Reading and Processing DHS Datasets to Obtain Survey Month
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# read DHS PR (Person Records) files
+# list all files in the specified directory that match the pattern "*FL.DTA"
 pr_files <- list.files(path = file.path(PopDir, "data/opened/PR"), 
                        pattern = "*FL.DTA$", full.names = TRUE, recursive = F) 
 
+# read each file listed in pr_files into R
+# lapply applies the read_dta function to each file path in pr_files
 pr_downloads <- lapply(pr_files, read_dta)
- 
+
 
 ##processing by country _ attempt to shorten code 
 # dhs_dat <- list()
@@ -105,43 +145,99 @@ pr_downloads <- lapply(pr_files, read_dta)
 #   print(paste("appending", paste0(unique(GPS_all[[i]]$DHSCC),"_", unique(GPS_all[[i]]$DHSYEAR)), "to list of GPS dataframes"))
 # }
 
-# Angola - need to fix manual labeling
+## =========================================================================================================================================
+### Processing DHS Data by Country
+## =========================================================================================================================================
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Angola
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# angola - need to fix manual labeling
+
+# initialize a list with the first element of pr_downloads
 dhs_all1 <- list(pr_downloads[[1]])
+
+# create a name for the list element based on the first two characters of hv000
+# and the minimum value of hv007 in the dataset
 names(dhs_all1) <- paste0(str_sub(pr_downloads[[1]][1, "hv000"], 1, 2), "_", min(pr_downloads[[1]]$hv007))
-print(names(dhs_all1))
+print(names(dhs_all1)) # verify the labeling
 
+# create a new list dhs_all by selecting specific columns from dhs_all1
+# and removing duplicate rows to get cluster numbers by month and survey year
 dhs_all <- dhs_all1 %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
-  map(~distinct(.,)) #get cluster numbers by month and survey year
+  map(~distinct(.,)) # get cluster numbers by month and survey year
 
+# combine GPS data with survey information for the year 2015
 AO_2015 <- survey_gps_comb(x= names(dhs_all1), y= names(dhs_all1))
-for(i in seq_along(AO_2015)) {names(AO_2015)[[i]] <- paste0(unique(AO_2015[[i]]$hv007), '_', unique(AO_2015[[i]]$hv006))}
 
+# loop through each element in AO_2015 to update the names
+for(i in seq_along(AO_2015)) {
+  # set the name based on unique values of hv007 and hv006
+  names(AO_2015)[[i]] <- paste0(unique(AO_2015[[i]]$hv007), '_', unique(AO_2015[[i]]$hv006))
+}
+
+# convert each element of AO_2015 to a spatial object and simplify the list structure
 GPS_all_OA <- sapply(c(AO_2015), sf:::as_Spatial, simplify = F)
+
+# print the names of GPS_all_OA to verify the conversion
 names(GPS_all_OA) 
+
+# assign dhs_all to dhs_all_OA for further analysis
 dhs_all_OA <- dhs_all
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Burkina Faso
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
-#Burkina Faso-
+# initialize a list with the second and third elements of pr_downloads
 dhs_all1 <- list(pr_downloads[[2]], pr_downloads[[3]])
+
+# create names for each list element based on the first two characters of hv000
+# and the minimum value of hv007 for each respective dataset
 name1 <- paste0(str_sub(pr_downloads[[2]][1, "hv000"], 1, 2), "_", min(pr_downloads[[2]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[3]][1, "hv000"], 1, 2), "_", min(pr_downloads[[3]]$hv007))
+
+# assign the created names to the list dhs_all1
 names(dhs_all1) <- c(name1, name2)
-print(names(dhs_all1))
+print(names(dhs_all1)) # verify labeling
 
+# create a new list dhs_all by selecting specific columns from dhs_all1
+# and removing duplicate rows to get cluster numbers by month and survey year
 dhs_all <- dhs_all1 %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
-  map(~distinct(.,)) #get cluster numbers by month and survey year
+  map(~distinct(.,)) # get cluster numbers by month and survey year
 
+# combine GPS data with survey information for the year 2010
 BF_2010 <- survey_gps_comb(x= name1, y= name1)
-for(i in seq_along(BF_2010)) {names(BF_2010)[[i]] <- paste0(unique(BF_2010[[i]]$hv007), '_', unique(BF_2010[[i]]$hv006))}
 
+# loop through each element in BF_2010 to update the names
+for(i in seq_along(BF_2010)) {
+  # set the name based on unique values of hv007 and hv006
+  names(BF_2010)[[i]] <- paste0(unique(BF_2010[[i]]$hv007), '_', unique(BF_2010[[i]]$hv006))
+}
+
+# combine GPS data with survey information for the year 2021
 BF_2021 <- survey_gps_comb(x= name2, y= name2)
-for(i in seq_along(BF_2021)) {names(BF_2021)[[i]] <- paste0(unique(BF_2021[[i]]$hv007), '_', unique(BF_2021[[i]]$hv006))}
 
+# loop through each element in BF_2021 to update the names
+for(i in seq_along(BF_2021)) {
+  # set the name based on unique values of hv007 and hv006
+  names(BF_2021)[[i]] <- paste0(unique(BF_2021[[i]]$hv007), '_', unique(BF_2021[[i]]$hv006))
+}
+
+# convert each element of BF_2010 and BF_2021 to a spatial object and simplify the list structure
 GPS_all_BF <- sapply(c(BF_2010, BF_2021), sf:::as_Spatial, simplify = F)
+
+# print the names of GPS_all_BF to verify the conversion
 names(GPS_all_BF) 
+
+# assign dhs_all to dhs_all_BF for further analysis
 dhs_all_BF <- dhs_all
 
-# Benin
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Benin - rest of countries follow same data processing steps
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
 dhs_all1 <- list(pr_downloads[[4]], pr_downloads[[5]])
 name1 <- paste0(str_sub(pr_downloads[[4]][1, "hv000"], 1, 2), "_", max(pr_downloads[[4]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[5]][1, "hv000"], 1, 2), "_", min(pr_downloads[[5]]$hv007))
@@ -162,8 +258,10 @@ GPS_all_BJ <- sapply(c(BJ_2012, BJ_2017), sf:::as_Spatial, simplify = F)
 names(GPS_all_BJ) 
 dhs_all_BJ <- dhs_all 
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Burundi
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# Burundi
 dhs_all1 <- list(pr_downloads[[6]])
 names(dhs_all1) <- paste0(str_sub(pr_downloads[[6]][1, "hv000"], 1, 2), "_", min(pr_downloads[[6]]$hv007))
 print(names(dhs_all1))
@@ -178,7 +276,9 @@ GPS_all_BU <- sapply(c(BU_2016), sf:::as_Spatial, simplify = F)
 names(GPS_all_BU) 
 dhs_all_BU <- dhs_all 
 
-# DRC
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### DRC
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[7]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[7]][1, "hv000"], 1, 2), "_", min(pr_downloads[[7]]$hv007))
 print(names(dhs_all))
@@ -193,7 +293,10 @@ GPS_all_CD <- sapply(c(CD_2013), sf:::as_Spatial, simplify = F)
 names(GPS_all_CD) 
 dhs_all_CD <- dhs_all 
 
-#Cote d'Ivoire
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Cote d'Ivoire
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all1 <- list(pr_downloads[[8]], pr_downloads[[9]])
 name1 <- paste0(str_sub(pr_downloads[[8]][1, "hv000"], 1, 2), "_", max(pr_downloads[[8]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[9]][1, "hv000"], 1, 2), "_", min(pr_downloads[[9]]$hv007))
@@ -214,8 +317,9 @@ GPS_all_CI <- sapply(c(CI_2012, CI_2021), sf:::as_Spatial, simplify = F)
 names(GPS_all_CI)
 dhs_all_CI <- dhs_all
 
-
-# Cameroon
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Cameroon
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[10]], pr_downloads[[11]])
 name1 <- paste0(str_sub(pr_downloads[[10]][1, "hv000"], 1, 2), "_", max(pr_downloads[[10]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[11]][1, "hv000"], 1, 2), "_", min(pr_downloads[[11]]$hv007))
@@ -235,8 +339,9 @@ GPS_all_CM <- sapply(c(CM_2011, CM_2018), sf:::as_Spatial, simplify = F)
 names(GPS_all_CM) 
 dhs_all_CM <- dhs_all 
 
-
-# Ghana
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Ghana
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[12]], pr_downloads[[13]])
 name1 <- paste0(str_sub(pr_downloads[[12]][1, "hv000"], 1, 2), "_", min(pr_downloads[[12]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[13]][1, "hv000"], 1, 2), "_", min(pr_downloads[[13]]$hv007))
@@ -259,8 +364,9 @@ names(GPS_all_GH)
 dhs_all_GH <- dhs_all 
 
 
-
-# Gambia
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Gambia
+## -----------------------------------------------------------------------------------------------------------------------------------------
 #2013 GPS data not collected
 dhs_all <- list(pr_downloads[[15]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[15]][1, "hv000"], 1, 2), "_", min(pr_downloads[[15]]$hv007))
@@ -276,7 +382,9 @@ for(i in seq_along(GM_2019)) {names(GM_2019)[[i]] <- paste0(unique(GM_2019[[i]]$
 GPS_all_GM <- sapply(c(GM_2019), sf:::as_Spatial, simplify = F)
 names(GPS_all_GM) 
 
-# Guinea
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Guinea
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[16]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[16]][1, "hv000"], 1, 2), "_", min(pr_downloads[[16]]$hv007))
 print(names(dhs_all))
@@ -291,7 +399,9 @@ for(i in seq_along(GN_2012)) {names(GN_2012)[[i]] <- paste0(unique(GN_2012[[i]]$
 GPS_all_GN <- sapply(c(GN_2012), sf:::as_Spatial, simplify = F)
 names(GPS_all_GN) 
 
-# Madagascar 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Madagascar
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[17]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[17]][1, "hv000"], 1, 2), "_", min(pr_downloads[[17]]$hv007))
 print(names(dhs_all))
@@ -309,7 +419,9 @@ for(i in seq_along(MD_2021)) {names(MD_2021)[[i]] <- paste0(unique(MD_2021[[i]]$
 GPS_all_MD <- sapply(c(MD_2021), sf:::as_Spatial, simplify = F)
 names(GPS_all_MD) 
 
-# Mali
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Mali
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[18]], pr_downloads[[19]])
 name1 <- paste0(str_sub(pr_downloads[[18]][1, "hv000"], 1, 2), "_", min(pr_downloads[[18]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[19]][1, "hv000"], 1, 2), "_", min(pr_downloads[[19]]$hv007))
@@ -330,8 +442,9 @@ for(i in seq_along(ML_2018)) {names(ML_2018)[[i]] <- paste0(unique(ML_2018[[i]]$
 GPS_all_ML <- sapply(c(ML_2012, ML_2018), sf:::as_Spatial, simplify = F)
 names(GPS_all_ML) 
 
-
-# Mauritania
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Mauritania
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[20]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[20]][1, "hv000"], 1, 2), "_", median(pr_downloads[[20]]$hv007))
 
@@ -348,7 +461,9 @@ for(i in seq_along(MR_2020)) {names(MR_2020)[[i]] <- paste0(unique(MR_2020[[i]]$
 GPS_all_MR <- sapply(c(MR_2020), sf:::as_Spatial, simplify = F)
 names(GPS_all_MR) 
 
-# Mozambique
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Mozambique
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[21]], pr_downloads[[22]], pr_downloads[[23]])
 name1 <- paste0(str_sub(pr_downloads[[21]][1, "hv000"], 1, 2), "_", min(pr_downloads[[21]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[22]][1, "hv000"], 1, 2), "_", min(pr_downloads[[22]]$hv007))
@@ -373,7 +488,9 @@ for(i in seq_along(MZ_2022)) {names(MZ_2022)[[i]] <- paste0(unique(MZ_2022[[i]]$
 GPS_all_MZ <- sapply(c(MZ_2011, MZ_2015, MZ_2022), sf:::as_Spatial, simplify = F)
 names(GPS_all_MZ) #stopped here. Not sure where the NA is coming from 
 
-#Nigeria
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Nigeria
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[24]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[24]][1, "hv000"], 1, 2), "_", min(pr_downloads[[24]]$hv007))
 print(names(dhs_all))
@@ -390,8 +507,10 @@ for(i in seq_along(NG_2018)) {names(NG_2018)[[i]] <- paste0(unique(NG_2018[[i]]$
 GPS_all_NG <- sapply(c(NG_2018), sf:::as_Spatial, simplify = F)
 names(GPS_all_NG) # Clusters by survey month= GPS data points
 
-
-# Rwanda -- No GPS coordinates for clusters were provided for the 2017 survey - stopped here
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Rwanda
+## -----------------------------------------------------------------------------------------------------------------------------------------
+# No GPS coordinates for clusters were provided for the 2017 survey - stopped here
 dhs_all <- list(pr_downloads[[25]], pr_downloads[[26]], pr_downloads[[27]])
 name1 <- paste0(str_sub(pr_downloads[[25]][1, "hv000"], 1, 2), "_", min(pr_downloads[[25]]$hv007))
 name2 <- paste0(str_sub(pr_downloads[[26]][1, "hv000"], 1, 2), "_", min(pr_downloads[[26]]$hv007))
@@ -416,7 +535,9 @@ for(i in seq_along(RW_2019)) {names(RW_2019)[[i]] <- paste0(unique(RW_2019[[i]]$
 GPS_all_RW <- sapply(c(RW_2010, RW_2014, RW_2019), sf:::as_Spatial, simplify = F)
 names(GPS_all_RW)
 
-# Senegal
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Senegal
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[28]], pr_downloads[[29]], pr_downloads[[30]], pr_downloads[[31]], pr_downloads[[32]], pr_downloads[[33]])
 name1 <- paste0(str_sub(pr_downloads[[28]][1, "hv000"], 1, 2), "_", min(pr_downloads[[28]]$hv007))
 #name2 <- paste0(str_sub(pr_downloads[[29]][1, "hv000"], 1, 2), "_", min(pr_downloads[[29]]$hv007))
@@ -466,7 +587,9 @@ SN_2017[[10]] <- NULL
 GPS_all_SN <- sapply(c(SN_2010, SN_2015, SN_2016, SN_2017), sf:::as_Spatial, simplify = F)
 names(GPS_all_SN)
 
-# Togo 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Togo
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[34]])
 names(dhs_all) <- paste0(str_sub(pr_downloads[[34]][1, "hv000"], 1, 2), "_", min(pr_downloads[[34]]$hv007))
 print(names(dhs_all))
@@ -482,7 +605,9 @@ for(i in seq_along(TG_2013)) {names(TG_2013)[[i]] <- paste0(unique(TG_2013[[i]]$
 GPS_all_TG <- sapply(c(TG_2013), sf:::as_Spatial, simplify = F)
 names(GPS_all_TG)
 
-# Tanzania 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Tanzania
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[36]], pr_downloads[[37]])
 names1 <- paste0(str_sub(pr_downloads[[36]][1, "hv000"], 1, 2), "_", max(pr_downloads[[36]]$hv007))
 names2 <- paste0(str_sub(pr_downloads[[37]][1, "hv000"], 1, 2), "_", min(pr_downloads[[37]]$hv007))
@@ -503,7 +628,9 @@ for(i in seq_along(TZ_2015)) {names(TZ_2015)[[i]] <- paste0(unique(TZ_2015[[i]]$
 GPS_all_TZ <- sapply(c(TZ_2012, TZ_2015), sf:::as_Spatial, simplify = F)
 names(GPS_all_TZ)
 
-# Uganda
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Uganda
+## -----------------------------------------------------------------------------------------------------------------------------------------
 dhs_all <- list(pr_downloads[[39]], pr_downloads[[40]])
 names1 <- paste0(str_sub(pr_downloads[[39]][1, "hv000"], 1, 2), "_", min(pr_downloads[[39]]$hv007))
 names2 <- paste0(str_sub(pr_downloads[[40]][1, "hv000"], 1, 2), "_", min(pr_downloads[[40]]$hv007))
@@ -526,7 +653,12 @@ GPS_all_UG <- sapply(c(UG_2016), sf:::as_Spatial, simplify = F)
 names(GPS_all_UG)
 
 
-#### Data extraction parameter lists 
+## =========================================================================================================================================
+### OTHER
+## =========================================================================================================================================
+
+#### data extraction parameter lists 
+# compile lists of GPS data and DHS data for various countries
 GPS_all <- list(GPS_all_OA, GPS_all_BF, GPS_all_BJ, GPS_all_BU, GPS_all_CD, GPS_all_CI,  
                 GPS_all_CM, GPS_all_GH, GPS_all_GM, GPS_all_GN, GPS_all_MD, GPS_all_ML, GPS_all_MR,
                 GPS_all_MZ, GPS_all_NG, GPS_all_RW, GPS_all_SN, GPS_all_TG, GPS_all_TZ, GPS_all_UG)
@@ -537,64 +669,80 @@ dhs_all <- list(dhs_all_OA, dhs_all_BF, dhs_all_BJ, dhs_all_BU, dhs_all_CD, dhs_
 
 
 # buffers of interest
+vars <- c(2000) # define buffer size in meters
 
-vars <- c(2000) #meters
-
-#Extracting EVI using list within a list of survey gps points: This may take some time to run
+# extracting EVI using a list of survey GPS points; this may take some time to run
 df_list_evi <- list()
+
+# loop through each country in the GPS_all list
 for (i in 1:length(GPS_all)) {
   
-  #EVI rasters- this is the Part where the lag comes in! 
-  EVI_comb <- lapply(dhs_all[[i]], pick_month, filepath= EviDir)
-  EVI_comb_vc <- unlist(EVI_comb) #vector
-  EVI_raster_all <- sapply(EVI_comb_vc, raster, simplify = F) #read in EVI raster files, with 2 month lag
+  # extract EVI rasters; this is where the lag may occur
+  EVI_comb <- lapply(dhs_all[[i]], pick_month, filepath= EviDir) # pick EVI data for the specified month
+  EVI_comb_vc <- unlist(EVI_comb) # flatten the list to create a vector
+  EVI_raster_all <- sapply(EVI_comb_vc, raster, simplify = FALSE) # read in EVI raster files with a 2-month lag
   
   #for (i in 1:length(vars)) {
-    var_name <- paste0('EVI_', as.character(vars[1]), 'm')
-    df <- map2(GPS_all[[i]], EVI_raster_all, get_crs) 
-    df <- pmap(list(EVI_raster_all, df, vars[1]), extract_fun_month) 
-    df <- df %>%  map(~rename_with(., .fn=~paste0(var_name), .cols = contains('EVI')))
-    df <- plyr::ldply(df) %>% dplyr::select(-c(ID)) 
-    df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) #get data for the first month if more than one survey month in a cluster
-    
+  var_name <- paste0('EVI_', as.character(vars[1]), 'm')
+  # extract EVI values based on the corresponding GPS points
+  df <- map2(GPS_all[[i]], EVI_raster_all, get_crs) # get coordinate reference systems for the rasters
+  df <- pmap(list(EVI_raster_all, df, vars[1]), extract_fun_month) # extract EVI values for the given month
+  df <- df %>%  map(~rename_with(., .fn=~paste0(var_name), .cols = contains('EVI'))) # rename the columns to include the variable name
+  df <- plyr::ldply(df) %>% dplyr::select(-c(ID)) # combine the extracted data into a single data frame, removing the ID column
+  df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) # arrange by month and get data for the first month if more than one survey month
   #}
+  
+  # store the processed data frame in the list
   df_list_evi[[i]] <- df
+  
+  # combine all data frames in df_list_evi into one data frame
   df_binded_EVI <- df_list_evi %>% bind_rows()
+  
+  # write the combined data frame to a CSV file
   write.csv(df_binded_EVI, file = file.path(OutDir, paste0("EVI_DHS.csv")),row.names = FALSE)
 }
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Precipitation CHIRPS (35+ year quasi-global rainfall data set)
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
-
-#precipitation CHIRPS
-
+# initialize an empty list to store precipitation data frames
 df_list_prec <- list()
+
+# loop through each country in the GPS_all list
 for (i in 1:length(GPS_all)) {
   
-  #precip rasters- this is the Part where the lag comes in! 
-  precip_comb <- lapply(dhs_all[[i]], pick_month, filepath= PrecDir)
-  precip_comb_vc <- unlist(precip_comb) #vector
-  prec_raster_all <- sapply(precip_comb_vc, raster, simplify = F) #read in precip raster files, with 2 month lag
+  # extract precipitation rasters; this is where the lag may occur
+  precip_comb <- lapply(dhs_all[[i]], pick_month, filepath= PrecDir) # pick precipitation data for the specified month
+  precip_comb_vc <- unlist(precip_comb) # flatten the list to create a vector
+  prec_raster_all <- sapply(precip_comb_vc, raster, simplify = F) # read in precipitation raster files with a 2-month lag
   
   #for (i in 1:length(vars)) {
-    var_name <- paste0('preci_monthly_', as.character(vars[1]), 'm')
-    df <- map2(GPS_all[[i]], prec_raster_all, get_crs) #list of 13 vs. list of 144 
-    df <- pmap(list(prec_raster_all, df, vars[1]), extract_fun_month) 
-    df <- df %>%  map(~rename_with(., .fn=~paste0(var_name), .cols = contains('chirps')))
-    df <- plyr::ldply(df) %>% dplyr::select(-c(ID)) 
-    df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) #get data for the first month if more than one survey month in a cluster
-    
+  var_name <- paste0('preci_monthly_', as.character(vars[1]), 'm') # define variable name for the precipitation data
+  # extract precipitation values based on the corresponding GPS points
+  df <- map2(GPS_all[[i]], prec_raster_all, get_crs) # get coordinate reference systems for the rasters. list of 13 vs. list of 144 
+  df <- pmap(list(prec_raster_all, df, vars[1]), extract_fun_month) # extract precipitation values for the given month
+  df <- df %>%  map(~rename_with(., .fn=~paste0(var_name), .cols = contains('chirps'))) # rename the columns to include the variable name
+  df <- plyr::ldply(df) %>% dplyr::select(-c(ID)) # combine the extracted data into a single data frame, removing the ID column
+  df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) # arrange data by month, grouping by year and cluster ID, keeping only the first entry if multiple months exist
   #}
+  
+  # store the processed data frame in the list    
   df_list_prec[[i]] <- df
-  df_binded_precip <- df_list_prec %>% bind_rows()%>% mutate(preci_monthly_2000m = ifelse(preci_monthly_2000m < 0, NA, preci_monthly_2000m)) #Getting rid of negative values
+  
+  # combine all data frames in df_list_prec into one data frame and remove negative values
+  df_binded_precip <- df_list_prec %>% bind_rows() %>% 
+    mutate(preci_monthly_2000m = ifelse(preci_monthly_2000m < 0, NA, preci_monthly_2000m)) # replace negative values with NA
+  
+  # write the combined data frame to a CSV file
   write.csv(df_binded_precip, file = file.path(OutDir, paste0("precip_DHS.csv")),row.names = FALSE)
 }
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Relative Humidity at 1 atm - Raster Data (2-month lag)
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
-
-#### READ IN RASTER DATA- Relative Humidity at 1 atm ####
-## Using a 2-month lag for relative humidity data
-
-# 2009- 2023
+# load raster data for relative humidity from 2009 to 2023
 list_RH <- list(humidity_2009 <- brick(file.path(HumDir, 'rel_humidity_2009.grib')),
                 humidity_2010 <- brick(file.path(HumDir, 'rel_humidity_2010.grib')),
                 humidity_2011 <- brick(file.path(HumDir, 'rel_humidity_2011.grib')),
@@ -610,55 +758,68 @@ list_RH <- list(humidity_2009 <- brick(file.path(HumDir, 'rel_humidity_2009.grib
                 humidity_2021 <- brick(file.path(HumDir, 'rel_humidity_2021.grib')),
                 humidity_2022 <- brick(file.path(HumDir, 'rel_humidity_2022.grib')),
                 humidity_2023 <- brick(file.path(HumDir, 'rel_humidity_2023.grib'))
-                )
+)
 
-
+# rename the layers in each year's dataset using month abbreviations (Jan, Feb, etc.)
+# (makes it easier to identify the months when working with the data)
 for (i in 1:length(list_RH)){
-  names(list_RH[[i]]) <- paste0("RH_", month.abb) #redo for each file
+  names(list_RH[[i]]) <- paste0("RH_", month.abb) # assign month abbreviations to each layer
 }
 
+# check the number of layers for the year 2022 (14th element in list_RH)
 nlayers(list_RH[[14]])
 
-plot(list_RH[[1]], 1) #Visually inspecting Relative humidity- Jan 2010
+# plot the first layer of 2010 to visually inspect the relative humidity data for January
+plot(list_RH[[1]], 1)
 
+# assign year names to each element in the list for easier reference
 names(list_RH) <- c("2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", 
                     "2017", "2018", "2019","2020", "2021", "2022", "2023")
 
 
-#Apply over dhs_all list--- Repeat for each country
+# apply over dhs_all list --- repeat for each country
 
+# create an empty list to store results for each country
 df_list_RH <- list()
 
+# iterate over the list of countries (dhs_all)
 for (k in 1:length(dhs_all)){
   
-  RH_files <- lapply(dhs_all[[k]], get_month_str_RH)
+  RH_files <- lapply(dhs_all[[k]], get_month_str_RH) # extract the month string for relative humidity for each cluster
   
-  for (i in 1:length(RH_files)){
+  # iterate through the list of RH files for each country
+  for (i in 1:length(RH_files)){ 
     RH_files[[i]] <- RH_files[[i]] %>% 
-      pmap(~pick_files_RH(.y, .x)) #pick up month_lag and year to select the correct humidity raster files
+      pmap(~pick_files_RH(.y, .x)) # select the correct humidity raster files based on month_lag and year
   }
   
+  # flatten the list of selected raster files into a single vector
   raster_all <- unlist(RH_files)
   
   #for (i in 1:length(vars)) {
-    var_name <- paste0('RH_monthly_', as.character(vars[1]), 'm')
-    df <- map2(GPS_all[[k]], raster_all, get_crs)  #transform GPS coords to match raster projection
-    df <- pmap(list(raster_all, df, vars[1]), extract_fun_month)
-    df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('RH')))
-    df <- plyr::ldply(df)%>% dplyr::select(-c(ID))
-    df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1)
+  var_name <- paste0('RH_monthly_', as.character(vars[1]), 'm') # define variable name based on the lag (vars[1]) and create the dataframe for each country
+  df <- map2(GPS_all[[k]], raster_all, get_crs) # transform gps coordinates to match the projection of the raster files
+  df <- pmap(list(raster_all, df, vars[1]), extract_fun_month) # extract the relative humidity data using the gps coordinates and raster files
+  df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('RH'))) # rename the humidity data columns for clarity
+  df <- plyr::ldply(df)%>% dplyr::select(-c(ID)) # combine the results into a dataframe and remove the ID column
+  df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) # ensure data is sorted by month, and keep only the first record if there are multiple survey months per cluster
   #}
   
+  # store the processed dataframe in the list for this country
   df_list_RH[[k]] <- df
+  
+  # bind the data for all countries into a single dataframe
   df_binded_RH <- df_list_RH %>% bind_rows()
+  
+  # write the final dataframe to a CSV file
   write.csv(df_binded_RH, file = file.path(OutDir, paste0("RH_monthly_DHS.csv")),row.names = FALSE)
 }
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Temperature - Raster Data (2-month lag)
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
-#### READ IN RASTER DATA- Temperature ####
-## Using a 2-month lag for temperature data
-
-# 2009- 2023
+# create a list of temperature raster files for the years 2009 to 2023
 list_temp <- list(temp_2009 <- brick(file.path(TempDir, 'temp_2009.grib')),
                   temp_2010 <- brick(file.path(TempDir, 'temp_2010.grib')),
                   temp_2011 <- brick(file.path(TempDir, 'temp_2011.grib')),
@@ -674,61 +835,84 @@ list_temp <- list(temp_2009 <- brick(file.path(TempDir, 'temp_2009.grib')),
                   temp_2021 <- brick(file.path(TempDir, 'temp_2021.grib')),
                   temp_2022 <- brick(file.path(TempDir, 'temp_2022.grib')),
                   temp_2023 <- brick(file.path(TempDir, 'temp_2023.grib'))
-                  )
+)
 
-
+# rename the layers in each year's dataset using month abbreviations (Jan, Feb, etc.)
+# (makes it easier to identify the months when working with the data)
 for (i in 1:length(list_temp)){
-  names(list_temp[[i]]) <- paste0("temp_", month.abb) #redo for each file
+  names(list_temp[[i]]) <- paste0("temp_", month.abb) # assign month abbreviations to each layer
 }
 
+# check the number of layers in the first raster (should be 12 for each month)
 nlayers(list_temp[[1]])
 
-plot(list_temp[[1]], 1) #Visually inspecting Relative humidity- Jan 2010
+# visually inspect the first layer (january 2009) of the temperature data (list in R starts with index 1)
+plot(list_temp[[1]], 1)
 
+# assign year names to each element in the list for easier reference
 names(list_temp) <- c("2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", 
-                    "2017", "2018", "2019","2020", "2021", "2022", "2023")
+                      "2017", "2018", "2019","2020", "2021", "2022", "2023")
 
-
-#Apply over dhs_all list--- Repeat for each country
-
+# initialize an empty list to store temperature data for each country
 df_list_temp <- list()
 
+# iterate over the list of countries (dhs_all)
 for (k in 1:length(dhs_all)){
   
+  # apply get_month_str_RH function over each country to get corresponding month strings
   temp_files <- lapply(dhs_all[[k]], get_month_str_RH)
   
+  # iterate over temp_files to pick the correct temperature raster files
   for (i in 1:length(temp_files)){
     temp_files[[i]] <- temp_files[[i]] %>% 
-      pmap(~pick_files_temp(.y, .x)) #pick up month_lag and year to select the correct humidity raster files
+      pmap(~pick_files_temp(.y, .x)) # pick month_lag and year to select the correct temperature raster files
   }
   
+  # flatten the list of raster files
   raster_all <- unlist(temp_files)
   
   #for (i in 1:length(vars)) {
-    var_name <- paste0('temp_monthly_', as.character(vars[1]), 'm')
-    df <- map2(GPS_all[[k]], raster_all, get_crs)  #transform GPS coords to match raster projection
-    df <- pmap(list(raster_all, df, vars[1]), extract_fun_month)
-    df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('temp')))
-    df <- plyr::ldply(df)%>% dplyr::select(-c(ID))
-    df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1)
+  var_name <- paste0('temp_monthly_', as.character(vars[1]), 'm') # create a variable name for temperature with a monthly lag
+  df <- map2(GPS_all[[k]], raster_all, get_crs) # transform GPS coordinates to match raster projection
+  df <- pmap(list(raster_all, df, vars[1]), extract_fun_month) # extract temperature data using the extract_fun_month function
+  df <- df %>% map(~rename_with(., .fn=~paste0(var_name), .cols = contains('temp'))) # rename columns to include the variable name and remove 'ID' column
+  df <- plyr::ldply(df)%>% dplyr::select(-c(ID))
+  df <- df %>% arrange(month) %>%  group_by(dhs_year, hv001) %>%  slice(1) # ensure data is sorted by month, and keep only the first record if there are multiple survey months per cluster
+  #}
   #}
   
+  # store the processed data in the list for each country
   df_list_temp[[k]] <- df
+  
+  # combine all country-level data into a single dataframe
   df_binded_temp <- df_list_temp %>% bind_rows()
+  
+  # write the combined data to a CSV file
   write.csv(df_binded_temp, file = file.path(OutDir, paste0("temp_monthly_DHS.csv")),row.names = FALSE)
 }
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Merge Environment Variables
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
-### Merging all environemnt variables
+# read in the csv files for each environmental variable
 df_binded_EVI <- read.csv(file.path(OutDir, "EVI_DHS.csv"))
 df_binded_precip <- read.csv(file.path(OutDir, "precip_DHS.csv"))
 df_binded_RH  <- read.csv(file.path(OutDir, "RH_monthly_DHS.csv"))
 df_binded_temp <- read.csv(file.path(OutDir, "temp_monthly_DHS.csv"))
 
-merged_df <- df_binded_EVI %>% left_join(df_binded_precip, by = c()) %>% 
-  left_join(df_binded_RH, by = c()) %>% left_join(df_binded_temp, by = c()) %>% 
-  mutate(temp_monthly_2000m = ifelse(grepl("GH_2022|MZ_2022", .id), temp_monthly_2000m, temp_monthly_2000m - 273.15)) # converting temp from kelvin to degrees Celsius 
+# merge the datasets sequentially using left joins
+merged_df <- df_binded_EVI %>% 
+  left_join(df_binded_precip, by = c()) %>% 
+  left_join(df_binded_RH, by = c()) %>% 
+  left_join(df_binded_temp, by = c()) %>%
+  
+  # convert temperature from kelvin to celsius for specific records
+  mutate(temp_monthly_2000m = ifelse(grepl("GH_2022|MZ_2022", .id), 
+                                     temp_monthly_2000m, 
+                                     temp_monthly_2000m - 273.15))
 
-
+# save the final merged dataframe to a csv file
 write.csv(merged_df, file = file.path(OutDir, paste0("all_geospatial_monthly_DHS.csv")),row.names = FALSE)
-#END
+
+# END
