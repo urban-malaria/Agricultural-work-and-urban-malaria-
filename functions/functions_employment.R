@@ -4,7 +4,7 @@
 # Author: Dr. Ifeoma Ozodiegwu
 # Edited by: Grace Legris, Research Data Analyst (gracebea@gmail.com)
 # Edited: [2024-09-26]
-# Purpose: Data Processing and Visualization Functions for Agricultural Malaria Analysis
+# Purpose: Data processing and visualization functions for agricultural malaria analysis
 # ==========================================================================================================================================
 =======
 # -----------------------------------------

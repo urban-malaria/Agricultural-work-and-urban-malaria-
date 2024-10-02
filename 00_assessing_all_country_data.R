@@ -2,7 +2,7 @@
 # Script Name: Assessing All Country Data
 # Author: Dr. Ifeoma Ozodiegwu
 # Edited by: Grace Legris, Research Data Analyst (gracebea@gmail.com)
-# Edited: [2024-09-25]
+# Edited: [2024-09-30]
 # Purpose: To identify surveys that have the variables that we need for the analysis. 
 # ==========================================================================================================================================
 
@@ -115,7 +115,7 @@ plot_dat <- df %>%
   pivot_longer(cols = c("M", "R", "Wo", "Mo"), names_to = "name", values_to = "value")
 
 # reorder SurveyId by SurveyYear and set the order of the names for the plot
-plot_dat$SurveyId <- fct_reorder(plot_dat$SurveyId, plot_dat$SurveyYear)
+plot_dat$SurveyId <- fct_reorder(plot_dat$SurveyId, plot_dat$SurveyYear.x)
 plot_dat$name <- fct_relevel(plot_dat$name, "M", "R")
 
 # create bar plot for countries with agricultural data and malaria testing results, save as png
@@ -126,7 +126,7 @@ barplot <- ggplot(plot_dat, aes(x= name, y = as.numeric(value), fill=name)) +
   theme_manuscript() +
   theme(legend.title=element_blank(), legend.position = "top") +
   labs(x = "", y = "Percentage")
-  ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_malaria_agric_all_data.png"), p, width = 13, height = 14)
+ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_malaria_agric_all_data.png"), barplot, width = 13, height = 14)
 
 # display the plot  
 print(barplot)
@@ -142,10 +142,10 @@ barplot_no_missing <- ggplot(df_com, aes(x= name, y = as.numeric(value), fill=na
   geom_bar(stat = "identity")+ 
   facet_wrap(~SurveyId) +
   scale_fill_manual(values = color, label =label) +
-  #theme_manuscript() +
+  theme_manuscript() +
   theme(legend.title=element_blank(), legend.position = "top") +
   labs(x = "", y = "Percentage")
-  ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_malaria_agric_with_all_needed_analysis_data.png"), p, width = 13, height = 13)
+  ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_malaria_agric_with_all_needed_analysis_data.png"), barplot_no_missing, width = 13, height = 13)
 
 # display the plot
 print(barplot_no_missing)  
@@ -160,10 +160,10 @@ barplot_all_agric_data <- ggplot(df_com, aes(x= name, y = as.numeric(value), fil
   geom_bar(stat = "identity")+ 
   facet_wrap(~SurveyId) +
   scale_fill_manual(values = color, label =label) +
-  #theme_manuscript() +
+  theme_manuscript() +
   theme(legend.title=element_blank(), legend.position = "top") +
   labs(x = "", y = "Percentage")
-  ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_for_analysis_data.png"), p, width = 13, height = 13)
+  ggsave(paste0(FigDir,"/", Sys.Date(),"_country_datasets_for_analysis_data.png"), barplot_all_agric_data, width = 13, height = 13)
 
 # display the plot  
 print(barplot_all_agric_data)
@@ -196,11 +196,12 @@ plot_dat <- irs_dt %>%
 
 # create a bar plot to visualize the IRS data
 barplot_IRS <- ggplot(plot_dat, aes(x = name, y = as.numeric(value), fill = name)) +
-  geom_bar(stat = "identity") +  # Use bars to represent IRS values
-  facet_wrap(~SurveyId) +  # Create separate panels for each survey
-  #theme_manuscript() +  # Uncomment if a custom theme is defined
-  theme(legend.title = element_blank(), legend.position = "top") +  # Customize legend appearance
-  labs(x = "", y = "Percentage")  # Label the axes
+  geom_bar(stat = "identity") +  # use bars to represent IRS values
+  facet_wrap(~SurveyId) +  # create separate panels for each survey
+  theme_manuscript() +
+  theme(legend.title = element_blank(), legend.position = "top") +
+  labs(x = "", y = "Percentage")
+ggsave(paste0(FigDir,"/", Sys.Date(),"_barplot_irs_ssa_data.png"), barplot_IRS, width = 13, height = 13)
 
 # display the plot
 print(barplot_IRS)
