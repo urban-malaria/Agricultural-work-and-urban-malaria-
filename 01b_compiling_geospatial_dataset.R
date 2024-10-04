@@ -571,6 +571,7 @@ for(i in seq_along(SN_2010)) {names(SN_2010)[[i]] <- paste0(unique(SN_2010[[i]]$
 # SN_2014 <- survey_gps_comb(x= name3, y= name3)
 # for(i in seq_along(SN_2014)) {names(SN_2014)[[i]] <- paste0(unique(SN_2014[[i]]$hv007), '_', unique(SN_2014[[i]]$hv006))}
 
+##### get an error with first line here: SN_2015 does not exist
 SN_2015 <- survey_gps_comb(x= name4, y= name4)
 for(i in seq_along(SN_2015)) {names(SN_2015)[[i]] <- paste0(unique(SN_2015[[i]]$hv007), '_', unique(SN_2015[[i]]$hv006))}
 SN_2015[[10]] <- NULL
@@ -578,7 +579,6 @@ SN_2015[[10]] <- NULL
 SN_2016 <- survey_gps_comb(x=  name5, y=  name5)
 for(i in seq_along(SN_2016)) {names(SN_2016)[[i]] <- paste0(unique(SN_2016[[i]]$hv007), '_', unique(SN_2016[[i]]$hv006))}
 SN_2016[[11]] <- NULL
-
 
 SN_2017 <- survey_gps_comb(x= name6, y= name6)
 for(i in seq_along(SN_2017)) {names(SN_2017)[[i]] <- paste0(unique(SN_2017[[i]]$hv007), '_', unique(SN_2017[[i]]$hv006))}
@@ -619,6 +619,7 @@ dhs_all <- dhs_all %>%  map(~dplyr::select(., hv001, hv006, hv007, hv025)) %>%
   map(~distinct(.,)) #get cluster numbers by month and survey year
 dhs_all_TZ <- dhs_all
 
+#### error on first line
 TZ_2012 <- survey_gps_comb(x= names1, y= names1)
 for(i in seq_along(TZ_2012)) {names(TZ_2012)[[i]] <- paste0(unique(TZ_2012[[i]]$hv007), '_', unique(TZ_2012[[i]]$hv006))}
 
