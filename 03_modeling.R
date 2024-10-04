@@ -12,14 +12,14 @@ rm(list = ls())
 ## =========================================================================================================================================
 ### Directory Management and File Paths
 ## =========================================================================================================================================
-user <- Sys.getenv("USERNAME")
+user <- Sys.getenv("USER")
 if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
   DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("cchiz" %in% user) {
@@ -27,7 +27,7 @@ if ("ozodi" %in% user) {
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
@@ -35,7 +35,7 @@ if ("ozodi" %in% user) {
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if ("grace" %in% user) {
@@ -43,7 +43,7 @@ if ("ozodi" %in% user) {
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else {
@@ -52,7 +52,7 @@ if ("ozodi" %in% user) {
   #DriveDir <- file.path(Drive,  "OneDrive - Northwestern University", "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
-  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 }
@@ -85,15 +85,66 @@ all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for
          stunting = ifelse(hc70 < -300, "Stunted", ifelse(hc70 > 8000, NA, "Not stunted")))  # categorize stunting status
 
 # filter for urban location types into urban_df
-urban_df <-all_df %>%  filter(type == "Urban")  
+#urban_df <-all_df %>%  filter(type == "Urban")  
 
 # display the structure of urban_df
-glimpse(urban_df)
+#glimpse(urban_df)
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Add Housing Quality and Parental Education Variables (for OR and Predicted Probabilities Plots)
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+#### 1) Housing Quality Indicator Variable
+
+# factors considered:
+  # Improved Floor: categorized as having a finished floor (i.e., parquet or polished word, vinyl, ceramic tiles, cement or carpet)
+  # Improved External Wall: categorized as having a finished wall (cement, stone, bricks, or covered adobe)
+  # Improved Roof: categorized as having a finished roof (metal, calamine/cement fiber, ceramic tiles or cement)
+  # Modern House: Composite variable of having an improved floor, roof, and external walls.
+
+# ensure floor type, wall type, and roof type variables are the same across countries' surveys
+# make table to see values of floor, wall, and roof type variables and housing quality
+country_housing_summary <- urban_df %>%
+  group_by(CountryName) %>%
+  summarize(
+    floor_type_summary = paste(unique(floor_type), collapse = ", "),
+    roof_type_summary = paste(unique(roof_type), collapse = ", "),
+    wall_type_summary = paste(unique(wall_type), collapse = ", "),
+    avg_housing_quality = paste(unique(housing_quality), collapse = ", ")
+  )
+country_housing_summary %>%
+  gt() %>%
+  tab_header(
+    title = "Housing Quality Summary by Country"
+  ) %>%
+  cols_label(
+    CountryName = "Country",
+    floor_type_summary = "Floor Type",
+    roof_type_summary = "Roof Type",
+    wall_type_summary = "Wall Type",
+    avg_housing_quality = "Average Housing Quality"
+  )
+
+# housing quality indicator (created by Colleen Leonard @ cleonard297@gmail.com)
+# floor_type, wall_type, and roof_type were already made binary in urban_rural_analysis_data_for_modeling.csv (all_df)
+all_df <- all_df %>%
+  mutate(housing_quality = ifelse(floor_type == 1 & wall_type == 1 & roof_type == 1, 1, 0))
+                          # if floor_type, wall_type, and roof_type = 1 (indicating higher quality for each component), housing_quality = 1 (good housing quality)
+                          # if any of these components is 0 (indicating lower quality in any area), then housing_q is set to 0
+
+#### 2) Parental Education Variable
+# all_df <- all_df %>%
+#   mutate(parental_education = ifelse(hc61 %in% c(0, 1, 2), 0,ifelse(hc61 >= 8, NA, ifelse(hc61 == 2|3, 1, NA))))
+
+# should indicate whether the child’s parent or any adult caregiver has at least a secondary or higher education
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Prepare Data for Analysis
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # define variables of interest for analysis
 var <- list("home_type_factor", "hc1", "sex", "stunting", "u5_net_use_factor", "hh_size", "roof_type_factor", 
-            "wealth_index", "dhs_year_factor", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m")
+            "wealth_index", "dhs_year_factor", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m", "housing_quality")
 
 # define descriptive table names for corresponding variables
 table_names <- c("Household occupation category: agricultural", "Age", "Gender: male", "Stunting: stunted", 
@@ -101,7 +152,7 @@ table_names <- c("Household occupation category: agricultural", "Age", "Gender: 
                  "Wealth: poor", "Wealth: middle", "Wealth: rich", "Wealth: richest",
                  "DHS Year: 2013", "DHS Year: 2014", "DHS Year: 2015", "DHS Year: 2016", "DHS Year: 2017", 
                  "DHS Year: 2018", "DHS Year: 2019", "DHS Year: 2021", "DHS Year: 2022", "DHS Year: 2023", 
-                 "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature")
+                 "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature", "Modern House")
 
 # create a copy of all_df for further modifications if needed
 all_df_renamed_vars <- all_df
@@ -154,7 +205,7 @@ for (location in location_types) {
   all_results[[location]] <- bind_rows(unadj_df)
 }
 
-# combine results for all location types into a single dataframe and format the output
+# combine results for all location types into a single dataframe and format the output to just include ORs and CIs
 all_results_combined <- bind_rows(all_results) %>%
   transmute(
     term, # keep the term column
@@ -259,7 +310,8 @@ all_df2 <- all_df %>%
          # create a binary variable for stunting (1 for stunted, 0 for not stunted)
          # if the value of 'hc70' is greater than 8000, mark it as NA
          stunting_dep = ifelse(hc70 < -300, 1, ifelse(hc70 > 8000, NA, 0)),
-         stunting_dep = as.factor(stunting_dep)) # convert to a factor
+         stunting_dep = as.factor(stunting_dep), # convert to a factor
+         housing_quality = as.factor(housing_quality)) # convert to a factor
 
 # filter the data to separate urban and rural models
 urban_df <- all_df2 %>% filter(type == "Urban")
@@ -278,7 +330,9 @@ formulas <- list(
   home_type_dep ~ u5_net_use_dep,
   home_type_dep ~ hh_size,
   home_type_dep ~ temp_monthly_2000m,
-  home_type_dep ~ wealth_index)
+  home_type_dep ~ wealth_index,
+  home_type_dep ~ housing_quality)
+  #home_type_dep ~ parental_education)
 
 # run the regressions separately for urban and rural datasets
 urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
@@ -306,6 +360,8 @@ final_results <- bind_rows(urban_results_df, rural_results_df)  %>%
     model_number == 10 ~ "home_type_dep ~ hh_size",
     model_number == 11 ~ "home_type_dep ~ temp_monthly_2000m",
     model_number == 12 ~ "home_type_dep ~ wealth",
+    model_number == 13 ~ "home_type_dep ~ housing_quality",
+    #model_number == 14 ~ "home_type_dep ~ parental_education",
     TRUE ~ model_number ))
 
 # display the final results
@@ -323,7 +379,9 @@ formulas <- list(
   malaria_result ~ home_type_dep + u5_net_use,
   malaria_result ~ home_type_dep + hh_size,
   malaria_result ~ home_type_dep + temp_monthly_2000m,
-  malaria_result ~ home_type_dep + wealth_index)
+  malaria_result ~ home_type_dep + wealth_index,
+  malaria_result ~ home_type_dep + housing_quality)
+  #malaria_result ~ home_type_dep + parental_education)
 
 # Run the regressions separately for Urban and Rural
 urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
@@ -345,6 +403,8 @@ final_results_phase2 <- bind_rows(urban_results_df, rural_results_df)  %>%
     model_number == 4 ~ "malaria_result ~ home_type_dep + hh_size",
     model_number == 5 ~ "malaria_result ~ home_type_dep + temp_monthly_2000m",
     model_number == 6 ~ "malaria_result ~ home_type_dep + wealth",
+    model_number == 7 ~ "malaria_result ~ home_type_dep + housing_quality",
+    model_number == 7 ~ "malaria_result ~ home_type_dep + parental_education",
     TRUE ~ model_number ))
 
 # Display the final results
@@ -352,9 +412,10 @@ final_results_phase2
 
 write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_final_phase_results.xlsx"))
 
-## -----------------------------------------
-### Mediation analysis Predicted probabilities and OR plots
-## -----------------------------------------
+
+## =========================================================================================================================================
+### Mediation Analysis: Predicted Probabilities and OR plots
+## =========================================================================================================================================
 
 svy_design <- svydesign_fun(urban_df)
 
@@ -369,7 +430,9 @@ formulas <- list(
   malaria_result ~ home_type_dep + u5_net_use,
   malaria_result ~ home_type_dep + hh_size,
   malaria_result ~ home_type_dep + temp_monthly_2000m,
-  malaria_result ~ home_type_dep + wealth_index)
+  malaria_result ~ home_type_dep + wealth_index,
+  malaria_result ~ home_type_dep + housing_quality)
+  #malaria_results ~ home_type_dep + parental_education)
 
 
 # Define the term names based on formulas
@@ -380,13 +443,17 @@ term_names <- c(
   "home type + u5 net use",
   "home type + household size",
   "home type + temperature",
-  "home type + wealth index"
-)
+  "home type + wealth index",
+  "home type + housing quality")
+  #"home type + parental education"
+#)
 
 # Apply the formulas to generate model results
 model_datasets_results <- lapply(formulas, fun_model)
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
 ### OR generation and plotting
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # Function to tidy and process the model results
 fun_or <- function(model_){
@@ -413,7 +480,7 @@ df_or <- lapply(model_datasets_results, fun_or) %>%
 df_or <- df_or %>% rename(variables = formula_name) %>% 
   select(variables, odds, lower_ci, upper_ci) 
 
-color_list <- c("forestgreen", "darkorchid4", "#d391fa", "#3e00b3", "#c55c80", "#e07a5f", "#0d47a1")
+color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "#FFD700", "#4682B4")
 
 forest_b <- ggplot(df_or, aes(x = odds, y = variables)) + 
   geom_vline(aes(xintercept = 1, color = variables), size = .25, linetype = "dashed") + 
@@ -433,17 +500,21 @@ forest_b <- ggplot(df_or, aes(x = odds, y = variables)) +
   theme(axis.text.y = element_text(colour=color_list))
 forest_b
 
-### Predicted probabilities generation and ploting
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Predicted probabilities generation and plotting
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # Define the term names based on formulas
-term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7"), 
+term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7", "8", "9"), 
                          variable = c("home type",
                                        "home type + stunting",
                                        "home type + roof type",
                                        "home type + u5 net use",
                                        "home type + household size",
                                        "home type + temperature",
-                                       "home type + wealth index"))
+                                       "home type + wealth index",
+                                       "home type + housing quality",
+                                       "home type + parental education"))
   
 
 # Process all model results and bind them into one dataframe
@@ -462,7 +533,7 @@ df_effect <- lapply(model_datasets_results, effect_df_fun) %>%
   filter(term_name == "1")
 
 
-#predicted probability 
+# predicted probability plot
 pred_p <- ggplot() + 
   geom_errorbar(data = df_effect, aes(y = effect, x = variable, ymax = lower, ymin = upper, color = variable), size = .5, width = .2) + 
   geom_point(data = df_effect, aes(y = effect, x = variable, color = variable), size = 2.5) +
@@ -480,6 +551,7 @@ pred_p <- ggplot() +
 
 pred_p
 
+# combine OR and PP plots
 all_p <- forest_b + pred_p
 all_p
 
@@ -1129,3 +1201,12 @@ result_preci <- svyglm(malaria_result ~ preci_monthly_2000m,
 # test significance of PRECIPITATION
 regTermTest(result_preci, test.terms = ~ preci_monthly_2000m,
             df = degf(result_preci$survey.design), method = "LRT")
+
+
+## =========================================================================================================================================
+### Difference-in-Difference Analysis
+## =========================================================================================================================================
+
+
+
+

@@ -70,10 +70,10 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 
 # log in into dhs
 my_config <- set_rdhs_config(email = "gracebea@gmail.com", #cchiziba@gmail.com",#"ozodiegwui@gmail.com",
-                             project = "Net ownership by individual", # "Association of household member engagement in agricultural work and malaria",
+                             project = "Agricultural Malaria Project", #"Net ownership by individual", # "Association of household member engagement in agricultural work and malaria",
                              config_path = "rdhs.json",
                              cache_path = "data",
-                             #password_prompt = TRUE,
+                             password_prompt = TRUE,
                              global = FALSE, 
                              timeout = 600)
 
@@ -121,7 +121,7 @@ for (i in 1:nrow(ir_datasets)) {
       cat("ERROR:", conditionMessage(e), "\n")
     })
 }
-
+  
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Processing and Saving IR Dataset Downloads: Urban and Rural Data Transformation and Export
@@ -132,6 +132,7 @@ saveRDS(ir_downloads, file.path(PopDir, "analysis_dat/ir_downloads.rds"))
 
 # load the previously saved IR downloads if needed
 ir_downloads<- readRDS(file.path(PopDir, "analysis_dat/ir_downloads.rds"))
+print(ir_downloads)
 
 # check for any surveys that failed to download and need manual intervention
 data.frame(SurveyId = setdiff(survs$SurveyId, ir_datasets$SurveyId))
@@ -240,20 +241,20 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 # xlabel = "Occupation (A - Agricultural work, O - other, U - unemployed, M - Missing)"
 # color = c("#a7cece", "#e8a6bd", "#afb2cb", "#aaa3a2")
 # p <- bar_fun(plot_u_df, "category" ,"category", "DHS datasets with agricultural worker data (urban areas)", xlabel)+
-#   scale_fill_manual(values= color)+
-#   facet_wrap(vars(country_year), scales="free")
+#    scale_fill_manual(values= color)+
+#    facet_wrap(vars(country_year), scales="free")
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_urban_DHS_datasets_agric_data.png"), p, width = 13, height = 13)
-# 
+# p 
 # p <- bar_fun(plot_r_df, "category" , "category","DHS datasets with agricultural worker data (rural areas)", xlabel)+
-#   scale_fill_manual(values=color)+
-#   facet_wrap(vars(country_year), scales="free")
+#    scale_fill_manual(values=color)+
+#    facet_wrap(vars(country_year), scales="free")
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_rural_DHS_datasets_agric_data.png"), p, width = 13, height = 13)
 
 
 
 # Change to weighted percentage to compare across countries 
 # urban
-# plot_u_df <- dhs_ir_urban  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%  
+# plot_u_df <- dhs_ir_urban  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%
 #  map(~group_by(., category)) %>%  map(~summarize(., across(country_year), percent = survey_mean() *100,
 #                                             total = survey_total())) %>%  map(~distinct(., category, .keep_all = TRUE))
 # plot_u_df <- plyr::ldply(plot_u_df) %>%  mutate(category = factor(category, levels = c("M", "U", "O", "A")))
@@ -262,14 +263,15 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 # color = c("#aaa3a2", "#afb2cb", "#e8a6bd", "#a7cece")
 # p <- col_fun(plot_u_df, "country_year", "percent", "category", "Weighted Percentage (urban areas)", color, label)
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_urban_DHS_datasets_agric_data_weighted_percent.png"), p, width = 13, height = 13)
-# 
-# # rural 
-# plot_r_df <- dhs_ir_rural  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%  
+# p
+# # rural
+# plot_r_df <- dhs_ir_rural  %>% map(~as_survey_design(., ids= id,strata=strat,nest=T,weights= wt))%>% map(~drop_na(.,category)) %>%
 #   map(~group_by(., category)) %>%  map(~summarize(., across(country_year), percent = survey_mean() *100,
 #                                                   total = survey_total())) %>%  map(~distinct(., category, .keep_all = TRUE))
 # plot_r_df  <- plyr::ldply(plot_r_df) %>%  mutate(category = factor(category, levels = c("M", "U", "O", "A")))
 # p <- col_fun(plot_r_df, "country_year", "percent", "category", "Weighted Percentage (rural areas)", color, label)
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_rural_DHS_datasets_agric_data_weighted_percent.png"), p, width = 13, height = 13)
+# p
 # 
 
 
@@ -278,7 +280,7 @@ plot_r_df <- dhs_ir_rural %>% map(~dplyr::select(., country_year,category)) %>% 
 ## =========================================================================================================================================
 
 # download MR datasets based on survey IDs
- mr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "MR") #%>%
+mr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "MR") #%>%
    #group_by(CountryName) %>%
    #slice_max(SurveyYear)
 
@@ -588,7 +590,7 @@ dhs_pr_rural<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 ### Data Exploration
 ## =========================================================================================================================================
 
-# add max year, year combo, and country-year info to each urban dataset
+# add max year, year combo (e.g. 2015 - 16), and country-year info (e.g. Angola 2015 - 16) to each urban dataset
 # plot to view urban malaria data 
 dhs_pr_urban <- dhs_pr_urban1 %>%
   map(~mutate(., 
@@ -618,23 +620,48 @@ plot_r_df <- dhs_pr_rural %>%
   bind_rows(.id = "column_label")
 
 
-#do we have enough data for this analysis?
+# # do we have enough data for this analysis?
 # label = "malaria_test results"
 # color = c("darkslategray2", "deeppink3", "#aaa3a2") #"#967cb9"
+# 
+# # plot: URBAN DHS datasets with malaria test results among 6 - 59 years
 # p <- bar_fun(plot_u_df, "test_result" , "test_result", "DHS datasets with malaria test results among 6 - 59 years (urban areas)", label)+
-#   scale_fill_manual(values= color)+
-#   xlab("Malaria test results by Microscopy or RDT")+
-#   facet_wrap(vars(country_year), scales="free")
+#    scale_fill_manual(values= color)+
+#    xlab("Malaria test results by Microscopy or RDT")+
+#    facet_wrap(vars(country_year), scales="free")
+# p
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_urban_DHS_datasets_malaria_test_data.png"), p, width = 13, height = 13)
-
+# 
+# # plot: RURAL DHS datasets with malaria test results among 6 - 59 years
 # p <- bar_fun(plot_r_df, "test_result" , "test_result",  "DHS datasets with malaria test results among 6 - 59 years (rural areas)", label)+
-#   scale_fill_manual(values= color)+
-#   xlab("Malaria test results by Microscopy or RDT")+
-#   facet_wrap(vars(country_year), scales="free")
+#  scale_fill_manual(values= color)+
+#  xlab("Malaria test results by Microscopy or RDT")+
+#  facet_wrap(vars(country_year), scales="free")
+# p
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_rural_DHS_datasets_malaria_test_data.png"), p, width = 13, height = 13)
 
 
-# change to survey weighted percentage to compare across countries
+# # change to survey weighted percentage to compare across countries
+# plot_u_df <- dhs_pr_urban %>%
+#   # convert each urban dataset to a survey design object
+#   map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
+#   
+#   # mutate test_result to handle missing values
+#   map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
+#   
+#   # group by test_result for aggregation
+#   map(~group_by(., test_result)) %>%
+#   
+#   # summarize to calculate weighted percentages and totals
+#   map(~summarize(., 
+#                  across(c(country_year, code_year), 
+#                         percent = survey_mean() * 100, 
+#                         total = survey_total()))) %>%
+#   
+#   # keep distinct test results while preserving other columns
+#   map(~distinct(., test_result, .keep_all = TRUE))
+
+# edit to above commented out code so it runs: took survey_mean and survey_total out of across() function
 plot_u_df <- dhs_pr_urban %>%
   # convert each urban dataset to a survey design object
   map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
@@ -647,9 +674,8 @@ plot_u_df <- dhs_pr_urban %>%
   
   # summarize to calculate weighted percentages and totals
   map(~summarize(., 
-                 across(c(country_year, code_year), 
-                        percent = survey_mean() * 100, 
-                        total = survey_total()))) %>%
+                 percent = survey_mean() * 100,    # Calculate weighted percentage
+                 total = survey_total())) %>%      # Calculate weighted total
   
   # keep distinct test results while preserving other columns
   map(~distinct(., test_result, .keep_all = TRUE))
@@ -681,11 +707,6 @@ plot_u_df <- plyr::ldply(plot_u_df) %>%
 df_recent <- read.csv(file.path(PopDir, "analysis_dat/final_surveys.csv")) %>%
   # extract country ID from the code_year variable
   mutate(cntryId = stringr::str_extract(code_year, "^.{2}"))
-
-df_trend <- plot_u_df %>% mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) %>%  
-  mutate(year = parse_number(code_year)) %>% filter(year > 2009) %>% group_by(cntryId) %>% slice_max(year, n = 4) %>%  
-  ungroup()%>%  select(code_year) %>%  distinct() %>% mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) %>% 
-  filter(cntryId %in% c(df_recent$cntryId))
 
 # process plot_u_df to analyze trends
 df_trend <- plot_u_df %>%
@@ -746,13 +767,13 @@ mr_rural <- plyr::ldply(mr_rural) # bind all rural MR datasets into one data fra
 # combine all urban PR datasets
 pr_urban %>% map(~dim(.x)[[2]]) # check column dimensions - get smallest column length in list and position
 pr_urban <- pr_urban %>% map_if(~all(c('sh511') %in% colnames(.x)), ~dplyr::select(., -sh511)) # drop 'sh511' if present
-pr_urban <- pr_urban %>% map(~dplyr::select(., colnames(pr_urban[[13]]) %>% discard(~ .x %in% c("hc11", "hc10", "hc12")))) # select consistent columns, excluding specific ones
+#pr_urban <- pr_urban %>% map(~dplyr::select(., colnames(pr_urban[[13]]) %>% discard(~ .x %in% c("hc11", "hc10", "hc12")))) # select consistent columns, excluding specific ones
 pr_urban <- plyr::ldply(pr_urban) # bind all urban PR datasets into one data frame
 
 # combine all rural PR datasets
 pr_rural %>% map(~dim(.x)[[2]]) # check column dimensions - get smallest column length in list and position
 pr_rural <- pr_rural %>% map_if(~all(c('sh511') %in% colnames(.x)), ~dplyr::select(., -sh511)) # drop 'sh511' if present
-pr_rural <- pr_rural %>% map(~dplyr::select(., colnames(pr_rural[[13]]) %>% discard(~ .x %in% c("hc11", "hc10", "hc12")))) # select consistent columns, excluding specific ones
+#pr_rural <- pr_rural %>% map(~dplyr::select(., colnames(pr_rural[[13]]) %>% discard(~ .x %in% c("hc11", "hc10", "hc12")))) # select consistent columns, excluding specific ones
 pr_rural <- plyr::ldply(pr_rural) # bind all rural PR datasets into one data frame
 
 # save the combined datasets for future analysis
@@ -855,7 +876,7 @@ p <- bar_fun(
 ) +
   scale_fill_manual(values = color) + # customize the fill colors for the plot
   facet_wrap(vars(country_year), scales = "free") # facet the plot by country_year with free scales
-
+p
 # save the plot to a PDF file with the current date in the filename
 ggsave(paste0(FigDir,"/", Sys.Date(),"_women_men_survey_urban_DHS_datasets_agric_data.pdf"), p, width = 8.5, height = 8.5)
 
@@ -947,6 +968,7 @@ p <- bar_fun(
 ) + 
   scale_fill_manual(values = color) +  # apply custom colors to the fill
   facet_wrap(vars(country_year), scales = "free")  # create separate plots for each country
+p
 
 # save the plot as a PDF file
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_women_men_survey_urban.pdf"), p, width = 6.8, height = 5.5)
@@ -983,6 +1005,7 @@ p <- bar_fun(
 ) + 
   scale_fill_manual(values = color) +  # apply custom colors to the fill
   facet_wrap(vars(country_year.x), scales = "free")  # create separate plots for each country
+p
 
 # save the plot as a PDF file
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_joined_pr_data_women_men_survey_urban.pdf"), p, width = 6.8, height = 5.5)
@@ -1015,6 +1038,7 @@ p_urban <- ggplot(plot_overall, aes(fill = test_result, x = home_type2)) +
   facet_wrap(vars(title)) +  # create separate plots for each title
   theme(strip.text.x = element_text(size = 12, color = "black")) +  # customize facet label appearance
   coord_cartesian(ylim = c(0, 44000))  # set y-axis limits
+p_urban
 
 # plot by country (figure for supplement)
 # summarize data for malaria test results by country and home type
@@ -1135,6 +1159,7 @@ p <- bar_fun(
 ) + 
   scale_fill_manual(values = color) + 
   facet_wrap(vars(country_year), scales = "free")
+p
 
 # save the plot to a PDF file
 ggsave(paste0(FigDir,"/", Sys.Date(),"_women_men_survey_rural_DHS_datasets_agric_data.pdf"), p, width = 6.8, height = 5.5)
@@ -1165,6 +1190,7 @@ color = c("#aaa3a2", "#afb2cb", "#e8a6bd", "#a7cece")
 
 # create the plot using the defined function (see functions_employment.R)
 p <- col_fun(plot_u_df, "country_year", "percent", "occ_val7", "Weighted Percentage (rural areas)", color, label)
+p
 
 # save the plot to a PDF file
 ggsave(paste0(FigDir,"/", Sys.Date(),"_women_men_survey_rural_DHS_datasets_agric_data_weighted_percent.pdf"), p, width = 5.5, height = 3)
@@ -1206,6 +1232,7 @@ p <- bar_fun(plot_u_df,
              xlabel) +
   scale_fill_manual(values = color) +  # apply color scale
   facet_wrap(vars(country_year), scales = "free")  # create facets by country year
+p
 
 # save the plot to a PDF file
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_women_men_survey_rural.pdf"), p, width = 6.8, height = 5.5)
@@ -1235,6 +1262,7 @@ p <- bar_fun(plot_u_df,
              xlabel) +
   scale_fill_manual(values = color) +  # apply color scale
   facet_wrap(vars(country_year.x), scales = "free")  # create facets by country year
+p
 
 # save the plot as a PDF file
 ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_joined_pr_data_women_men_survey_rural.pdf"), p, width = 6.8, height = 5.5)
@@ -1277,6 +1305,7 @@ p_rural <- ggplot(plot_overall, aes(fill = test_result, x = home_type2)) +
 # combine urban and rural plots and adjust legend position
 p_malaria = p_urban + p_rural + plot_layout(guides = "collect") & 
   theme(legend.position = 'bottom')
+p_rural
 
 # save the combined plot as a PDF
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_HH_occupation_exposure_urban_rural.pdf"), p_malaria, width = 6.8, height = 5)
@@ -1302,6 +1331,7 @@ p <- ggplot(plot_country, aes(fill = test_result, x = home_type2)) +
        y = "Number of children, 6 - 59 months, tested positive for malaria in 22 DHS datasets") +  # y-axis label
   facet_wrap(vars(country_year.x), scales = "free") +  # create facets based on country year
   theme(legend.position = 'bottom')  # set legend position
+p
 
 # save the country-specific plot as a PDF
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
