@@ -10,7 +10,7 @@ rm(list = ls())
 ### Directory Management and File Paths
 ## =========================================================================================================================================
 
-user <- Sys.getenv("USER")
+user <- Sys.getenv("USERNAME")
 if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
@@ -55,6 +55,9 @@ if ("ozodi" %in% user) {
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 }
 
+
+source("functions/functions_employment.R")
+
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### URBAN: Difference-in-Differences Analysis + Scatterplot
 ## -----------------------------------------------------------------------------------------------------------------------------------------
@@ -80,6 +83,12 @@ did_results_urban <- urban_trend %>%
     DiD = (B - A) - (D - C)  # Difference-in-Differences calculation
   ) %>%
   ungroup()  # ensure no grouping is retained after summarization
+
+ggplot(did_results_urban, aes(country_surveyyears, DiD))+
+  geom_point(size = 5, alpha = 0.7, color = "#e07a5f")+
+  coord_flip() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50")+
+  theme_manuscript()
 
 library(stringr)
 
