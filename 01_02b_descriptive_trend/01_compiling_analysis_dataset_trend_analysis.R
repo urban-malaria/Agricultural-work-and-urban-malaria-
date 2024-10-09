@@ -155,9 +155,17 @@ for (i in 1:length(link_ir)){
     # read the IR dataset into R
     dhs_ir <- read_dta(link_ir[[i]])
     
+    # handle missing v701 (edu_man) - it is missing from TZIR6AFL.DTA and UGIR5AFL.DTA
+    if (!("v701" %in% names(dhs_ir))) {
+      dhs_ir$v701 <- NA  # create v701 as NA if it doesn't exist
+    }
+    
+    graces_test <- dhs_ir %>% 
+      select(matches("v106|v701"))
+    
     # select relevant columns and create new variables for analysis
     df <- dhs_ir %>%
-      dplyr::select(matches("v000|v001|v002|v003|v005|v006|v007|v012|v021|v022|v025|v106|v157|v158|v159|v168|v190|v501|v505|v704|v704a|v705|v716|v717|v731|v732|v743a|s1108ai|s1108ba|s1108bc|s1108bd|s1108bf|b19|h11_1|h11_2|h11_3|h11_4|h11_5|h11_6")) %>%
+      dplyr::select(matches("v000|v001|v002|v003|v005|v006|v007|v012|v021|v022|v025|v106|v157|v158|v159|v168|v190|v501|v505|v701|v704|v704a|v705|v716|v717|v731|v732|v743a|s1108ai|s1108ba|s1108bc|s1108bd|s1108bf|b19|h11_1|h11_2|h11_3|h11_4|h11_5|h11_6")) %>%
       mutate(
              # create household occupation variables for women and partners
              agri_partner=tryCatch(ifelse(v705 %in% c(4, 5), "A",ifelse(v705  %in% c(1, 2, 3, 6, 7,8, 9,96), "O", ifelse(v705 == 0, "U", NA))), error =function(e) return(NA)),
@@ -178,7 +186,7 @@ for (i in 1:length(link_ir)){
       # create an index based on specific 's1108' variables
       mutate(kap_index = if("new_s1108ai" %in% colnames(.)) (new_s1108ai+ new_s1108ba + new_s1108bc + new_s1108bd + kap_weak)/5 else NA) %>%
       # rename some variables for clarity and consistency
-      dplyr::rename(strat=v022, id=v021, dhs_year = v007, edu_woman  = v106, age_woman = v012,wealth = v190) %>%
+      dplyr::rename(strat=v022, id=v021, dhs_year = v007, edu_woman  = v106, edu_man = v701, age_woman = v012,wealth = v190) %>%
       dplyr::select(-c(starts_with("s1108"))) %>%
       
       # create a composite household occupation variable and categorize it
@@ -316,7 +324,7 @@ for (i in 1:length(mr_downloads)){
     
     # select relevant variables and create a new variable for agricultural work responses
     df <- dhs_mr %>%
-        dplyr::select(matches("mv000|mv001|mv002|mv005|mv007|mv012|mv022|mv021|mv025|mv106|mv190|mv717")) %>%
+        dplyr::select(matches("mv000|mv001|mv002|mv005|mv007|mv012|mv022|mv021|mv025|mv106|mv190|mv717|v106|v701")) %>%
         mutate(agric_work_man_response = tryCatch(ifelse(mv717 %in% c(4, 5), "A", ifelse(mv717 %in% c(1, 2, 3, 6, 7, 8, 9, 11), "O", ifelse(mv717 == 0, "U", NA))), error =function(e) return(NA))) %>%
         dplyr::rename(strat=mv022, id=mv021, dhs_year = mv007, edu_woman  = mv106, age_woman = mv012,wealth = mv190) %>%
         mutate(wt=mv005/1000000)
@@ -440,10 +448,6 @@ saveRDS(pr_downloads, file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 # load the saved RDS file (list of downloaded datasets)
 pr_downloads<- readRDS(file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 
-# initialize lists to store cleaned datasets, separating urban and rural data
-dhs_pr_urban <- list()
-dhs_pr_rural <- list()
-
 ## =========================================================================================================================================
 ### Data Loading and Transforming MR Datasets
 ## =========================================================================================================================================
@@ -484,7 +488,7 @@ for (i in 1:length(link_pr)) {
     
     # select relevant columns for analysis (e.g., demographic, household, malaria data)
     df <- dhs_pr %>%
-      dplyr::select(matches("hc1|hc60|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511"))
+      dplyr::select(matches("hc1|hc60|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511|v106|v701"))
     
     # special case for Cameroon 2011 (identified by unique DHS year and country code)
     if (paste0(unique(df[["hv000"]]), unique(df[["hv007"]]))[1] == "CM62011") {
@@ -641,48 +645,51 @@ plot_r_df <- dhs_pr_rural %>%
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_rural_DHS_datasets_malaria_test_data.png"), p, width = 13, height = 13)
 
 
-# # change to survey weighted percentage to compare across countries
-# plot_u_df <- dhs_pr_urban %>%
-#   # convert each urban dataset to a survey design object
-#   map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
-#   
-#   # mutate test_result to handle missing values
-#   map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
-#   
-#   # group by test_result for aggregation
-#   map(~group_by(., test_result)) %>%
-#   
-#   # summarize to calculate weighted percentages and totals
-#   map(~summarize(., 
-#                  across(c(country_year, code_year), 
-#                         percent = survey_mean() * 100, 
-#                         total = survey_total()))) %>%
-#   
-#   # keep distinct test results while preserving other columns
-#   map(~distinct(., test_result, .keep_all = TRUE))
+# change to survey weighted percentage to compare across countries
+plot_u_df <- dhs_pr_urban %>%
+  # convert each urban dataset to a survey design object
+  map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
+
+  # mutate test_result to handle missing values
+  map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
+
+  # group by test_result for aggregation
+  map(~group_by(., test_result)) %>%
+
+  browser()
+
+  # summarize to calculate weighted percentages and totals
+  map(~summarize(.,
+                 across(c(country_year),
+                        percent = survey_mean() * 100,
+                        total = survey_total()))) %>%
+
+  # keep distinct test results while preserving other columns
+  map(~distinct(., test_result, .keep_all = TRUE))
 
 # edit to above commented out code so it runs: took survey_mean and survey_total out of across() function
 plot_u_df <- dhs_pr_urban %>%
   # convert each urban dataset to a survey design object
   map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
-  
+
   # mutate test_result to handle missing values
   map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
-  
+
   # group by test_result for aggregation
   map(~group_by(., test_result)) %>%
-  
+
   # summarize to calculate weighted percentages and totals
-  map(~summarize(., 
-                 percent = survey_mean() * 100,    # Calculate weighted percentage
-                 total = survey_total())) %>%      # Calculate weighted total
-  
+  map(~summarize(.,
+                 percent = survey_mean(vartype = ("ci")) * 100,    # calculate weighted percentage
+                 total = survey_total())) %>%      # calculate weighted total
+
   # keep distinct test results while preserving other columns
   map(~distinct(., test_result, .keep_all = TRUE))
 
-# bind the results into a single dataframe and set factor levels for test_result
+# bind the results into a single dataframe, set factor levels for test_result, and rename CI columns for clarity
 plot_u_df <- plyr::ldply(plot_u_df) %>%
-  mutate(test_result = factor(test_result, levels = c("missing", "-ve", "+ve")))
+  mutate(test_result = factor(test_result, levels = c("missing", "-ve", "+ve"))) %>%
+  rename(lower_ci = percent_low, upper_ci = percent_upp)
 
 # label = c("Missing","Negative test","Positive test")
 # color = c("#aaa3a2",  "darkslategray2", "deeppink3")
@@ -1060,7 +1067,7 @@ p <- ggplot(plot_country, aes(x = reorder(country_year.x, -percent), y = percent
   theme_manuscript() +  # apply custom theme for manuscripts
   theme(legend.position = "bottom")  # position legend at the bottom
 
-# save the plot as a PDF file and .csv file
+# save the plot as a PDF file and data as a .csv file
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
 write_csv(urban_df, file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv"))
 
