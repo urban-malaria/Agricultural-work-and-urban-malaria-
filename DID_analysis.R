@@ -10,7 +10,7 @@ rm(list = ls())
 ### Directory Management and File Paths
 ## =========================================================================================================================================
 
-user <- Sys.getenv("USER")
+user <- Sys.getenv("USERNAME")
 if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
@@ -63,6 +63,7 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ## =========================================================================================================================================
 ### MALARIA DATA PREP
 ## =========================================================================================================================================
+source("functions/functions_employment.R")
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Malaria Data Prep: Original data that does NOT include confidence intervals (used for DiD)
@@ -208,6 +209,12 @@ did_results_urban_malaria <- urban_trend_malaria_updated %>%
     DiD = (B - A) - (D - C)  # difference-in-differences calculation
   ) %>%
   ungroup()  # ensure no grouping is retained after summarization
+
+ggplot(did_results_urban, aes(country_surveyyears, DiD))+
+  geom_point(size = 5, alpha = 0.7, color = "#e07a5f")+
+  coord_flip() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50")+
+  theme_manuscript()
 
 library(stringr)
 
