@@ -2,8 +2,8 @@
 # Script Name: Descriptive Analysis
 # Author: Dr. Ifeoma Ozodiegwu
 # Edited by: Grace Legris, Research Data Analyst (gracebea@gmail.com)
-# Edited: [2024-09-30]
-# Purpose: Create Models that Explore the Relationship Between Agricultural Worker HH and Malaria Test Positivity
+# Edited: [2024-10-16]
+# Purpose: Create Models that Explore the Relationship Between Home Type and Malaria Test Positivity
 # ==========================================================================================================================================
 
 # clear current workspace
@@ -91,52 +91,42 @@ all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for
 #glimpse(urban_df)
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
-### Add Housing Quality and Parental Education Variables (for OR and Predicted Probabilities Plots)
+### Add Housing Quality Variable
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 #### 1) Housing Quality Indicator Variable
 
 # factors considered:
   # Improved Floor: categorized as having a finished floor (i.e., parquet or polished word, vinyl, ceramic tiles, cement or carpet)
-  # Improved External Wall: categorized as having a finished wall (cement, stone, bricks, or covered adobe)
-  # Improved Roof: categorized as having a finished roof (metal, calamine/cement fiber, ceramic tiles or cement)
-  # Modern House: Composite variable of having an improved floor, roof, and external walls.
+  # Improved External Wall: categorized as having a finished wall (cement, stone, bricks, covered adobe, or tile)
+  # Improved Roof: categorized as having a finished roof (metal, calamine(zinc)/cement fiber, ceramic tiles, cement, or decra)
+  # Modern House: Composite variable of having an improved floor, roof, and external walls
 
-# ensure floor type, wall type, and roof type variables are the same across countries' surveys
-# make table to see values of floor, wall, and roof type variables and housing quality
-country_housing_summary <- urban_df %>%
-  group_by(CountryName) %>%
-  summarize(
-    floor_type_summary = paste(unique(floor_type), collapse = ", "),
-    roof_type_summary = paste(unique(roof_type), collapse = ", "),
-    wall_type_summary = paste(unique(wall_type), collapse = ", "),
-    avg_housing_quality = paste(unique(housing_quality), collapse = ", ")
-  )
-country_housing_summary %>%
-  gt() %>%
-  tab_header(
-    title = "Housing Quality Summary by Country"
-  ) %>%
-  cols_label(
-    CountryName = "Country",
-    floor_type_summary = "Floor Type",
-    roof_type_summary = "Roof Type",
-    wall_type_summary = "Wall Type",
-    avg_housing_quality = "Average Housing Quality"
-  )
-
-# housing quality indicator (created by Colleen Leonard @ cleonard297@gmail.com)
-# floor_type, wall_type, and roof_type were already made binary in urban_rural_analysis_data_for_modeling.csv (all_df)
+# add housing quality indicator to the df
 all_df <- all_df %>%
-  mutate(housing_quality = ifelse(floor_type == 1 & wall_type == 1 & roof_type == 1, 1, 0))
-                          # if floor_type, wall_type, and roof_type = 1 (indicating higher quality for each component), housing_quality = 1 (good housing quality)
-                          # if any of these components is 0 (indicating lower quality in any area), then housing_q is set to 0
-
-#### 2) Parental Education Variable
-# all_df <- all_df %>%
-#   mutate(parental_education = ifelse(hc61 %in% c(0, 1, 2), 0,ifelse(hc61 >= 8, NA, ifelse(hc61 == 2|3, 1, NA))))
-
-# should indicate whether the child’s parent or any adult caregiver has at least a secondary or higher education
+  mutate(
+    # housing quality indicator (created by Colleen Leonard @ cleonard297@gmail.com)
+    floor_type = ifelse(hv213 >= 98, NA, ifelse(hv213 %in% c(30, 31, 32, 33, 34, 35, 36, 37), 1, 0)),
+    wall_type = ifelse(hv214 >= 98, NA, ifelse (hv214 %in% c(30, 31, 32, 33, 34, 35, 37, 38), 1, 0)),
+    roof_type = ifelse(hv215 >= 98, NA, ifelse(hv215 %in% c(30, 31, 33, 34, 35), 1, 0)),
+    
+    # for guinea, if hv214 == 34 (wood planks/shingles), mark wall_type = 0
+    wall_type = ifelse(CountryName == "Guinea" & hv214 == 34, 0, wall_type),
+    
+    # for mozambique, if hv215 == 32 (calamine/cement fiber), mark roof_type = 1
+    roof_type = ifelse(CountryName == "Mozambique" & hv215 == 32, 1, roof_type),
+    
+    # create housing quality indicator:
+    # if floor_type, wall_type, and roof_type = 1 (indicating higher quality for each component), housing_quality = 1 (good housing quality)
+    # if any of these components is 0 (indicating lower quality in any area), then housing_q is set to 0
+    housing_quality = ifelse(floor_type == 1 & wall_type == 1 & roof_type == 1, 1, 0),
+    
+    # # parental education variable
+    # # edu_woman (v106) is woman's highest education level and edu_man (v701) is man's highest education level
+    # mutate(parental_education = ifelse(is.na(edu_woman) & is.na(edu_man), NA, # if both man and woman NA, mark NA
+    #                             ifelse(edu_woman %in% c(2, 3) | edu_man %in% c(2, 3), 1, # if either man or woman has at least secondary education, mark 1
+    #                             ifelse(edu_woman %in% c(0, 1) & edu_man %in% c(0, 1), 0, NA)))), # if both below secondary education, mark 0
+  )
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Prepare Data for Analysis
@@ -156,7 +146,6 @@ table_names <- c("Household occupation category: agricultural", "Age", "Gender: 
 
 # create a copy of all_df for further modifications if needed
 all_df_renamed_vars <- all_df
-#all_df_renamed_vars$
 
 # define location types for analysis
 location_types <- c("Urban", "Rural")
@@ -164,7 +153,7 @@ location_types <- c("Urban", "Rural")
 # initialize an empty list to store results for each location type
 all_results <- list() # To store results for each location type
 
-# loop through each location type defined in location_types (Urban or Rural)
+# loop through each location type defined in location_types (urban or rural) to create a survey df with CIs
 for (location in location_types) {
   # filter the data based on location type
   df <- all_df %>%
@@ -210,12 +199,12 @@ all_results_combined <- bind_rows(all_results) %>%
   transmute(
     term, # keep the term column
     estimate = sprintf("%.3f (%.3f – %.3f)", # format the estimates and confidence intervals
-                       round(odds, 3), round(lower_ci, 3), round(upper_ci, 3)), # Round and format odds and CIs
+                       round(odds, 3), round(lower_ci, 3), round(upper_ci, 3)),
     location # keep the location column
   ) %>%
   pivot_wider( # reshape the dataframe to wide format based on location
-    names_from = location, # use the location names as column headers
-    values_from = estimate # fill with the formatted estimates
+    names_from = location,
+    values_from = estimate
   )
 
 # display the combined results
@@ -263,10 +252,10 @@ run_svyglm <- function(formula, data) {
     # tidy the logistic regression model and calculate odds ratios (OR) and confidence intervals (CI)
     tidy_model <- tidy(model) %>%
       filter(term != "(Intercept)") %>%  # exclude the intercept term from results
-      rename(SE = std.error) %>%         # rename standard error column to 'SE'
+      rename(SE = std.error) %>%
       mutate(OR = exp(estimate),         # calculate odds ratio (exponentiate the estimate)
-             lower_ci = exp(estimate - 1.96 * SE),  # calculate lower bound of 95% CI
-             upper_ci = exp(estimate + 1.96 * SE))  # calculate upper bound of 95% CI
+             lower_ci = exp(estimate - 1.96 * SE),
+             upper_ci = exp(estimate + 1.96 * SE))
     
     # select relevant columns to return for logistic regression
     tidy_model <- tidy_model %>%
@@ -281,8 +270,8 @@ run_svyglm <- function(formula, data) {
       filter(term != "(Intercept)") %>% # exclude the intercept term
       rename_at(3, ~"SE") %>% # rename standard error column to 'SE'
       #mutate(odds = exp(estimate)) %>%
-      mutate(lower_ci = exp(-1.96 * SE + estimate)) %>% # calculate lower bound of CI
-      mutate(upper_ci = exp(1.96 * SE + estimate)) %>% # calculate upper bound of CI
+      mutate(lower_ci = exp(-1.96 * SE + estimate)) %>%
+      mutate(upper_ci = exp(1.96 * SE + estimate)) %>%
       tibble::rownames_to_column() %>% # add rownames as a column
       mutate(type = "unadjusted", location = location) # add additional details: type and location
   }
@@ -290,7 +279,7 @@ run_svyglm <- function(formula, data) {
   return(tidy_model)
 }
 
-# assuming your dataset is named 'all_df2', and 'typem' contains "Urban" and "Rural"
+# assuming your dataset is named 'all_df2', and 'typem' contains "urban" and "rural"
 all_df2 <- all_df %>% 
   
   # create a binary variable for malaria result (1 for positive, 0 for negative)
@@ -332,7 +321,6 @@ formulas <- list(
   home_type_dep ~ temp_monthly_2000m,
   home_type_dep ~ wealth_index,
   home_type_dep ~ housing_quality)
-  #home_type_dep ~ parental_education)
 
 # run the regressions separately for urban and rural datasets
 urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
@@ -361,7 +349,6 @@ final_results <- bind_rows(urban_results_df, rural_results_df)  %>%
     model_number == 11 ~ "home_type_dep ~ temp_monthly_2000m",
     model_number == 12 ~ "home_type_dep ~ wealth",
     model_number == 13 ~ "home_type_dep ~ housing_quality",
-    #model_number == 14 ~ "home_type_dep ~ parental_education",
     TRUE ~ model_number ))
 
 # display the final results
@@ -381,19 +368,18 @@ formulas <- list(
   malaria_result ~ home_type_dep + temp_monthly_2000m,
   malaria_result ~ home_type_dep + wealth_index,
   malaria_result ~ home_type_dep + housing_quality)
-  #malaria_result ~ home_type_dep + parental_education)
 
-# Run the regressions separately for Urban and Rural
+# run the regressions separately for urban and rural
 urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
 rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
 
-# Bind the results into a single dataframe with an indicator for Urban and Rural
+# bind the results into a single dataframe with an indicator for urban and rural
 urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
   mutate(location = "Urban")
 rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
   mutate(location = "Rural")
 
-# Combine the results into one dataframe
+# combine the results into one dataframe
 final_results_phase2 <- bind_rows(urban_results_df, rural_results_df)  %>% 
   mutate(p.value = round(p.value, 4))%>%
   mutate(model_number = case_when(
@@ -404,14 +390,483 @@ final_results_phase2 <- bind_rows(urban_results_df, rural_results_df)  %>%
     model_number == 5 ~ "malaria_result ~ home_type_dep + temp_monthly_2000m",
     model_number == 6 ~ "malaria_result ~ home_type_dep + wealth",
     model_number == 7 ~ "malaria_result ~ home_type_dep + housing_quality",
-    model_number == 7 ~ "malaria_result ~ home_type_dep + parental_education",
     TRUE ~ model_number ))
 
-# Display the final results
+# display the final results and save as excel file
 final_results_phase2
-
 write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_final_phase_results.xlsx"))
 
+## =========================================================================================================================================
+### Power / Sample Size Calculation
+## =========================================================================================================================================
+
+library(pwr)
+
+# calculate the required sample size based on the expected total effect (0.05)
+effect_size <- 0.05
+alpha <- 0.05
+power <- 0.80
+
+# calculate sample size
+sample_size <- pwr.r.test(r = effect_size, sig.level = alpha, power = power)
+print(sample_size) # we do have sufficient sample size
+
+## =========================================================================================================================================
+### Mediation Analysis (Grace): URBAN
+# https://uedufy.com/how-to-run-mediation-analysis-in-r/ (adapted code)
+## =========================================================================================================================================
+
+library(psych)
+library(lavaan)
+library(ggplot2)
+library(readxl)
+library(semPlot)
+library(officer)
+
+# function to calculate confidence interval
+calculate_ci <- function(est, se) {
+  lower_ci <- est - 1.96 * se
+  upper_ci <- est + 1.96 * se
+  return(c(lower_ci, upper_ci))
+}
+
+# bootstrapping function to calculate percent mediation and its CI
+bootstrap_mediation <- function(data, mediator, n_bootstrap = 1000) {
+  # initialize a vector to store percent mediation for each bootstrap sample
+  bootstrap_percent_mediation <- numeric(n_bootstrap)
+  
+  # loop to perform bootstrapping
+  for (i in 1:n_bootstrap) {
+    # resample data with replacement
+    boot_data <- data[sample(1:nrow(data), replace = TRUE), ]
+    
+    # define the mediation model using lavaan syntax
+    mediation_model <- paste0('
+      # direct effects
+      ', mediator, ' ~ a * home_type_dep
+      malaria_result ~ c * home_type_dep + b * ', mediator, '
+      
+      # indirect effect (a * b)
+      indirect := a * b
+
+      # total effect (c + indirect)
+      total := c + indirect
+    ')
+    
+    # fit the mediation model using the bootstrapped data
+    fit <- sem(mediation_model, data = boot_data)
+    
+    # extract estimates for indirect and total effects
+    estimates <- parameterEstimates(fit)
+    indirect_effect <- estimates$est[estimates$label == "indirect"]
+    total_effect <- estimates$est[estimates$label == "total"]
+    
+    # calculate percent mediation
+    if (total_effect != 0) {
+      bootstrap_percent_mediation[i] <- (indirect_effect / total_effect) * 100
+    } else {
+      bootstrap_percent_mediation[i] <- NA  # handle case where total effect is zero
+    }
+  }
+  
+  # calculate confidence intervals for percent mediation (95%)
+  ci_lower <- quantile(bootstrap_percent_mediation, probs = 0.025, na.rm = TRUE)
+  ci_upper <- quantile(bootstrap_percent_mediation, probs = 0.975, na.rm = TRUE)
+  
+  # return mean percent mediation and its confidence intervals
+  return(list(
+    percent_mediation = mean(bootstrap_percent_mediation, na.rm = TRUE),
+    ci_lower = ci_lower,
+    ci_upper = ci_upper
+  ))
+}
+
+# main mediation analysis function
+run_mediation_analysis <- function(data, n_bootstrap = 1000) {
+  
+  # retain only relevant columns
+  mediation_data <- data %>%    
+    select(home_type_dep, malaria_result, stunting_dep, roof_type, hh_size, wealth, housing_quality)
+  
+  # convert factor variables to numeric
+  mediation_data$home_type_dep <- as.numeric(as.factor(mediation_data$home_type_dep))
+  mediation_data$stunting_dep <- as.numeric(as.factor(mediation_data$stunting_dep))
+  mediation_data$housing_quality <- as.numeric(as.factor(mediation_data$housing_quality))
+  
+  # define the models as a named list of mediator variables
+  models <- list(
+    model_number_1 = c("stunting_dep"),
+    model_number_2 = c("roof_type"),
+    model_number_3 = c("hh_size"),
+    model_number_4 = c("wealth"),
+    model_number_5 = c("housing_quality")
+  )
+  
+  # initialize an empty data frame to store results
+  results_df <- data.frame(
+    mediator = character(),
+    effect_type = character(),
+    estimate = numeric(),
+    se = numeric(),
+    lower_ci = numeric(),
+    upper_ci = numeric(),
+    p_value = numeric(),
+    percent_mediation = numeric(),
+    ci_lower = numeric(),
+    ci_upper = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  # loop through each model and perform mediation analysis
+  for (model_name in names(models)) {  
+    # extract the mediator variable for the current model
+    mediator <- models[[model_name]]
+    
+    # define the mediation model using lavaan syntax
+    mediation_model <- paste0('
+      # direct effects
+      ', mediator, ' ~ a * home_type_dep
+      malaria_result ~ c * home_type_dep + b * ', mediator, '
+      
+      # indirect effect (a * b)
+      indirect := a * b
+
+      # total effect (c + indirect)
+      total := c + indirect
+    ') 
+    
+    # fit the mediation model using the lavaan package
+    mediation_results <- sem(mediation_model, data = mediation_data)
+    
+    # extract parameter estimates
+    params <- parameterEstimates(mediation_results)
+    
+    # obtain estimates, SEs, and p-values for indirect, direct, and total effects
+    indirect_est <- params$est[params$label == "indirect"]
+    indirect_se <- params$se[params$label == "indirect"]
+    indirect_p_value <- params$pvalue[params$label == "indirect"]
+    
+    direct_est <- params$est[params$label == "c"]
+    direct_se <- params$se[params$label == "c"]
+    direct_p_value <- params$pvalue[params$label == "c"]
+    
+    total_est <- params$est[params$label == "total"]
+    total_se <- params$se[params$label == "total"]
+    total_p_value <- params$pvalue[params$label == "total"]
+    
+    # calculate confidence intervals
+    indirect_ci <- calculate_ci(indirect_est, indirect_se)
+    direct_ci <- calculate_ci(direct_est, direct_se)
+    total_ci <- calculate_ci(total_est, total_se)
+    
+    # calculate percent mediation, check for non-zero total effect
+    # also run bootstrapping for percent mediation and its CI
+    if (total_est != 0) {
+      bootstrap_results <- bootstrap_mediation(mediation_data, mediator, n_bootstrap)
+    } else {
+      bootstrap_results <- list(percent_mediation = NA, ci_lower = NA, ci_upper = NA)
+    }
+    
+    # store indirect effect results
+    results_df <- rbind(results_df, data.frame(
+      mediator = mediator,
+      effect_type = "Indirect",
+      estimate = indirect_est,
+      se = indirect_se,
+      lower_ci = indirect_ci[1],
+      upper_ci = indirect_ci[2],
+      p_value = indirect_p_value,
+      percent_mediation = bootstrap_results$percent_mediation,
+      ci_lower = bootstrap_results$ci_lower,
+      ci_upper = bootstrap_results$ci_upper,
+      stringsAsFactors = FALSE
+    ))
+    
+    # store direct effect results
+    results_df <- rbind(results_df, data.frame(
+      mediator = mediator,
+      effect_type = "Direct",
+      estimate = direct_est,
+      se = direct_se,
+      lower_ci = direct_ci[1],
+      upper_ci = direct_ci[2],
+      p_value = direct_p_value,
+      percent_mediation = NA,  # no percent mediation for direct effect
+      ci_lower = NA,
+      ci_upper = NA,
+      stringsAsFactors = FALSE
+    ))
+    
+    # store total effect results
+    results_df <- rbind(results_df, data.frame(
+      mediator = mediator,
+      effect_type = "Total",
+      estimate = total_est,
+      se = total_se,
+      lower_ci = total_ci[1],
+      upper_ci = total_ci[2],
+      p_value = total_p_value,
+      percent_mediation = NA,  # no percent mediation for total effect
+      ci_lower = NA,
+      ci_upper = NA,
+      stringsAsFactors = FALSE
+    ))
+  }
+  
+  # clean and format the results for export
+  results_df <- results_df %>%
+    mutate(mediator = case_when(
+      mediator == "stunting_dep" ~ "Stunting",
+      mediator == "roof_type" ~ "Roof Type",
+      mediator == "hh_size" ~ "Household Size",
+      mediator == "wealth" ~ "Wealth",
+      mediator == "housing_quality" ~ "Housing Quality",
+      TRUE ~ mediator  # Keep original if no match
+    )) %>%
+    rename(
+      "Mediator" = mediator,
+      "Effect Type" = effect_type,
+      "Estimate" = estimate,
+      "SE" = se,
+      "Lower 95% CI" = lower_ci,
+      "Upper 95% CI" = upper_ci,
+      "P-Value" = p_value,
+      "% Mediation" = percent_mediation,
+      "Bootstrapped Lower CI" = ci_lower,
+      "Bootstrapped Upper CI" = ci_upper
+    )
+  
+  # create a clean table with estimates, SE, CI, p-value, and percent mediation
+  results_table <- results_df %>%
+    select("Mediator", "Effect Type", "Estimate", "SE", "Lower 95% CI", "Upper 95% CI", 
+           "P-Value", "% Mediation", "Bootstrapped Lower CI", "Bootstrapped Upper CI") %>%
+    mutate(across(c("Estimate", "SE", "Lower 95% CI", "Upper 95% CI", "% Mediation", "Bootstrapped Lower CI", "Bootstrapped Upper CI"), round, 3),
+           `P-Value` = ifelse(`P-Value` < 0.0001, "p < 0.0001", round(`P-Value`, 4)))
+  
+  return(results_table)
+}
+
+# create a Word document and add title
+doc <- read_docx()
+
+# run the function for urban_df and add the table to the document
+urban_results <- run_mediation_analysis(urban_df)
+doc <- doc %>%
+  body_add_par("Mediation Analysis Results - Urban", style = "heading 1") %>%
+  body_add_table(value = urban_results, style = "table_template")  # You can choose a different style if preferred
+
+# run the function for rural_df and add the table to the document
+rural_results <- run_mediation_analysis(rural_df)
+doc <- doc %>%
+  body_add_par("Mediation Analysis Results - Rural", style = "heading 1") %>%
+  body_add_table(value = rural_results, style = "table_template")  # You can choose a different style if preferred
+
+# save the document
+file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_bootstrapped.docx")
+print(doc, target = file_path)
+
+## =========================================================================================================================================
+### Mediation Analysis: Visualization of Results
+## =========================================================================================================================================
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### 1) Effect Size Bar Plot for Indirect, Direct, and Total Effects with Confidence Intervals
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# filter for effect sizes (indirect, direct, and total) - by urban and rural
+urban_effect_size_df <- urban_results %>%
+  filter(!is.na(Estimate) & `Effect Type` %in% c("Indirect", "Direct", "Total")) %>%
+  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`)
+rural_effect_size_df <- rural_results %>%
+  filter(!is.na(Estimate) & `Effect Type` %in% c("Indirect", "Direct", "Total")) %>%
+  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`)
+
+# create effect size plot (urban)
+urban_effect_size_plot <- ggplot(urban_effect_size_df, aes(x = Mediator, y = Estimate, fill = `Effect Type`)) +
+  geom_bar(stat = "identity", position = position_dodge(), color = "black") +
+  geom_errorbar(aes(ymin = `Lower 95% CI`, ymax = `Upper 95% CI`), 
+                position = position_dodge(0.9), width = 0.25) +
+  scale_fill_manual(values = c("Indirect" = "#ffa630", 
+                               "Direct" = "#d7e8ba", 
+                               "Total" = "#4da1a9")) +
+  labs(title = "Effect Sizes for Indirect, Direct, and Total Effects: Urban",
+       x = "Mediator",
+       y = "Effect Size") +
+  scale_y_continuous(limits = c(0, 0.15)) +
+  theme_manuscript() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# create effect size plot (rural)
+rural_effect_size_plot <- ggplot(rural_effect_size_df, aes(x = Mediator, y = Estimate, fill = `Effect Type`)) +
+  geom_bar(stat = "identity", position = position_dodge(), color = "black") +
+  geom_errorbar(aes(ymin = `Lower 95% CI`, ymax = `Upper 95% CI`), 
+                position = position_dodge(0.9), width = 0.25) +
+  scale_fill_manual(values = c("Indirect" = "#ffa630", 
+                               "Direct" = "#d7e8ba", 
+                               "Total" = "#4da1a9")) +
+  labs(title = "Effect Sizes for Indirect, Direct, and Total Effects: Rural",
+       x = "Mediator",
+       y = "Effect Size") +
+  scale_y_continuous(limits = c(0, 0.15)) +
+  theme_manuscript() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# combine and save urban and rural effect size bar plots
+
+# remove individual titles and x-axis labels from the urban and rural plots
+urban_effect_size_plot <- urban_effect_size_plot + 
+  labs(title = NULL, subtitle = "Urban", x = NULL) + 
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+rural_effect_size_plot <- rural_effect_size_plot + 
+  labs(title = NULL, subtitle = "Rural", x = NULL, y = NULL) + 
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+
+# function to extract the legend
+get_only_legend <- function(urban_effect_size_plot) { 
+  plot_table <- ggplot_gtable(ggplot_build(urban_effect_size_plot))  
+  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
+  legend <- plot_table$grobs[[legend_plot]] 
+  return(legend)  
+}
+
+legend <- get_only_legend(urban_effect_size_plot) 
+
+# remove individual legends as we need only one
+urban_effect_size_plot <- urban_effect_size_plot + theme(legend.position = "none")
+rural_effect_size_plot <- rural_effect_size_plot + theme(legend.position = "none") 
+
+combined_effect_bar_plot <- grid.arrange(urban_effect_size_plot, rural_effect_size_plot, ncol = 2)
+
+# arrange the combined plot and legend side by side
+combined_effect_bar_plot <- grid.arrange(
+  combined_effect_bar_plot,
+  legend,
+  nrow = 1,
+  ncol = 2,
+  heights = c(5),
+  widths = c(10, 2),
+  top = textGrob("Effect Sizes for Indirect, Direct, and Total Effects by Mediator",
+                 gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
+  bottom = textGrob("Mediator",
+                  gp = gpar(fontsize = 12))
+)
+
+# save as .pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_bar.pdf"), combined_effect_bar_plot, width = 7, height = 7) 
+
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### 2) Bar Plot for Percent Mediation with Confidence Intervals
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# filter for percent mediation (by urban and rural)
+urban_percent_mediation_df <- urban_results %>%
+  filter(!is.na(`% Mediation`)) %>%
+  select(Mediator, `% Mediation`, `Bootstrapped Lower CI`, `Bootstrapped Upper CI`)
+rural_percent_mediation_df <- rural_results %>%
+  filter(!is.na(`% Mediation`)) %>%
+  select(Mediator, `% Mediation`, `Bootstrapped Lower CI`, `Bootstrapped Upper CI`)
+
+# create bar plot with error bars: urban
+urban_perc_mediation_plot <- ggplot(urban_percent_mediation_df, aes(x = Mediator, y = `% Mediation`)) +
+  geom_bar(stat = "identity", fill = "#4da1a9", color = "black", width = 0.6) +
+  geom_errorbar(aes(ymin = `Bootstrapped Lower CI`, ymax = `Bootstrapped Upper CI`), width = 0.2) +
+  labs(title = "Percent Mediation by Mediator: Urban",
+       x = "Mediator",
+       y = "Percent Mediation (%)") +
+  theme_manuscript() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# create bar plot with error bars: rural
+rural_perc_mediation_plot <- ggplot(rural_percent_mediation_df, aes(x = Mediator, y = `% Mediation`)) +
+  geom_bar(stat = "identity", fill = "#4da1a9", color = "black", width = 0.6) +
+  geom_errorbar(aes(ymin = `Bootstrapped Lower CI`, ymax = `Bootstrapped Upper CI`), width = 0.2) +
+  labs(title = "Percent Mediation by Mediator: Rural",
+       x = "Mediator",
+       y = "Percent Mediation (%)") +
+  theme_manuscript() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# combine and save urban and rural % mediation bar plots
+
+# remove individual titles and x-axis labels from the urban and rural plots
+urban_perc_mediation_plot <- urban_perc_mediation_plot + 
+  labs(title = NULL, subtitle = "Urban", x = NULL) + 
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+rural_perc_mediation_plot <- rural_perc_mediation_plot + 
+  labs(title = NULL, subtitle = "Rural", x = NULL, y = NULL) + 
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+
+combined_perc_mediation_bar_plot <- grid.arrange(urban_perc_mediation_plot, rural_perc_mediation_plot, ncol = 2)
+
+# arrange the combined plot and legend side by side
+combined_perc_mediation_bar_plot <- grid.arrange(
+  combined_perc_mediation_bar_plot,
+  nrow = 1,
+  ncol = 2,
+  heights = c(5),
+  widths = c(10, 2),
+  top = textGrob("Percent Mediation Contributions of Various Mediators to Malaria Positivity",
+                 gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
+  bottom = textGrob("Mediator",
+                    gp = gpar(fontsize = 12))
+)
+
+# save as .pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_bar.pdf"), combined_perc_mediation_bar_plot, width = 7, height = 7) 
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### 3) Forest Plot for Percent Mediation with Confidence Intervals
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# create urban forest plot
+urban_perc_med_forest <- ggplot(urban_percent_mediation_df, aes(x = `% Mediation`, y = Mediator)) +
+  geom_point(color = "#4da1a9", size = 3) +
+  geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), height = 0.2, color = "#4da1a9") +
+  labs(title = "Forest Plot for Percent Mediation",
+       x = "Percent Mediation (%)",
+       y = "Mediator") +
+  scale_x_continuous(limits = c(0, 100)) +
+  theme_manuscript() +
+  theme(axis.text.y = element_text(size = 10))
+
+# create rural forest plot
+rural_perc_med_forest <- ggplot(rural_percent_mediation_df, aes(x = `% Mediation`, y = Mediator)) +
+  geom_point(color = "#4da1a9", size = 3) +
+  geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), height = 0.2, color = "#4da1a9") +
+  labs(title = "Forest Plot for Percent Mediation",
+       x = "Percent Mediation (%)",
+       y = "Mediator") +
+  scale_x_continuous(limits = c(0, 100)) +
+  theme_manuscript() +
+  theme(axis.text.y = element_text(size = 10))
+
+# combine and save urban and rural % mediation forest plots
+
+# remove individual titles and x-axis labels from the urban and rural plots
+urban_perc_med_forest <- urban_perc_med_forest + 
+  labs(title = NULL, subtitle = "Urban", x = NULL) + 
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+rural_perc_med_forest <- rural_perc_med_forest + 
+  labs(title = NULL, subtitle = "Rural", x = NULL) + 
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+
+combined_perc_mediation_forest <- grid.arrange(urban_perc_med_forest, rural_perc_med_forest)
+
+# arrange the combined plot and legend side by side
+combined_perc_mediation_forest <- grid.arrange(
+  combined_perc_mediation_forest,
+  nrow = 1,
+  heights = c(5),
+  widths = c(12),
+  top = textGrob("Percent Mediation Contributions of Various Mediators to Malaria Positivity",
+                 gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
+  bottom = textGrob("Percent Mediation (%)",
+                    gp = gpar(fontsize = 12))
+)
+
+# display the combined plot and save as .pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_forest.pdf"), combined_perc_mediation_forest, width = 7, height = 7) 
 
 ## =========================================================================================================================================
 ### Mediation Analysis: Predicted Probabilities and OR plots
@@ -423,40 +878,37 @@ fun_model <- function(model_formula){
   svyglm(model_formula, design = svy_design, family = binomial(link = "logit"))
 }
 
-formulas <- list(
-  malaria_result ~ home_type_dep,
-  malaria_result ~ home_type_dep + stunting,
-  malaria_result ~ home_type_dep + roof_type,
-  malaria_result ~ home_type_dep + u5_net_use,
-  malaria_result ~ home_type_dep + hh_size,
-  malaria_result ~ home_type_dep + temp_monthly_2000m,
-  malaria_result ~ home_type_dep + wealth_index,
-  malaria_result ~ home_type_dep + housing_quality)
-  #malaria_results ~ home_type_dep + parental_education)
+formulas <- list(malaria_result ~ home_type_dep,
+                 malaria_result ~ home_type_dep + stunting,
+                 malaria_result ~ home_type_dep + roof_type,
+                 #malaria_result ~ home_type_dep + u5_net_use,
+                 malaria_result ~ home_type_dep + hh_size,
+                 #malaria_result ~ home_type_dep + temp_monthly_2000m,
+                 malaria_result ~ home_type_dep + wealth_index,
+                 malaria_result ~ home_type_dep + housing_quality)
 
 
-# Define the term names based on formulas
+# define the term names based on formulas (remove net use and temp as they aren't significant)
 term_names <- c(
   "home type",
   "home type + stunting",
   "home type + roof type",
-  "home type + u5 net use",
+  #"home type + u5 net use",
   "home type + household size",
-  "home type + temperature",
+  #"home type + temperature",
   "home type + wealth index",
   "home type + housing quality")
-  #"home type + parental education"
-#)
 
-# Apply the formulas to generate model results
+# apply the formulas to generate model results
 model_datasets_results <- lapply(formulas, fun_model)
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### OR generation and plotting
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# Function to tidy and process the model results
-fun_or <- function(model_){
+# function to tidy and process the model results
+# added filter to filter out variables that are not statistically significant
+fun_or <- function(model_) {
   df <- tidy(model_) %>%
     filter(term != "(Intercept)") %>%
     rename(SE = std.error) %>%
@@ -465,97 +917,145 @@ fun_or <- function(model_){
       lower_ci = exp(estimate - 1.96 * SE),
       upper_ci = exp(estimate + 1.96 * SE)
     ) %>%
-    tibble::rownames_to_column()
-  
+    tibble::rownames_to_column() %>%
   return(df)
 }
 
-# Process all model results and bind them into one dataframe
+# process all model results and bind them into one dataframe
 df_or <- lapply(model_datasets_results, fun_or) %>% 
   bind_rows(.id = "formula_id") %>% 
   filter(term == "home_type_dep1") %>% 
   mutate(formula_name = term_names[as.numeric(formula_id)])
 
-# Rename the 'term' column to 'formula_name'
+# rename the 'term' column to 'formula_name'
 df_or <- df_or %>% rename(variables = formula_name) %>% 
-  select(variables, odds, lower_ci, upper_ci) 
+  select(variables, odds, lower_ci, upper_ci, p.value) 
 
-color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "#FFD700", "#4682B4")
+# save as an excel file
+write_xlsx(df_or, file.path(PopDir, "analysis_dat", "df_or_results.xlsx"))
 
-forest_b <- ggplot(df_or, aes(x = odds, y = variables)) + 
-  geom_vline(aes(xintercept = 1, color = variables), size = .25, linetype = "dashed") + 
+# save only models with statistically signficant p-values
+df_or_significant <- df_or %>%
+  filter(p.value < 0.05)
+print(df_or_significant) # all are significant
+
+color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347")
+
+forest_b <- ggplot(df_or_significant, aes(x = odds, y = variables, color = variables)) + 
+  geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
   geom_errorbarh(aes(xmax = lower_ci, xmin = upper_ci), size = .5, height = .2) + 
-  geom_point(aes(color = variables), size = 2.5)+
-  scale_color_manual(name ="", values = color_list) +
-  theme_bw()+
-  theme(panel.grid.minor = element_blank())+ 
-  theme(panel.border = element_blank())+
-  ylab("")+
-  xlab(str_wrap("Odds ratio for testing positive for malaria with RDT or microscopy 
-  among children, 6 - 59 months, in an agricultural worker HH compared to a 
-        compared to a non-agricultural worker HH and controling for other variables", width = 80)) +
-  theme_manuscript()+
-  theme(legend.position = "none")+
-  xlim(0.5,3.7) + 
-  theme(axis.text.y = element_text(colour=color_list))
+  geom_point(size = 6) +
+  scale_color_manual(name = "", values = color_list) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()) + 
+  theme(panel.border = element_blank()) +
+  ylab("") + 
+  xlab("Odds Ratio") +
+  theme_manuscript() +
+  theme(legend.position = "none") +
+  xlim(0.5, 3.7) + 
+  theme(axis.text.y = element_text(colour = color_list, size = 14, face = "bold"),
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold")) +
+  ggtitle("Odds Ratios") +
+  theme(plot.title = element_text(size = 18, face = "bold", hjust = 0.5))
+
+# display the plot and save as .png
 forest_b
+ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_forest_plot.png"), forest_b, width = 10, height = 10) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
-### Predicted probabilities generation and plotting
+### Predicted Probabilities Generation and Plotting
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# Define the term names based on formulas
-term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7", "8", "9"), 
+# define the term names based on formulas
+term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6"), 
                          variable = c("home type",
                                        "home type + stunting",
                                        "home type + roof type",
-                                       "home type + u5 net use",
+                                       #"home type + u5 net use",
                                        "home type + household size",
-                                       "home type + temperature",
+                                       #"home type + temperature",
                                        "home type + wealth index",
-                                       "home type + housing quality",
-                                       "home type + parental education"))
+                                       "home type + housing quality"))
   
-
-# Process all model results and bind them into one dataframe
+# process all model results and bind them into one dataframe
 effect_df_fun <- function(model_) {
-  effect_list_est <- summary(Effect("home_type_dep", model_)) 
-  effect_list_est$effect %>% as.data.frame() %>% 
-    bind_cols(effect_list_est$lower %>% as.data.frame()) %>% 
-    bind_cols(effect_list_est$upper %>% as.data.frame()) %>% 
-    rename(effect = ....1, lower = ....2, upper = ....3) %>% 
-    tibble::rownames_to_column(var = "term_name") 
+  effect_list_est <- summary(Effect("home_type_dep", model_))
+  effect_list_est$effect %>% as.data.frame() %>%
+    bind_cols(effect_list_est$lower %>% as.data.frame()) %>%
+    bind_cols(effect_list_est$upper %>% as.data.frame()) %>%
+    rename(effect = ....1, lower = ....2, upper = ....3) %>%
+    tibble::rownames_to_column(var = "term_name")
 }
 
-# Combine all effect dataframes and add term names
-df_effect <- lapply(model_datasets_results, effect_df_fun) %>% 
-  bind_rows(.id = "model_id") %>% left_join(term_names, by = "model_id") %>% 
+# combine all effect dataframes and add term names
+df_effect <- lapply(model_datasets_results, effect_df_fun) %>%
+  bind_rows(.id = "model_id") %>% left_join(term_names, by = "model_id") %>%
   filter(term_name == "1")
 
+# # predicted probability plot - model on x axis, PP on y axis
+# pred_p <- ggplot() + 
+#   geom_errorbarh(data = df_effect, aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), size = .5, height = .2) + 
+#   geom_point(data = df_effect, aes(x = effect, y = variable, color = variable), size = 6) +
+#   theme(panel.grid.minor = element_blank()) + 
+#   theme(panel.border = element_blank(), axis.title.y = element_blank(),  # updated axis title
+#         plot.title = element_blank()) +  # use plot.title instead of main.title.x
+#   scale_color_manual(name ="", values = color_list) +
+#   theme_manuscript() +
+#   labs(y = "", x = "Predicted probability of testing positive for malaria\nwith RDT or microscopy among children,\n6 - 59 months") + 
+#   xlim(0, 0.5) +  # updated limit for x-axis instead of y-axis
+#   theme(legend.position = "none") + 
+#   scale_y_discrete(labels = function(y) str_wrap(y, width = 15)) +  # adjust width as necessary
+#   theme(axis.text.y = element_text(colour=color_list)) + 
+#   theme(axis.text.y = element_text(angle = 0, hjust = 1)) +  # keep y-axis labels horizontal
+#   ggtitle("Predicted Probabilities") +
+#   theme(plot.title = element_text(size = 18, face = "bold", hjust = 0.5))
 
-# predicted probability plot
+# predicted probability plot, visual elements match odds ratio plot
 pred_p <- ggplot() + 
-  geom_errorbar(data = df_effect, aes(y = effect, x = variable, ymax = lower, ymin = upper, color = variable), size = .5, width = .2) + 
-  geom_point(data = df_effect, aes(y = effect, x = variable, color = variable), size = 2.5) +
+  geom_errorbarh(data = df_effect, aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), size = .5, height = .2) + 
+  geom_point(data = df_effect, aes(x = effect, y = variable, color = variable), size = 6) +
+  theme_bw() +
   theme(panel.grid.minor = element_blank()) + 
-  theme(panel.border = element_blank(), axis.title.x = element_blank(),
-        plot.title = element_blank()) +  # Use plot.title instead of main.title.x
-  scale_color_manual(name ="", values = color_list) +
+  theme(panel.border = element_blank()) + 
+  xlab("Predicted Probability") +
+  scale_color_manual(name = "", values = color_list) + 
   theme_manuscript() +
-  labs(x = "", y = "Predicted probability of testing positive for malaria\nwith RDT or microscopy among children,\n6 - 59 months") +
-  ylim(0, 0.5) +
-  theme(legend.position = "none") +
-  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +  # Adjust width as necessary
-  theme(axis.text.x = element_text(colour=color_list)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Tilt x-axis labels
+  xlim(0, 0.5) + 
+  theme(legend.position = "none") + 
+  scale_y_discrete(labels = function(y) str_wrap(y, width = 15)) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_text(colour = color_list, size = 14, face = "bold"),
+        axis.text.x = element_text(size = 14, face = "bold"),
+        axis.title.x = element_text(size = 14, face = "bold")) +
+  ggtitle("Predicted Probabilities") + 
+  theme(plot.title = element_text(size = 18, face = "bold", hjust = 0.5))
 
+# display the plot and save as .png
 pred_p
+ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_predicted_probability_plot.png"), pred_p, width = 10, height = 10) 
 
-# combine OR and PP plots
-all_p <- forest_b + pred_p
-all_p
+# remove individual titles from OR and PP plots and y-axis labels from the PP plot
+forest_b <- forest_b + 
+  labs(title = NULL)
+pred_p <- pred_p + 
+  labs(title = NULL) +  # Keep title as NULL
+  scale_y_discrete(labels = NULL)  # Remove y-axis labels
 
-ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_4_odds_pred_prob.pdf"), all_p, width = 8.5, height = 5) 
+# Arrange the combined plot and legend side by side
+or_pp_plots <- grid.arrange(
+  forest_b,
+  pred_p, 
+  nrow = 1, 
+  ncol = 2,
+  widths = c(4.5, 3),
+  top = textGrob("Odds Ratios and Predicted Probabilities of Testing Positive for Malaria\n (RDT or Microscopy) in Children Aged 6-59 Months from Agricultural vs.\n Non-Agricultural Households, Controlling for Other Variables",
+                 gp = gpar(fontsize = 14, fontface = "bold", hjust = 0.5))  # Adjusted hjust for centering
+)
+
+# save final combined OR and PP plot as .png
+ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_odds_pred_prob.png"), or_pp_plots, width = 15, height = 10) 
 
 
 
@@ -1201,12 +1701,3 @@ result_preci <- svyglm(malaria_result ~ preci_monthly_2000m,
 # test significance of PRECIPITATION
 regTermTest(result_preci, test.terms = ~ preci_monthly_2000m,
             df = degf(result_preci$survey.design), method = "LRT")
-
-
-## =========================================================================================================================================
-### Difference-in-Difference Analysis
-## =========================================================================================================================================
-
-
-
-
