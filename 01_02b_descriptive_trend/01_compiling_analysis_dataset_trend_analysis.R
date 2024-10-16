@@ -155,17 +155,9 @@ for (i in 1:length(link_ir)){
     # read the IR dataset into R
     dhs_ir <- read_dta(link_ir[[i]])
     
-    # handle missing v701 (edu_man) - it is missing from TZIR6AFL.DTA and UGIR5AFL.DTA
-    if (!("v701" %in% names(dhs_ir))) {
-      dhs_ir$v701 <- NA  # create v701 as NA if it doesn't exist
-    }
-    
-    graces_test <- dhs_ir %>% 
-      select(matches("v106|v701"))
-    
     # select relevant columns and create new variables for analysis
     df <- dhs_ir %>%
-      dplyr::select(matches("v000|v001|v002|v003|v005|v006|v007|v012|v021|v022|v025|v106|v157|v158|v159|v168|v190|v501|v505|v701|v704|v704a|v705|v716|v717|v731|v732|v743a|s1108ai|s1108ba|s1108bc|s1108bd|s1108bf|b19|h11_1|h11_2|h11_3|h11_4|h11_5|h11_6")) %>%
+      dplyr::select(matches("v000|v001|v002|v003|v005|v006|v007|v012|v021|v022|v025|v106|v157|v158|v159|v168|v190|v501|v505|v704|v704a|v705|v716|v717|v731|v732|v743a|s1108ai|s1108ba|s1108bc|s1108bd|s1108bf|b19|h11_1|h11_2|h11_3|h11_4|h11_5|h11_6")) %>%
       mutate(
              # create household occupation variables for women and partners
              agri_partner=tryCatch(ifelse(v705 %in% c(4, 5), "A",ifelse(v705  %in% c(1, 2, 3, 6, 7,8, 9,96), "O", ifelse(v705 == 0, "U", NA))), error =function(e) return(NA)),
@@ -186,7 +178,7 @@ for (i in 1:length(link_ir)){
       # create an index based on specific 's1108' variables
       mutate(kap_index = if("new_s1108ai" %in% colnames(.)) (new_s1108ai+ new_s1108ba + new_s1108bc + new_s1108bd + kap_weak)/5 else NA) %>%
       # rename some variables for clarity and consistency
-      dplyr::rename(strat=v022, id=v021, dhs_year = v007, edu_woman  = v106, edu_man = v701, age_woman = v012,wealth = v190) %>%
+      dplyr::rename(strat=v022, id=v021, dhs_year = v007, edu_woman = v106, age_woman = v012,wealth = v190) %>%
       dplyr::select(-c(starts_with("s1108"))) %>%
       
       # create a composite household occupation variable and categorize it
@@ -205,11 +197,11 @@ for (i in 1:length(link_ir)){
     df_urban <- df %>%  filter(v025 == 1) # urban data
     df_rural <- df %>%  filter(v025 == 2) # rural data
     
-    # append the urban data to the list
+    # append the urban data to the dhs_ir_urban list
     print(paste("appending urban data from", unique(df_urban[["CountryName"]]), "to list of data frames"))
     dhs_ir_urban <- append(dhs_ir_urban, list(df_urban))
     
-    # append the rural data to the list
+    # append the rural data to the dhs_ir_rural list
     print(paste("appending rural data from", unique(df_urban[["CountryName"]]), "to list of data frames"))
     dhs_ir_rural <- append(dhs_ir_rural, list(df_rural))
 }
@@ -305,7 +297,7 @@ for (i in 1:nrow(mr_datasets)){
 
 # save the MR downloads to an RDS file for easy loading in future sessions 
 saveRDS(mr_downloads, file.path(PopDir, "analysis_dat/mr_downloads.rds"))
-mr_downloads<- readRDS(file.path(PopDir, "analysis_dat/mr_downloads.rds"))
+mr_downloads <- readRDS(file.path(PopDir, "analysis_dat/mr_downloads.rds"))
  
 # check if any datasets still need to be manually downloaded
 data.frame(SurveyId = setdiff(survs$SurveyId, mr_datasets$SurveyId))
@@ -349,10 +341,10 @@ for (i in 1:length(mr_downloads)){
 
 # save the processed urban and rural datasets for future use
 saveRDS(dhs_mr_urban, file.path(PopDir, "analysis_dat/dhs_mr_urban.rds"))
-#dhs_mr_urban <- readRDS("dhs_mr_urban.rds")
+dhs_mr_urban <- readRDS("dhs_mr_urban.rds")
 
 saveRDS(dhs_mr_rural, file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
-#dhs_mr_rural <- readRDS("dhs_mr_rural.rds")
+dhs_mr_rural <- readRDS("dhs_mr_rural.rds")
 
 
 ## =========================================================================================================================================
@@ -449,7 +441,7 @@ saveRDS(pr_downloads, file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 pr_downloads<- readRDS(file.path(PopDir, "analysis_dat/pr_downloads.rds"))
 
 ## =========================================================================================================================================
-### Data Loading and Transforming MR Datasets
+### Data Loading and Transforming PR Datasets
 ## =========================================================================================================================================
 
 # identify survey IDs that are present in the 'survs' dataset but missing from the PR datasets
@@ -589,6 +581,11 @@ saveRDS(dhs_pr_rural1, file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 # read back the saved rural datasets
 dhs_pr_rural<-readRDS(file.path(PopDir, "analysis_dat/dhs_pr_rural.rds"))
 
+# ------------ reading in MR and IR DHS datasets here if needed ----------------#
+dhs_mr_urban <- readRDS(file.path(PopDir, "analysis_dat/dhs_mr_urban.rds"))
+dhs_mr_rural <- readRDS(file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
+dhs_ir_urban <- readRDS(file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
+dhs_ir_rural <- readRDS(file.path(PopDir, "analysis_dat/dhs_ir_rural.rds"))
 
 ## =========================================================================================================================================
 ### Data Exploration
@@ -644,52 +641,119 @@ plot_r_df <- dhs_pr_rural %>%
 # p
 # ggsave(paste0(FigDir,"/", Sys.Date(),"_rural_DHS_datasets_malaria_test_data.png"), p, width = 13, height = 13)
 
+options(survey.lonely.psu="adjust")  # this option allows admin units with only one cluster to be analyzed
 
-# change to survey weighted percentage to compare across countries
-plot_u_df <- dhs_pr_urban %>%
-  # convert each urban dataset to a survey design object
-  map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
+# # change to survey weighted percentage to compare across countries
+# plot_u_df <- dhs_pr_urban %>%
+#   # convert each urban dataset to a survey design object
+#   map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
+# 
+#   # mutate test_result to handle missing values
+#   map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
+# 
+#   # group by test_result for aggregation
+#   map(~group_by(., test_result)) %>%
+# 
+#   # summarize to calculate weighted percentages and totals
+#   # map(~mutate(.,
+#   #                across(c(country_year),
+#   #                       percent = survey_mean() * 100,
+#   #                       total = survey_total()))) %>%
+# 
+#   map(~summarize(across(country_year, 
+#                         list(percent = ~ survey_mean() * 100, 
+#                              total = ~ survey_total())))) %>%
+#   
+#   # keep distinct test results while preserving other columns
+#   map(~distinct(., test_result, .keep_all = TRUE))
 
-  # mutate test_result to handle missing values
-  map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
 
-  # group by test_result for aggregation
-  map(~group_by(., test_result)) %>%
+# # WORKAROUND: country-by-country - URBAN
+# # initialize an empty dataframe
+# plot_u_df_ci <- data.frame()
+# 
+# # loop through each country's dataset
+# for (i in 1:length(dhs_pr_urban)) {
+#   
+#   # apply the survey design and summarization for each dataset
+#   plot_country_test <- dhs_pr_urban[[i]] %>%
+#     as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+#     mutate(test_result = ifelse(is.na(test_result), "missing", test_result)) %>%
+#     group_by(test_result) %>%
+#     summarize(percent = survey_mean(vartype = ("ci")) * 100,
+#               total = survey_total()) %>%
+#     ungroup()
+#   
+#   # add the country name + year
+#   plot_country_test$country_year <- dhs_pr_urban[[i]]$country_year[1]
+#   plot_country_test$code_year <- dhs_pr_urban[[i]]$code_year[1]
+#   plot_country_test$type <- "Urban"
+#   
+#   # rename CI and reorder columns so country name is before the data
+#   plot_country_test <- plot_country_test %>%
+#     rename(lower_ci = percent_low, upper_ci = percent_upp) %>%
+#     select(country_year, code_year, type, test_result, percent, lower_ci, upper_ci, total, total_se)
+#   
+#   # append each dataset to the combined dataframe
+#   plot_u_df_ci <- rbind(plot_u_df_ci, plot_country_test)
+# }
+# 
+# # WORKAROUND: country-by-country - RURAL
+# # initialize an empty dataframe
+# plot_r_df_ci <- data.frame()
+# 
+# # loop through each country's dataset
+# for (i in 1:length(dhs_pr_rural)) {
+#   
+#   # apply the survey design and summarization for each dataset
+#   plot_country_test <- dhs_pr_rural[[i]] %>%
+#     as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+#     mutate(test_result = ifelse(is.na(test_result), "missing", test_result)) %>%
+#     group_by(test_result) %>%
+#     summarize(percent = survey_mean(vartype = ("ci")) * 100,
+#               total = survey_total()) %>%
+#     ungroup()
+#   
+#   # add the country name + year
+#   plot_country_test$country_year <- dhs_pr_rural[[i]]$country_year[1]
+#   plot_country_test$code_year <- dhs_pr_rural[[i]]$code_year[1]
+#   plot_country_test$type <- "Rural"
+#   
+#   # rename CI and reorder columns so country name is before the data
+#   plot_country_test <- plot_country_test %>%
+#     rename(lower_ci = percent_low, upper_ci = percent_upp) %>%
+#     select(country_year, code_year, type, test_result, percent, lower_ci, upper_ci, total, total_se)
+#   
+#   # append each dataset to the combined dataframe
+#   plot_r_df_ci <- rbind(plot_r_df_ci, plot_country_test)
+# }
 
-  browser()
-
-  # summarize to calculate weighted percentages and totals
-  map(~summarize(.,
-                 across(c(country_year),
-                        percent = survey_mean() * 100,
-                        total = survey_total()))) %>%
-
-  # keep distinct test results while preserving other columns
-  map(~distinct(., test_result, .keep_all = TRUE))
-
-# edit to above commented out code so it runs: took survey_mean and survey_total out of across() function
-plot_u_df <- dhs_pr_urban %>%
-  # convert each urban dataset to a survey design object
-  map(~as_survey_design(., ids = id, strata = strat, nest = TRUE, weights = wt)) %>%
-
-  # mutate test_result to handle missing values
-  map(~mutate(., test_result = ifelse(is.na(test_result), "missing", test_result))) %>%
-
-  # group by test_result for aggregation
-  map(~group_by(., test_result)) %>%
-
-  # summarize to calculate weighted percentages and totals
-  map(~summarize(.,
-                 percent = survey_mean(vartype = ("ci")) * 100,    # calculate weighted percentage
-                 total = survey_total())) %>%      # calculate weighted total
-
-  # keep distinct test results while preserving other columns
-  map(~distinct(., test_result, .keep_all = TRUE))
+# # stack the urban and rural dataframes
+# malaria_trend_ci_data <- rbind(plot_u_df, plot_r_df)
+# 
+# malaria_trend_ci_data <- malaria_trend_ci_data %>%
+#   mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) %>%
+#   select(country_year, code_year, cntryId, type, test_result, percent, lower_ci, upper_ci, total, total_se)
+# 
+# # select only those countries that have two surveys (e.g. Burkina Faso 2010 and Burkina Faso 2021)
+# malaria_trend_ci_data <- malaria_trend_ci_data %>%
+#   filter(!cntryId %in% c("AO", "BU", "CD", "GN", "MD", "MR", "NG", "SN", "RW", "TG", "GH", "GM", "UG")) %>%
+#   filter(!code_year %in% c("MZ2011", "MZ2022", "TZ2007", "TZ2022"))
+# 
+# # filter for test result is positive
+# malaria_trend_ci_data <- malaria_trend_ci_data %>%
+#   filter(test_result == "+ve")
+# 
+# # extract unique country-year values (e.g. Angola 2015 - 16) from the urban dataset
+# recent_to_remove <- malaria_trend_ci_data$country_year %>% unique()
+# 
+# malaria_trend_ci_data <- malaria_trend_ci_data %>% 
+#   mutate(survey = ifelse(country_year.x %in% recent_to_remove, "Recent Survey", "Preceding Survey"))
 
 # bind the results into a single dataframe, set factor levels for test_result, and rename CI columns for clarity
-plot_u_df <- plyr::ldply(plot_u_df) %>%
-  mutate(test_result = factor(test_result, levels = c("missing", "-ve", "+ve"))) %>%
-  rename(lower_ci = percent_low, upper_ci = percent_upp)
+# plot_u_df <- plyr::ldply(plot_u_df) %>%
+#   mutate(test_result = factor(test_result, levels = c("missing", "-ve", "+ve"))) %>%
+#   rename(lower_ci = percent_low, upper_ci = percent_upp)
 
 # label = c("Missing","Negative test","Positive test")
 # color = c("#aaa3a2",  "darkslategray2", "deeppink3")
@@ -733,6 +797,9 @@ df <- subset(df_trend,duplicated(cntryId) | duplicated(cntryId, fromLast=TRUE))
 
 # write the final trend data to a CSV file
 write_csv(df, file.path(PopDir, "analysis_dat/final_surveys_trend.csv"))
+
+# get previously saved data
+# df <- read.csv(file.path(PopDir, "analysis_dat/final_surveys_trend.csv"))
 
 
 ## =========================================================================================================================================
@@ -784,6 +851,9 @@ pr_rural <- pr_rural %>% map_if(~all(c('sh511') %in% colnames(.x)), ~dplyr::sele
 pr_rural <- plyr::ldply(pr_rural) # bind all rural PR datasets into one data frame
 
 # save the combined datasets for future analysis
+saveRDS(ir_urban, file.path(PopDir, "analysis_dat/ir_urban.rds"))
+ir_urban <- readRDS(file.path(PopDir,"analysis_dat/ir_urban.rds"))
+
 saveRDS(ir_rural, file.path(PopDir, "analysis_dat/ir_rural.rds"))
 ir_rural <- readRDS(file.path(PopDir,"analysis_dat/ir_rural.rds"))
 
@@ -991,6 +1061,12 @@ urban_df <- left_join(pr_urban, hh_ir_urban, by = c("code_year", "hv001" = "v001
   filter(!is.na(test_result)) %>%  # filter out rows with missing test results
   filter(!is.na(home_type2))  # filter out rows with missing home type information
 
+write_csv(urban_df, file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv"))
+
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### PLOTTING
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # create a data frame for plotting the joined data by selecting relevant columns
 plot_u_df <- urban_df %>% 
@@ -1069,7 +1145,6 @@ p <- ggplot(plot_country, aes(x = reorder(country_year.x, -percent), y = percent
 
 # save the plot as a PDF file and data as a .csv file
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
-write_csv(urban_df, file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv"))
 
 # p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) + 
 #   geom_bar(aes(y = value), position="stack", stat = "identity")+
@@ -1203,7 +1278,7 @@ p
 ggsave(paste0(FigDir,"/", Sys.Date(),"_women_men_survey_rural_DHS_datasets_agric_data_weighted_percent.pdf"), p, width = 5.5, height = 3)
 
 # create household exposure data
-hh_ir_rural = ir_mr_rural %>%
+hh_ir_rural <- ir_mr_rural %>%
   group_by(code_year) %>% # group by code year to calculate maximum year
   mutate(max_year = max(dhs_year)) %>%
   ungroup() %>%
@@ -1251,6 +1326,9 @@ rural_df = left_join(pr_rural, hh_ir_rural,
                      by = c("code_year", "hv001" = "v001", "hv002" = "v002")) %>%
   filter(!is.na(test_result)) %>% # filter out observations with missing test results
   filter(!is.na(home_type2)) # filter out observations with missing home type
+
+# write the rural dataframe to a CSV file for analysis
+write_csv(rural_df, file.path(PopDir, "analysis_dat/rural_df_for_analysis_trend.csv"))
 
 # plot the joined data for agricultural exposure
 plot_u_df <- rural_df %>%
@@ -1343,8 +1421,6 @@ p
 # save the country-specific plot as a PDF
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
 
-# write the rural dataframe to a CSV file for analysis
-write_csv(rural_df, file.path(PopDir, "analysis_dat/rural_df_for_analysis_trend.csv"))
 
 
 
