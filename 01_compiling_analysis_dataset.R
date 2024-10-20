@@ -20,6 +20,14 @@ if ("ozodi" %in% user) {
     PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
     ManDir <- file.path(DriveDir, "projects", "Manuscripts","ongoing", "agriculture_malaria_manuscript")
     FigDir <- file.path(ManDir, "figures", "exploratory")
+} else if  ("cchiz" %in% user) {
+  Drive <- file.path("C:/Users/cchiz/OneDrive")
+  DriveDir <- file.path(Drive, "urban_malaria")
+  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
+  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+  FigDir <- file.path(ManDir, "figures", "main_figures","pdf_figures")
+  SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
+  ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else if  ("CHZCHI003" %in% user) {
   Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
   DriveDir <- file.path(Drive, "urban_malaria")
@@ -670,7 +678,12 @@ ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_women_men_survey_urban.p
 #now join to pr dataset  (the pr dataset is 28300 and the hh ir dataset is 68-39. joining resulted in 26153 obs after filtering missing test and home type data)
 urban_df=left_join(pr_urban, hh_ir_urban, by =c("code_year", "hv001" ="v001", "hv002"="v002")) %>%
   filter(!is.na(test_result)) %>% 
-  filter(!is.na(home_type2))
+  filter(!is.na(home_type2)) %>%
+  left_join(
+    ir_rural %>% group_by(code_year, v001, v002) %>%
+      slice_max(age_woman, with_ties = FALSE) %>% 
+      summarise(edu_woman = edu_woman), 
+    by = c("code_year", "hv001" = "v001", "hv002" = "v002"))
 
 #plot the joined data for agric  
 plot_u_df<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result) 
@@ -830,7 +843,12 @@ ggsave(paste0(FigDir,"/", Sys.Date(),"agric_HH_exposure_women_men_survey_rural.p
 #now join to pr dataset  (the pr dataset is 57231 and the hh ir dataset is 112876. joining resulted in 53464 obs after filtering missing test and home type data)
 rural_df=left_join(pr_rural, hh_ir_rural, by =c("code_year", "hv001" ="v001", "hv002"="v002")) %>%
   filter(!is.na(test_result)) %>% 
-  filter(!is.na(home_type2))
+  filter(!is.na(home_type2)) %>%
+  left_join(
+    ir_rural %>% group_by(code_year, v001, v002) %>%
+      slice_max(age_woman, with_ties = FALSE) %>% 
+      summarise(edu_woman = edu_woman), 
+    by = c("code_year", "hv001" = "v001", "hv002" = "v002"))
 
 #plot the joined data for agric  
 plot_u_df<- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result) 
