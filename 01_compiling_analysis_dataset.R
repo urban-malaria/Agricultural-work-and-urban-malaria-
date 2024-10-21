@@ -402,7 +402,7 @@ for (i in 1:length(link_pr)){
   dhs_pr <- read_dta(link_pr[[i]])
 
   df <- dhs_pr %>%
-    dplyr::select(matches("hc1|hc60|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511"))
+    dplyr::select(matches("hc27|hc70|hc1|hc60|hml12|hml16a|hml32|hml35|hv000|hv001|hv002|hv003|hv005|hv006|hv007|hv009|hv021|hv025|hv022|hv042|hv103|hv213|hv214|hv215|hv253|hv270|hvidx|sh418|sh511"))
 
   if(paste0(unique(df[["hv000"]]), unique(df[["hv007"]]))[1] == "CM62011"){
 
@@ -550,7 +550,7 @@ ir_rural <- plyr::ldply(ir_rural)
 
 #combine all mr datasets
 mr_urban %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[9]])))
+mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[5]])))
 mr_urban <- plyr::ldply(mr_urban)
 
 

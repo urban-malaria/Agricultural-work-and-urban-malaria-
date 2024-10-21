@@ -13,6 +13,7 @@ rm(list = ls())
 ### Directory Management and File Paths
 ## =========================================================================================================================================
 user <- Sys.getenv("USER")
+user_win11 <- Sys.getenv("USERNAME")
 if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
@@ -22,19 +23,19 @@ if ("ozodi" %in% user) {
   FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
-} else if  ("cchiz" %in% user) {
-  Drive <- file.path("C:/Users/cchiz/OneDrive")
-  DriveDir <- file.path(Drive, "urban_malaria")
-  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+} else if  ("cchiz" %in% c(user, user_win11)) {
+  Drive <- file.path("C:/Users/cchiz/Dropbox")
+  DriveDir <- file.path("C:/Users/cchiz/OneDrive/urban_malaria")
+  PopDir <- file.path(Drive)
+  ManDir <- file.path(Drive, "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
-} else if  ("CHZCHI003" %in% user) {
-  Drive <- file.path("C:/Users/CHZCHI003/OneDrive")
-  DriveDir <- file.path(Drive, "urban_malaria")
-  PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
-  ManDir <- file.path(DriveDir, "projects", "Manuscripts", "agriculture_malaria_manuscript")
+} else if  ("CHZCHI003" %in% c(user, user_win11)) {
+  Drive <- file.path("C:/Users/cchiz/Dropbox")
+  DriveDir <- file.path("C:/Users/cchiz/OneDrive/urban_malaria")
+  PopDir <- file.path(Drive)
+  ManDir <- file.path(Drive, "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")

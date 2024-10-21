@@ -14,6 +14,7 @@ rm(list = ls())
 ## =========================================================================================================================================
 
 user <- Sys.getenv("USER")
+user_win11 <- Sys.getenv("USERNAME")
 if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
@@ -23,7 +24,7 @@ if ("ozodi" %in% user) {
   FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
-} else if  ("CHZCHI003" %in% user) {
+} else if  ("CHZCHI003" %in% c(user, user_winq11)) {
   Drive <- file.path("C:/Users/CHZCHI003/Dropbox")
   DriveDir <- file.path("C:/Users/CHZCHI003/OneDrive/urban_malaria")
   PopDir <- file.path(Drive)
@@ -31,7 +32,7 @@ if ("ozodi" %in% user) {
   FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
-} else if  ("cchiz" %in% user) {
+} else if  ("cchiz" %in% c(user, user_win11)) {
   Drive <- file.path("C:/Users/cchiz/Dropbox")
   DriveDir <- file.path("C:/Users/cchiz/OneDrive/urban_malaria")
   PopDir <- file.path(Drive)
@@ -73,13 +74,13 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # load urban dataset and add a 'type' column to indicate urban
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%  #changed the dataset from version 240729
   mutate(type ="Urban") %>% 
   transmute(country_year.x, country_year.x, id, strat, wt, type) %>% # select and retain only these columns
   name_clean_fun() # clean column names using custom function (see functions_employment.R script)
 
 # load rural dataset and add a 'type' column to indicate rural
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%  
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/241021_rural_df_for_analysis.csv")) %>%  #changed the dataset from version 240729
   mutate(type ="Rural") %>% 
   transmute(country_year.x, country_year.x, id, strat, wt, type)  %>% # select and retain only these columns
   name_clean_fun() # clean column names using custom function
@@ -187,7 +188,7 @@ p1bc_combined_plot <- p1bc_survey1 / plot_spacer() / p1bc_survey2 +
 p1bc_combined_plot
 
 # save the combined plot as a png
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_figure_1bc.png"), p1bc_combined_plot, width = 4.5, height = 6) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_figure_1bc.pdf"), p1bc_combined_plot, width = 4.5, height = 6) 
 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
@@ -228,17 +229,17 @@ p1a <- ggplot() +
 
 # display the map and save as a png
 p1a
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_figure_1a.png"), p1a, width = 4, height = 8) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_figure_1a.pdf"), p1a, width = 4, height = 8) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Figure 2 - Percentage of Children 6-59 Months Tested for Malaria by Interview Month
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # figure 1c - load and prepare data
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>% 
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/241021_urban_df_for_analysis.csv")) %>% #changed the dataset from version 240729
   mutate(type = "Urban") # add a column to indicate urban type
 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis.csv")) %>%
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/241021_rural_df_for_analysis.csv")) %>% #changed the dataset from version 240729
   mutate(type ="Rural") # add a column to indicate rural type
 
 # combine urban and rural data
@@ -741,28 +742,8 @@ ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"malaria_test_positivity_netus
 ## =========================================================================================================================================
 ### Trend Analysis
 ## =========================================================================================================================================
+# 
 
-### difference in difference scatter plot for malaria vs nets
-ddf_df <- bind_rows(df_m_n_country %>% 
-                      transmute(diff_val_malaria = diff_val_urban_malaria, 
-                                diff_val_nets = diff_val_urban_nets, title), 
-                    df_m_n_country_rural%>% 
-                      transmute(diff_val_malaria = diff_val_rural_malaria, 
-                                diff_val_nets = diff_val_rural_nets, title))
-
-ggplot(data = ddf_df, aes(x = diff_val_nets, y = diff_val_malaria)) +
-  geom_point(shape = 19, size = 5, alpha = 0.7, color = "#0d47a1") +
-  # Add the regression line and ribbon
-  geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "blue", fill = "lightblue", alpha = 0.3) +
-  # Add the p-value
-  stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
-           method = "pearson", 
-           label.x = 0.5, 
-           label.y = max(df_m_n_country_rural$diff_val_rural_malaria, na.rm = TRUE)) +
-  theme_manuscript() +
-  facet_wrap(~ title) + 
-  labs(x = "Difference in net use", y = "Difference in malaria test positivity rate") +
-  theme(legend.position = "none")
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Read in analysis datasets from Chilo's extraction in file called 02b_descriptive_trend_analysis   
@@ -1075,7 +1056,7 @@ all_df <- rbind(urban_df2, rural_df2) %>%
 all_df$type_f <- factor(all_df$type, levels=c("Urban", "Rural")) # create a factor for type with specified levels
 
 # write the final analysis dataset to a CSV file
-write.csv(all_df, file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv"))
+write.csv(all_df, file.path(PopDir, "analysis_dat/241021_urban_rural_analysis_data_for_modeling.csv"))
 
 # check the number of missing values for selected environmental variables
 check <- all_df %>%  
