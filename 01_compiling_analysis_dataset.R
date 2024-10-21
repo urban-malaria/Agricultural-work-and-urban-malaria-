@@ -5,7 +5,7 @@
 
 rm(list = ls())
 
-#devtools::install_github("ropensci/rdhs")
+devtools::install_github("ropensci/rdhs")
 
 library(rdhs)
 
@@ -550,7 +550,7 @@ ir_rural <- plyr::ldply(ir_rural)
 
 #combine all mr datasets
 mr_urban %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[10]])))
+mr_urban<- mr_urban %>%map(~dplyr::select(., colnames(mr_urban[[9]])))
 mr_urban <- plyr::ldply(mr_urban)
 
 
@@ -571,6 +571,8 @@ pr_rural<- pr_rural %>%map_if(~all(c('sh511') %in% colnames(.x)), ~dplyr::select
 pr_rural<- pr_rural %>%map(~dplyr::select(., colnames(pr_rural[[5]])%>% discard(~ .x %in% c("hc11", "hc10", "hc12"))))
 pr_rural<- plyr::ldply(pr_rural)
 
+saveRDS(ir_urban, file.path(PopDir, "analysis_dat/ir_urban.rds"))
+ir_urban<-readRDS(file.path(PopDir,"analysis_dat/ir_urban.rds"))
 
 saveRDS(ir_rural, file.path(PopDir, "analysis_dat/ir_rural.rds"))
 ir_rural<-readRDS(file.path(PopDir,"analysis_dat/ir_rural.rds"))
@@ -760,7 +762,7 @@ p<-ggplot(plot_country , aes(x = reorder(country_year.x, -percent), y = percent,
   
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
 
-write_csv(urban_df, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv"))
+write_csv(urban_df, file.path(PopDir, "analysis_dat/241021_urban_df_for_analysis.csv"))
 
 ###################################################################rural##################################################
 #rural ir and mr 
@@ -906,7 +908,7 @@ p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) +
 
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
 
-write_csv(rural_df, file.path(PopDir, "analysis_dat/240606_rural_df_for_analysis.csv"))
+write_csv(rural_df, file.path(PopDir, "analysis_dat/241021_rural_df_for_analysis.csv"))
 
 
 
