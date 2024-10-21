@@ -682,7 +682,7 @@ urban_df=left_join(pr_urban, hh_ir_urban, by =c("code_year", "hv001" ="v001", "h
   filter(!is.na(test_result)) %>% 
   filter(!is.na(home_type2)) %>%
   left_join(
-    ir_rural %>% group_by(code_year, v001, v002) %>%
+    ir_urban %>% group_by(code_year, v001, v002) %>%
       slice_max(age_woman, with_ties = FALSE) %>% 
       summarise(edu_woman = edu_woman), 
     by = c("code_year", "hv001" = "v001", "hv002" = "v002"))
