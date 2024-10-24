@@ -400,150 +400,150 @@ write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_fi
 ### Multiple Logistic Regression Analysis (Adjusted)
 ## =========================================================================================================================================
 
-# define a function to create the survey design object
-svydesign_fun <- function(df) {
-  svydesign(ids = ~hv001, strata = ~strat, weights = ~wt, data = df, nest = TRUE)
-}
-
-# run a survey-weighted multiple logistic regression
-run_svyglm_multiple <- function(data) {
-  # create survey design object
-  svy_design <- svydesign_fun(data)
-  
-  # define the formula for the multiple logistic regression, with malaria_result as outcome
-  # and multiple covariates
-  formula <- malaria_result ~ home_type_dep + hc1 + dhs_year_factor + sex + stunting_dep + roof_type_dep + u5_net_use_dep +
-    hh_size + temp_monthly_2000m + EVI_2000m_new + preci_monthly_2000m + RH_monthly_2000m + wealth_index + housing_quality
-  
-  # run logistic regression with survey design
-  model <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
-  
-  # tidy the model and calculate odds ratios and confidence intervals
-  tidy_model <- tidy(model) %>%
-    filter(term != "(Intercept)") %>%  # Exclude intercept from results
-    rename(SE = std.error) %>%
-    mutate(OR = exp(estimate),  # calculate odds ratios
-           lower_ci = exp(estimate - 1.96 * SE),
-           upper_ci = exp(estimate + 1.96 * SE)) %>%
-    select(term, OR, lower_ci, upper_ci, p.value)  # select relevant columns
-  
-  return(tidy_model)
-}
-
-# single regression dropped NAs in enhanced vegetation index (EVI) so doing the same here
-urban_df_no_EVI_na <- urban_df %>% drop_na(EVI_2000m_new)
-rural_df_no_EVI_na <- rural_df %>% drop_na(EVI_2000m_new)
-
-# run multiple regression on urban dataset and rural dataset 
-multiple_reg_urban <- run_svyglm_multiple(urban_df_no_EVI_na)
-multiple_reg_rural <- run_svyglm_multiple(rural_df_no_EVI_na)
-
-combined_results <- left_join(multiple_reg_urban, multiple_reg_rural, by = "term")
-
-# rename "term" column (variables) in results table
-combined_results <- combined_results %>%
-  mutate(term = case_when(
-    term == "home_type_dep1" ~ "Household Occupation Category: Agricultural",
-    term == "hc1" ~ "Age (Months)",
-    term == "dhs_year_factor2013" ~ "2013",
-    term == "dhs_year_factor2014" ~ "2014",
-    term == "dhs_year_factor2015" ~ "2015",
-    term == "dhs_year_factor2016" ~ "2016",
-    term == "dhs_year_factor2017" ~ "2017",
-    term == "dhs_year_factor2018" ~ "2018",
-    term == "dhs_year_factor2019" ~ "2019",
-    term == "dhs_year_factor2020" ~ "2020",
-    term == "dhs_year_factor2021" ~ "2021",
-    term == "dhs_year_factor2022" ~ "2022",
-    term == "dhs_year_factor2023" ~ "2023",
-    term == "sexMale" ~ "Male",
-    term == "stunting_dep1" ~ "Stunting: Stunted",
-    term == "roof_type_dep1" ~ "Roof Type: Improved",
-    term == "u5_net_use_dep1" ~ "U5 Net Use: Used",
-    term == "hh_size" ~ "Household Size",
-    term == "temp_monthly_2000m" ~ "Temperature (Monthly)",
-    term == "EVI_2000m_new" ~ "Enhanced Vegetation Index",
-    term == "preci_monthly_2000m" ~ "Monthly Precipitation (mm)",
-    term == "RH_monthly_2000m" ~ "Relative Humidity (%)",
-    term == "wealth_index2" ~ "Wealth: Poor",
-    term == "wealth_index3" ~ "Wealth: Middle",
-    term == "wealth_index4" ~ "Wealth: Rich",
-    term == "wealth_index5" ~ "Wealth: Richest",
-    term == "housing_quality1" ~ "Housing Quality",
-    TRUE ~ term
-  ))
-
-# # add reference values of each variable
-ref_df <- data.frame(term = c("DHS Year: 2012",
-                              "Sex: Female",
-                              "Stunting: Not Stunted",
-                              "Household Occupation Category: Non-Agricultural",
-                              "U5 Net Use: Did Not Use",
-                              "Roof Type: Poor",
-                              "Wealth: Poorest"))
-
-# combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
-multiple_results_final <- combined_results %>% bind_rows(ref_df) %>% arrange(term)
-
-# set reference values to 1.000 in table
-multiple_results_final <- multiple_results_final %>%
-  mutate(
-    OR.x = case_when(
-      term %in% c("DHS Year: 2012",
-                  "Sex: Female",
-                  "Household Occupation Category: Non-Agricultural", 
-                  "Roof Type: Poor", 
-                  "Stunting: Not Stunted", 
-                  "U5 Net Use: Did Not Use", 
-                  "Wealth: Poorest") ~ 1.000,
-      TRUE ~ OR.x  # Keep the original value if condition is not met
-    ),
-    OR.y = case_when(
-      term %in% c("DHS Year: 2012",
-                  "Sex: Female",
-                  "Household Occupation Category: Non-Agricultural", 
-                  "Roof Type: Poor", 
-                  "Stunting: Not Stunted", 
-                  "U5 Net Use: Did Not Use", 
-                  "Wealth: Poorest") ~ 1.000,
-      TRUE ~ OR.y  # Keep the original value if condition is not met
-    )
-  )
-
-# save the results to an Excel file
-#write_xlsx(multiple_reg_results, file.path(PopDir, "analysis_dat", "multiple_reg_results.xlsx"))
-
-# format the combined results into a table
-final_table <- multiple_results_final %>%
-  transmute(
-    Covariate = term,  # Keep the term column
-    `Odds of Testing Positive for Malaria (CI) (Urban)` = case_when(
-      term %in% c("DHS Year: 2012",
-                  "Sex: Female",
-                  "Household Occupation Category: Non-Agricultural", 
-                  "Roof Type: Poor", 
-                  "Stunting: Not Stunted", 
-                  "U5 Net Use: Did Not Use", 
-                  "Wealth: Poorest") ~ sprintf("%.3f", OR.x),  # Show only OR for references
-      TRUE ~ sprintf("%.3f (%.3f – %.3f)", OR.x, lower_ci.x, upper_ci.x)  # Show OR and CI for others
-    ),
-    `Odds of Testing Positive for Malaria (CI) (Rural)` = case_when(
-      term %in% c("DHS Year: 2012",
-                  "Sex: Female",
-                  "Household Occupation Category: Non-Agricultural", 
-                  "Roof Type: Poor", 
-                  "Stunting: Not Stunted", 
-                  "U5 Net Use: Did Not Use", 
-                  "Wealth: Poorest") ~ sprintf("%.3f", OR.y),  # Show only OR for references
-      TRUE ~ sprintf("%.3f (%.3f – %.3f)", OR.y, lower_ci.y, upper_ci.y)  # Show OR and CI for others
-    )
-  )
-
-# export to a word document
-doc <- read_docx()
-doc <- doc %>%
-  body_add_table(value = final_table, style = "table_template")
-print(doc, target = file.path(PopDir, "analysis_dat", "multiple_reg_results.docx"))
+# # define a function to create the survey design object
+# svydesign_fun <- function(df) {
+#   svydesign(ids = ~hv001, strata = ~strat, weights = ~wt, data = df, nest = TRUE)
+# }
+# 
+# # run a survey-weighted multiple logistic regression
+# run_svyglm_multiple <- function(data) {
+#   # create survey design object
+#   svy_design <- svydesign_fun(data)
+#   
+#   # define the formula for the multiple logistic regression, with malaria_result as outcome
+#   # and multiple covariates
+#   formula <- malaria_result ~ home_type_dep + hc1 + dhs_year_factor + sex + stunting_dep + roof_type_dep + u5_net_use_dep +
+#     hh_size + temp_monthly_2000m + EVI_2000m_new + preci_monthly_2000m + RH_monthly_2000m + wealth_index + housing_quality
+#   
+#   # run logistic regression with survey design
+#   model <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
+#   
+#   # tidy the model and calculate odds ratios and confidence intervals
+#   tidy_model <- tidy(model) %>%
+#     filter(term != "(Intercept)") %>%  # Exclude intercept from results
+#     rename(SE = std.error) %>%
+#     mutate(OR = exp(estimate),  # calculate odds ratios
+#            lower_ci = exp(estimate - 1.96 * SE),
+#            upper_ci = exp(estimate + 1.96 * SE)) %>%
+#     select(term, OR, lower_ci, upper_ci, p.value)  # select relevant columns
+#   
+#   return(tidy_model)
+# }
+# 
+# # single regression dropped NAs in enhanced vegetation index (EVI) so doing the same here
+# urban_df_no_EVI_na <- urban_df %>% drop_na(EVI_2000m_new)
+# rural_df_no_EVI_na <- rural_df %>% drop_na(EVI_2000m_new)
+# 
+# # run multiple regression on urban dataset and rural dataset 
+# multiple_reg_urban <- run_svyglm_multiple(urban_df_no_EVI_na)
+# multiple_reg_rural <- run_svyglm_multiple(rural_df_no_EVI_na)
+# 
+# combined_results <- left_join(multiple_reg_urban, multiple_reg_rural, by = "term")
+# 
+# # rename "term" column (variables) in results table
+# combined_results <- combined_results %>%
+#   mutate(term = case_when(
+#     term == "home_type_dep1" ~ "Household Occupation Category: Agricultural",
+#     term == "hc1" ~ "Age (Months)",
+#     term == "dhs_year_factor2013" ~ "2013",
+#     term == "dhs_year_factor2014" ~ "2014",
+#     term == "dhs_year_factor2015" ~ "2015",
+#     term == "dhs_year_factor2016" ~ "2016",
+#     term == "dhs_year_factor2017" ~ "2017",
+#     term == "dhs_year_factor2018" ~ "2018",
+#     term == "dhs_year_factor2019" ~ "2019",
+#     term == "dhs_year_factor2020" ~ "2020",
+#     term == "dhs_year_factor2021" ~ "2021",
+#     term == "dhs_year_factor2022" ~ "2022",
+#     term == "dhs_year_factor2023" ~ "2023",
+#     term == "sexMale" ~ "Male",
+#     term == "stunting_dep1" ~ "Stunting: Stunted",
+#     term == "roof_type_dep1" ~ "Roof Type: Improved",
+#     term == "u5_net_use_dep1" ~ "U5 Net Use: Used",
+#     term == "hh_size" ~ "Household Size",
+#     term == "temp_monthly_2000m" ~ "Temperature (Monthly)",
+#     term == "EVI_2000m_new" ~ "Enhanced Vegetation Index",
+#     term == "preci_monthly_2000m" ~ "Monthly Precipitation (mm)",
+#     term == "RH_monthly_2000m" ~ "Relative Humidity (%)",
+#     term == "wealth_index2" ~ "Wealth: Poor",
+#     term == "wealth_index3" ~ "Wealth: Middle",
+#     term == "wealth_index4" ~ "Wealth: Rich",
+#     term == "wealth_index5" ~ "Wealth: Richest",
+#     term == "housing_quality1" ~ "Housing Quality",
+#     TRUE ~ term
+#   ))
+# 
+# # # add reference values of each variable
+# ref_df <- data.frame(term = c("DHS Year: 2012",
+#                               "Sex: Female",
+#                               "Stunting: Not Stunted",
+#                               "Household Occupation Category: Non-Agricultural",
+#                               "U5 Net Use: Did Not Use",
+#                               "Roof Type: Poor",
+#                               "Wealth: Poorest"))
+# 
+# # combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
+# multiple_results_final <- combined_results %>% bind_rows(ref_df) %>% arrange(term)
+# 
+# # set reference values to 1.000 in table
+# multiple_results_final <- multiple_results_final %>%
+#   mutate(
+#     OR.x = case_when(
+#       term %in% c("DHS Year: 2012",
+#                   "Sex: Female",
+#                   "Household Occupation Category: Non-Agricultural", 
+#                   "Roof Type: Poor", 
+#                   "Stunting: Not Stunted", 
+#                   "U5 Net Use: Did Not Use", 
+#                   "Wealth: Poorest") ~ 1.000,
+#       TRUE ~ OR.x  # Keep the original value if condition is not met
+#     ),
+#     OR.y = case_when(
+#       term %in% c("DHS Year: 2012",
+#                   "Sex: Female",
+#                   "Household Occupation Category: Non-Agricultural", 
+#                   "Roof Type: Poor", 
+#                   "Stunting: Not Stunted", 
+#                   "U5 Net Use: Did Not Use", 
+#                   "Wealth: Poorest") ~ 1.000,
+#       TRUE ~ OR.y  # Keep the original value if condition is not met
+#     )
+#   )
+# 
+# # save the results to an Excel file
+# #write_xlsx(multiple_reg_results, file.path(PopDir, "analysis_dat", "multiple_reg_results.xlsx"))
+# 
+# # format the combined results into a table
+# final_table <- multiple_results_final %>%
+#   transmute(
+#     Covariate = term,  # Keep the term column
+#     `Odds of Testing Positive for Malaria (CI) (Urban)` = case_when(
+#       term %in% c("DHS Year: 2012",
+#                   "Sex: Female",
+#                   "Household Occupation Category: Non-Agricultural", 
+#                   "Roof Type: Poor", 
+#                   "Stunting: Not Stunted", 
+#                   "U5 Net Use: Did Not Use", 
+#                   "Wealth: Poorest") ~ sprintf("%.3f", OR.x),  # Show only OR for references
+#       TRUE ~ sprintf("%.3f (%.3f – %.3f)", OR.x, lower_ci.x, upper_ci.x)  # Show OR and CI for others
+#     ),
+#     `Odds of Testing Positive for Malaria (CI) (Rural)` = case_when(
+#       term %in% c("DHS Year: 2012",
+#                   "Sex: Female",
+#                   "Household Occupation Category: Non-Agricultural", 
+#                   "Roof Type: Poor", 
+#                   "Stunting: Not Stunted", 
+#                   "U5 Net Use: Did Not Use", 
+#                   "Wealth: Poorest") ~ sprintf("%.3f", OR.y),  # Show only OR for references
+#       TRUE ~ sprintf("%.3f (%.3f – %.3f)", OR.y, lower_ci.y, upper_ci.y)  # Show OR and CI for others
+#     )
+#   )
+# 
+# # export to a word document
+# doc <- read_docx()
+# doc <- doc %>%
+#   body_add_table(value = final_table, style = "table_template")
+# print(doc, target = file.path(PopDir, "analysis_dat", "multiple_reg_results.docx"))
 
 ## =========================================================================================================================================
 ### Power / Sample Size Calculation
