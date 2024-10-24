@@ -1095,7 +1095,7 @@ write.csv(all_diff, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis
 
 
 p_dat <- all_diff%>% 
-  summarise(start = range(diff_val)[1], end = range(diff_val)[2]) %>% 
+  summarise(start = range(diff_val_net)[1], end = range(diff_val_net)[2]) %>% 
   ungroup()
 
 p_dat$cntryId <- factor(p_dat$cntryId,levels=rev(unique(p_dat$cntryId)))
@@ -1107,7 +1107,7 @@ p_figure_3_2 <-ggplot(p_dat, aes(x = start, y = cntryId, end))+
   
   geom_point(
     data = all_diff,
-    aes(diff_val, cntryId, color = id), 
+    aes(diff_val_net, cntryId, color = id), 
     size = 4, alpha =0.7
   ) +
   

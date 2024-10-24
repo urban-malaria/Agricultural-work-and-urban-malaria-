@@ -1016,7 +1016,7 @@ urban_country_final_line_plots <- grid.arrange(
   ncol = 2,  # legend in the second column, plots in the first column
   widths = c(10, 2),  # adjust the width to give more space to the plots
   top = textGrob(
-    "Malaria Test Positivity Rate (TPR) and Net Use by Country: Urban",
+    "Urban",
     gp = gpar(fontsize = 16, fontface = "bold", hjust = 0.5)  # center the title
   ),
   bottom = textGrob(
@@ -1032,7 +1032,7 @@ urban_country_final_line_plots <- grid.arrange(
 
 # display the combined plot and save as .png and .pdf
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_final_line_plots.pdf"), urban_country_final_line_plots, width = 10, height = 10) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_final_line_plots.pdf"), urban_country_final_line_plots, width = 10, height = 8) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria Urban Plots 
@@ -1148,7 +1148,7 @@ ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_net_final_line_plots.p
 ### RURAL LINE PLOTS: 1) Malaria/net use combined, 2) Malaria only, 3) Net Use only 
 ## =========================================================================================================================================
 
-# URBAN: loop through each country
+# RURAL: loop through each country
 for (country_name in countries) {
   
   # get malaria TPR data for the current country
@@ -1297,7 +1297,7 @@ rural_country_final_line_plots <- grid.arrange(
   ncol = 2,  # legend in the second column, plots in the first column
   widths = c(10, 2),  # adjust the width to give more space to the plots
   top = textGrob(
-    "Malaria Test Positivity Rate (TPR) and Net Use by Country: Rural",
+    "Rural",
     gp = gpar(fontsize = 16, fontface = "bold", hjust = 0.5)  # center the title
   ),
   bottom = textGrob(
@@ -1313,7 +1313,7 @@ rural_country_final_line_plots <- grid.arrange(
 
 # display the combined plot and save as .png
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_rural_country_final_line_plots.png"), rural_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_rural_country_final_line_plots.pdf"), rural_country_final_line_plots, width = 10, height = 10) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_rural_country_final_line_plots.pdf"), rural_country_final_line_plots, width = 10, height = 8) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria Rural Plots 
