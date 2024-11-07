@@ -553,6 +553,7 @@ ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_DiD_final_plot.png"), final_
 # 2) Create long-format rural malaria dataframe
 # 3) Create long-format urban net use dataframe
 # 4) Create long-format rural net use dataframe
+# 5) Read in + prep net distribution dataframe
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # ***** 1) LONG FORMAT URBAN MALARIA DF *****
@@ -647,6 +648,17 @@ rural_trend_net_ci_long <- rural_trend_net_ci %>%
     cols = c(agric_percent, non_agric_percent),
     names_to = "household_type",
     values_to = "percent"
+  )
+
+# ***** 5) NET DISTRIBUTION DF *****
+net_distribution_df <- read_csv(file.path(DriveDir, "data/Urban_malaria_net_ownership_data/Urban_malaria_net_ownership_data/220315_ITN_distribution_data"))
+
+net_distribution_df <- net_distribution_df %>%
+  rename(total_net_distributed = `total net distributed`) %>%
+  group_by(Country) %>%
+  arrange(Year) %>%
+  mutate(
+    pct_change_nets = (total_net_distributed - lag(total_net_distributed)) / lag(total_net_distributed) * 100
   )
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
@@ -860,50 +872,92 @@ country_plots <- list()
 # URBAN: loop through each country
 for (country_name in countries) {
   
-  # get malaria TPR data for the current country
+  # # get malaria TPR data for the current country
+  # urban_country_data_malaria_ci <- urban_trend_malaria_ci_long %>%
+  #   filter(country == country_name) %>%
+  #   mutate(data_type = "Malaria TPR")
+  # 
+  # # get net use data for the current country
+  # urban_country_data_net_ci <- urban_trend_net_ci_long %>%
+  #   filter(country == country_name) %>%
+  #   mutate(data_type = "Net Use Rate")
+  # 
+  # # combine the two datasets
+  # urban_combined_data <- bind_rows(urban_country_data_malaria_ci, urban_country_data_net_ci)
+  # 
+  # # create plot a: combined malaria tpr and net use
+  # urban_comb_plot <- ggplot(urban_combined_data, aes(x = year, y = percent, linetype = data_type, color = household_type)) +
+  #   geom_line(size = 1) +  # Line for each group
+  #   geom_point(size = 3, alpha = 0.7) +  # Add points for each data point
+  #   geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR"), 
+  #                 aes(ymin = agric_lower_ci, ymax = agric_upper_ci), 
+  #                 width = 0.3, color = "#5560AB", alpha = 0.7) +  # Confidence interval for Malaria TPR (agricultural)
+  #   geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR"), 
+  #                 aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci), 
+  #                 width = 0.3, color = "#FAAF43", alpha = 0.7) +  # Confidence interval for Malaria TPR (non-agricultural)
+  #   geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate"), 
+  #                 aes(ymin = agric_lower_ci, ymax = agric_upper_ci), 
+  #                 width = 0.3, color = "#5560AB", alpha = 0.7) +  # Confidence interval for Net Use Rate (agricultural)
+  #   geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate"), 
+  #                 aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci), 
+  #                 width = 0.3, color = "#FAAF43", alpha = 0.7) +  # Confidence interval for Net Use Rate (non-agricultural)
+  #   theme_manuscript() +
+  #   labs(
+  #     x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"  # Legend titles
+  #   ) +
+  #   theme(
+  #     axis.text.y = element_text(size = 12),
+  #     axis.text.x = element_text(size = 10),
+  #     plot.title = element_text(hjust = 0.5, size = 14)
+  #   ) +
+  #   scale_color_manual(values = c("agric_percent" = "#5560AB", "non_agric_percent" = "#FAAF43"),  # Agricultural = blue, Non-agricultural = yellow
+  #                      labels = c("Agricultural", "Non-Agricultural")) +  # Custom labels for the legend
+  #   scale_linetype_manual(values = c("Malaria TPR" = "solid", "Net Use Rate" = "dashed")) +  # Line type: solid for Malaria TPR, dashed for Net Use
+  #   guides(linetype = guide_legend(override.aes = list(color = "black"))) +  # Set legend line color to black
+  #   scale_x_continuous(limits = c(2009.5, 2022.5), breaks = seq(2010, 2022, by = 3)) +
+  #   scale_y_continuous(limits = c(0, 100))  # Set consistent y-axis limits
+  
+  # Get malaria TPR and net use data for the current country
   urban_country_data_malaria_ci <- urban_trend_malaria_ci_long %>%
     filter(country == country_name) %>%
     mutate(data_type = "Malaria TPR")
   
-  # get net use data for the current country
   urban_country_data_net_ci <- urban_trend_net_ci_long %>%
     filter(country == country_name) %>%
     mutate(data_type = "Net Use Rate")
   
-  # combine the two datasets
+  # Combine malaria and net use data
   urban_combined_data <- bind_rows(urban_country_data_malaria_ci, urban_country_data_net_ci)
   
-  # create plot a: combined malaria tpr and net use
+  # Get net distribution data and percentage change for the current country
+  net_data_country <- net_distribution_data %>%
+    filter(Country == country_name) %>%
+    select(Year, pct_change_nets)  # Select year and percentage change columns
+  
+  # Create the combined plot with secondary y-axis
   urban_comb_plot <- ggplot(urban_combined_data, aes(x = year, y = percent, linetype = data_type, color = household_type)) +
-    geom_line(size = 1) +  # Line for each group
-    geom_point(size = 3, alpha = 0.7) +  # Add points for each data point
-    geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR"), 
-                  aes(ymin = agric_lower_ci, ymax = agric_upper_ci), 
-                  width = 0.3, color = "#5560AB", alpha = 0.7) +  # Confidence interval for Malaria TPR (agricultural)
-    geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR"), 
-                  aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci), 
-                  width = 0.3, color = "#FAAF43", alpha = 0.7) +  # Confidence interval for Malaria TPR (non-agricultural)
-    geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate"), 
-                  aes(ymin = agric_lower_ci, ymax = agric_upper_ci), 
-                  width = 0.3, color = "#5560AB", alpha = 0.7) +  # Confidence interval for Net Use Rate (agricultural)
-    geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate"), 
-                  aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci), 
-                  width = 0.3, color = "#FAAF43", alpha = 0.7) +  # Confidence interval for Net Use Rate (non-agricultural)
-    theme_manuscript() +
+    geom_line(size = 1) +  # Line for malaria TPR and net use
+    geom_point(size = 3, alpha = 0.7) +  # Points for TPR and net use
+    
+    # Add net distribution data as a secondary y-axis
+    geom_line(data = net_data_country, aes(x = Year, y = pct_change_nets), 
+              color = "darkgreen", linetype = "dotted", size = 1) +  # Line for net distribution
+    scale_y_continuous(
+      name = "Percent (%)",  # Primary y-axis label for TPR and net use
+      sec.axis = sec_axis(~., name = "Percentage Change in Nets Distributed (%)")  # Secondary y-axis label
+    ) +
+    
+    theme_manuscript() +  # Apply custom theme
     labs(
-      x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"  # Legend titles
+      x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"
     ) +
     theme(
       axis.text.y = element_text(size = 12),
       axis.text.x = element_text(size = 10),
       plot.title = element_text(hjust = 0.5, size = 14)
     ) +
-    scale_color_manual(values = c("agric_percent" = "#5560AB", "non_agric_percent" = "#FAAF43"),  # Agricultural = blue, Non-agricultural = yellow
-                       labels = c("Agricultural", "Non-Agricultural")) +  # Custom labels for the legend
-    scale_linetype_manual(values = c("Malaria TPR" = "solid", "Net Use Rate" = "dashed")) +  # Line type: solid for Malaria TPR, dashed for Net Use
-    guides(linetype = guide_legend(override.aes = list(color = "black"))) +  # Set legend line color to black
-    scale_x_continuous(limits = c(2009.5, 2022.5), breaks = seq(2010, 2022, by = 3)) +
-    scale_y_continuous(limits = c(0, 100))  # Set consistent y-axis limits
+    scale_color_manual(values = c("agric_percent" = "#5560AB", "non_agric_percent" = "#FAAF43")) + 
+    scale_linetype_manual(values = c("Malaria TPR" = "solid", "Net Use Rate" = "dashed"))
   
   # save the combined plot with the country name
   assign(paste0(country_name, "_urban_plot"), urban_comb_plot)
@@ -911,77 +965,77 @@ for (country_name in countries) {
   # add the combined plot to the list
   country_plots[[country_name]] <- urban_comb_plot
   
-  # FACET: make plot b: malaria tpr by country -----------------------------------------------------------------------------------
-  urban_malaria_plot <- ggplot(urban_country_data_malaria_ci, aes(x = year, y = percent, color = household_type)) +
-    
-    # add confidence interval error bars with color by household_type
-    geom_errorbar(
-      aes(ymin = agric_lower_ci, ymax = agric_upper_ci),
-      data = subset(urban_country_data_malaria_ci, household_type == "agric_percent"),
-      width = 0.2, color = "#FAAF43", alpha = 0.7
-    ) +
-    geom_errorbar(
-      aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
-      data = subset(urban_country_data_malaria_ci, household_type == "non_agric_percent"),
-      width = 0.2, color = "#5560AB", alpha = 0.7
-    ) +
-    geom_line(size = 1) +
-    geom_point(size = 3, alpha = 0.7, show.legend = TRUE) +
-    theme_manuscript() +
-    labs(
-      x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type"
-    ) +
-    theme(
-      axis.text.y = element_text(size = 12),
-      axis.text.x = element_text(size = 10),
-      plot.title = element_text(hjust = 0.5, size = 14)
-    ) +
-    scale_color_manual(
-      values = c("agric_percent" = "#FAAF43", "non_agric_percent" = "#5560AB"),  # Agricultural = green, Non-agricultural = orange
-      labels = c("Agricultural", "Non-Agricultural")  # Custom labels for the legend
-    ) +
-    scale_x_continuous(limits = c(2010, 2022), breaks = seq(2010, 2022, by = 3)) +  # Set limits and breaks for x-axis
-    scale_y_continuous(limits = c(0, 96))
-  
-  # save the malaria plot with the country name
-  assign(paste0(country_name, "_malaria_urban_plot"), urban_malaria_plot)
-  
-  # FACET: c) make plot for just net use by country -------------------------------------------------------------------------------------
-  urban_net_plot <- ggplot(urban_country_data_net_ci, aes(x = year, y = percent, color = household_type)) +
-    geom_errorbar( # add confidence interval error bars with color by household_type
-      aes(ymin = agric_lower_ci, ymax = agric_upper_ci),
-      data = subset(urban_country_data_net_ci, household_type == "agric_percent"),
-      width = 0.2, color = "#FAAF43", alpha = 0.7
-    ) +
-    geom_errorbar(
-      aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
-      data = subset(urban_country_data_net_ci, household_type == "non_agric_percent"),
-      width = 0.2, color = "#5560AB", alpha = 0.7
-    ) +
-    # plot the lines and points with color by household_type
-    geom_line(size = 1) +
-    geom_point(size = 3, alpha = 0.7, show.legend = TRUE) +  # Add points for each data point, with legend
-    theme_manuscript() +
-    labs(
-      x = "Survey Year",
-      y = "Percent (%)",
-      title = paste(country_name),
-      color = "Household Type"  # Update the legend title to represent colors for household_type
-    ) +
-    theme(
-      axis.text.y = element_text(size = 12),
-      axis.text.x = element_text(size = 10),
-      plot.title = element_text(hjust = 0.5, size = 14)
-    ) +
-    scale_color_manual(
-      values = c("agric_percent" = "#FAAF43", "non_agric_percent" = "#5560AB"),  # Agricultural = green, Non-agricultural = orange
-      labels = c("Agricultural", "Non-Agricultural")  # Custom labels for the legend
-    ) +
-    scale_x_continuous(limits = c(2010, 2022), breaks = seq(2010, 2022, by = 3)) +  # Set limits and breaks for x-axis
-    scale_y_continuous(limits = c(0, 96))
-  
-  # save the net plot with the country name
-  assign(paste0(country_name, "_net_urban_plot"), urban_net_plot)
+  # # FACET: make plot b: malaria tpr by country -----------------------------------------------------------------------------------
+  # urban_malaria_plot <- ggplot(urban_country_data_malaria_ci, aes(x = year, y = percent, color = household_type)) +
+  #   
+  #   # add confidence interval error bars with color by household_type
+  #   geom_errorbar(
+  #     aes(ymin = agric_lower_ci, ymax = agric_upper_ci),
+  #     data = subset(urban_country_data_malaria_ci, household_type == "agric_percent"),
+  #     width = 0.2, color = "#FAAF43", alpha = 0.7
+  #   ) +
+  #   geom_errorbar(
+  #     aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
+  #     data = subset(urban_country_data_malaria_ci, household_type == "non_agric_percent"),
+  #     width = 0.2, color = "#5560AB", alpha = 0.7
+  #   ) +
+  #   geom_line(size = 1) +
+  #   geom_point(size = 3, alpha = 0.7, show.legend = TRUE) +
+  #   theme_manuscript() +
+  #   labs(
+  #     x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type"
+  #   ) +
+  #   theme(
+  #     axis.text.y = element_text(size = 12),
+  #     axis.text.x = element_text(size = 10),
+  #     plot.title = element_text(hjust = 0.5, size = 14)
+  #   ) +
+  #   scale_color_manual(
+  #     values = c("agric_percent" = "#FAAF43", "non_agric_percent" = "#5560AB"),  # Agricultural = green, Non-agricultural = orange
+  #     labels = c("Agricultural", "Non-Agricultural")  # Custom labels for the legend
+  #   ) +
+  #   scale_x_continuous(limits = c(2010, 2022), breaks = seq(2010, 2022, by = 3)) +  # Set limits and breaks for x-axis
+  #   scale_y_continuous(limits = c(0, 96))
+  # 
+  # # save the malaria plot with the country name
+  # assign(paste0(country_name, "_malaria_urban_plot"), urban_malaria_plot)
+  # 
+  # # FACET: c) make plot for just net use by country -------------------------------------------------------------------------------------
+  # urban_net_plot <- ggplot(urban_country_data_net_ci, aes(x = year, y = percent, color = household_type)) +
+  #   geom_errorbar( # add confidence interval error bars with color by household_type
+  #     aes(ymin = agric_lower_ci, ymax = agric_upper_ci),
+  #     data = subset(urban_country_data_net_ci, household_type == "agric_percent"),
+  #     width = 0.2, color = "#FAAF43", alpha = 0.7
+  #   ) +
+  #   geom_errorbar(
+  #     aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
+  #     data = subset(urban_country_data_net_ci, household_type == "non_agric_percent"),
+  #     width = 0.2, color = "#5560AB", alpha = 0.7
+  #   ) +
+  #   # plot the lines and points with color by household_type
+  #   geom_line(size = 1) +
+  #   geom_point(size = 3, alpha = 0.7, show.legend = TRUE) +  # Add points for each data point, with legend
+  #   theme_manuscript() +
+  #   labs(
+  #     x = "Survey Year",
+  #     y = "Percent (%)",
+  #     title = paste(country_name),
+  #     color = "Household Type"  # Update the legend title to represent colors for household_type
+  #   ) +
+  #   theme(
+  #     axis.text.y = element_text(size = 12),
+  #     axis.text.x = element_text(size = 10),
+  #     plot.title = element_text(hjust = 0.5, size = 14)
+  #   ) +
+  #   scale_color_manual(
+  #     values = c("agric_percent" = "#FAAF43", "non_agric_percent" = "#5560AB"),  # Agricultural = green, Non-agricultural = orange
+  #     labels = c("Agricultural", "Non-Agricultural")  # Custom labels for the legend
+  #   ) +
+  #   scale_x_continuous(limits = c(2010, 2022), breaks = seq(2010, 2022, by = 3)) +  # Set limits and breaks for x-axis
+  #   scale_y_continuous(limits = c(0, 96))
+  # 
+  # # save the net plot with the country name
+  # assign(paste0(country_name, "_net_urban_plot"), urban_net_plot)
 }
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
