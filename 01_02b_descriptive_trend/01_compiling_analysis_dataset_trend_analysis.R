@@ -1142,7 +1142,7 @@ p <- ggplot(plot_country, aes(x = reorder(country_year.x, -percent), y = percent
   labs(x = "", y = "Percentage of children, 6 - 59 months\n tested for malaria in urban clusters per country") +  # axis labels
   theme_manuscript() +  # apply custom theme for manuscripts
   theme(legend.position = "bottom")  # position legend at the bottom
-
+p
 # save the plot as a PDF file and data as a .csv file
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
 

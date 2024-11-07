@@ -58,7 +58,13 @@ read.files <- function(filepat1,path,fun, encoding = "latin1") {
   
 }
 
-
+# get the legend for each plot (used when making a grid and only one legend is needed)
+get_only_legend <- function(plot) {
+  plot_table <- ggplot_gtable(ggplot_build(plot))
+  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")
+  legend <- plot_table$grobs[[legend_plot]]
+  return(legend)
+}
 
 
 theme_manuscript <- function(){
