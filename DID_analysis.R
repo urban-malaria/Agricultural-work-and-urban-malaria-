@@ -10,7 +10,7 @@ rm(list = ls())
 ### Directory Management and File Paths
 ## =========================================================================================================================================
 
-user <- Sys.getenv("USERNAME")
+user <- Sys.getenv("USER")
 if ("ozodi" %in% user) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
@@ -159,7 +159,7 @@ urban_trend_net_updated <- rbind(urban_trend_net, df)
 
 #******** RURAL *********
 
-#*# rural analysis for net use: reshape and clean data
+## rural analysis for net use: reshape and clean data
 # exclude Tanzania as test positivity rate is less than 1%
 # exclude Mozambique 2011 as MZ 2015 and MZ 2022-23 are the two most recent surveys
 rural_trend_net <- net_trend_data  %>%  
@@ -416,7 +416,7 @@ library(tidyverse)
 
 #color_list <- c("forestgreen", "darkorchid4", "#d391fa", "#3e00b3", "#c55c80", "#e07a5f", "#0d47a1")
 
-color_list <- c("#006400","#4B0082", "#DDA0DD","#1E90FF","#C71585","#FF6347")
+color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "gold")
 
 # combine malaria and net use data for urban areas
 urban_combined <- left_join(did_results_urban_malaria, did_results_urban_net, by = "country_id", suffix = c("_malaria", "_net"))
@@ -501,22 +501,7 @@ rural_combined_plot <- rural_combined_plot +
   labs(title = NULL, subtitle = "Rural", y = NULL) + 
   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
 
-# function to extract the legend
-get_only_legend <- function(urban_combined_plot) { 
-  
-  # get tabular interpretation of plot 
-  plot_table <- ggplot_gtable(ggplot_build(urban_combined_plot))  
-  
-  #  mark only legend in plot 
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  
-  # extract legend 
-  legend <- plot_table$grobs[[legend_plot]] 
-  
-  # return legend 
-  return(legend)  
-}
-
+# extract the legend
 legend <- get_only_legend(urban_combined_plot) 
 
 urban_combined_plot <- urban_combined_plot + theme(legend.position = "none")
@@ -659,7 +644,7 @@ net_distribution_df <- net_distribution_df %>%
   group_by(Country) %>%
   arrange(Country, Year) %>%
   mutate(
-    # Set first_year_nets to the second year's distribution for Côte d'Ivoire and Benin,
+    # set first_year_nets to the second year's distribution for Côte d'Ivoire and Benin,
     # and to the first year's distribution for other countries
     first_year_nets = if_else(Country %in% c("Côte d'Ivoire", "Benin"),
                               nth(total_net_distributed, 2, default = first(total_net_distributed)),
@@ -700,7 +685,7 @@ urban_malaria_tpr_plot <- ggplot(urban_trend_malaria_ci_long, aes(x = year, y = 
   scale_color_manual(values = color_list) +  # use existing color list
   scale_linetype_manual(values = c("solid", "dashed"), labels = c("Agricultural  ", "Non-Agricultural   ")) +  # different line types for agric/non-agric HHs
   guides(linetype = guide_legend(title = "Household Type")) + # add legend title for line types
-  scale_x_continuous(breaks = seq(min(urban_trend_malaria_long$year), max(urban_trend_malaria_long$year), by = 2))  # tick marks every 2 years
+  scale_x_continuous(breaks = seq(min(urban_trend_malaria_ci_long$year), max(urban_trend_malaria_ci_long$year), by = 2))  # tick marks every 2 years
 
 urban_malaria_tpr_plot
 
@@ -720,7 +705,7 @@ rural_malaria_tpr_plot <- ggplot(rural_trend_malaria_ci_long, aes(x = year, y = 
   scale_color_manual(values = color_list) +  # use existing color list
   scale_linetype_manual(values = c("solid", "dashed"), labels = c("Agricultural", "Non-Agricultural")) +  # different line types for agric/non-agric HHs
   guides(linetype = guide_legend(title = "Household Type")) + # add legend title for line types
-  scale_x_continuous(breaks = seq(min(urban_trend_malaria_long$year), max(urban_trend_malaria_long$year), by = 2))  # tick marks every 2 years
+  scale_x_continuous(breaks = seq(min(urban_trend_malaria_ci_long$year), max(urban_trend_malaria_ci_long$year), by = 2))  # tick marks every 2 years
 
 rural_malaria_tpr_plot
 
@@ -733,22 +718,6 @@ urban_malaria_tpr_plot <- urban_malaria_tpr_plot +
 rural_malaria_tpr_plot <- rural_malaria_tpr_plot + 
   labs(title = NULL, subtitle = "Rural", y = NULL) + 
   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
-
-# function to extract the legend
-get_only_legend <- function(urban_malaria_tpr_plot) { 
-  
-  # get tabular interpretation of plot 
-  plot_table <- ggplot_gtable(ggplot_build(urban_malaria_tpr_plot))  
-  
-  #  mark only legend in plot 
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  
-  # extract legend 
-  legend <- plot_table$grobs[[legend_plot]] 
-  
-  # return legend 
-  return(legend)  
-}
 
 legend <- get_only_legend(urban_malaria_tpr_plot) 
 
@@ -832,22 +801,6 @@ urban_net_plot <- urban_net_plot +
 rural_net_plot <- rural_net_plot + 
   labs(title = NULL, subtitle = "Rural", y = NULL) + 
   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
-
-# function to extract the legend
-get_only_legend <- function(urban_net_plot) { 
-  
-  # get tabular interpretation of plot 
-  plot_table <- ggplot_gtable(ggplot_build(urban_net_plot))  
-  
-  #  mark only legend in plot 
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  
-  # extract legend 
-  legend <- plot_table$grobs[[legend_plot]] 
-  
-  # return legend 
-  return(legend)  
-}
 
 legend <- get_only_legend(urban_net_plot) 
 
@@ -933,7 +886,7 @@ for (country_name in countries) {
   #   scale_x_continuous(limits = c(2009.5, 2022.5), breaks = seq(2010, 2022, by = 3)) +
   #   scale_y_continuous(limits = c(0, 100))  # Set consistent y-axis limits
   
-  # Get malaria TPR and net use data for the current country
+  # get malaria TPR and net use data for the current country
   urban_country_data_malaria_ci <- urban_trend_malaria_ci_long %>%
     filter(country == country_name) %>%
     mutate(data_type = "Malaria TPR")
@@ -942,55 +895,55 @@ for (country_name in countries) {
     filter(country == country_name) %>%
     mutate(data_type = "Net Use Rate")
   
-  # Combine malaria and net use data
+  # combine malaria and net use data
   urban_combined_data <- bind_rows(urban_country_data_malaria_ci, urban_country_data_net_ci)
   
-  # Get net distribution data and percentage change for the current country (compared to first year nets were distributed)
+  # get net distribution data and percentage change for the current country (compared to first year nets were distributed)
   net_data_country <- net_distribution_df %>%
     filter(Country == country_name) %>%
     select(Year, total_net_distributed, pct_change_nets)
   
-  # Create a new data frame for net distribution with a legend entry
+  # create a new data frame for net distribution with a legend entry
   net_data_country_legend <- net_data_country %>%
     mutate(data_type = "Percentage Change in Nets Distributed")  # Add a column for the legend entry
   
   # PLOT: TPR AND NET USE AND PERCENT CHANGE IN NETS DISTRIBUTED FROM PRIOR YEAR
   urban_comb_plot <- ggplot() +
     
-    # Area plot for percent change in net distribution
+    # area plot for percent change in net distribution
     geom_area(data = net_data_country_legend, 
               aes(x = Year, y = scales::rescale(pct_change_nets, to = c(0, 100))),
               fill = "lightgrey", alpha = 0.5, position = 'identity') +
     
-    # Line plot for malaria TPR and net use
+    # line plot for malaria TPR and net use
     geom_line(data = urban_combined_data, 
               aes(x = year, y = percent, linetype = data_type, color = household_type), size = 1) +
     
-    # Points for malaria TPR and net use
+    # points for malaria TPR and net use
     geom_point(data = urban_combined_data, 
                aes(x = year, y = percent, color = household_type), size = 3, alpha = 0.7) +
     
-    # Add confidence intervals for Malaria TPR (agricultural)
+    # add confidence intervals for malaria TPR (agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR", household_type == "agric_percent"),
                   aes(x = year, ymin = agric_lower_ci, ymax = agric_upper_ci),
                   width = 0.3, color = "#5560AB", alpha = 0.7) +
     
-    # Add confidence intervals for Malaria TPR (non-agricultural)
+    # add confidence intervals for malaria TPR (non-agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR", household_type == "non_agric_percent"),
                   aes(x = year, ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
                   width = 0.3, color = "#FAAF43", alpha = 0.7) +
     
-    # Add confidence intervals for Net Use Rate (agricultural)
+    # add confidence intervals for net use rate (agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate", household_type == "agric_percent"),
                   aes(x = year, ymin = agric_lower_ci, ymax = agric_upper_ci),
                   width = 0.3, color = "#5560AB", alpha = 0.7) +
     
-    # Add confidence intervals for Net Use Rate (non-agricultural)
+    # add confidence intervals for net use rate (non-agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate", household_type == "non_agric_percent"),
                   aes(x = year, ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
                   width = 0.3, color = "#FAAF43", alpha = 0.7) +
     
-    # Set up primary and secondary y-axes
+    # set up primary and secondary y-axes
     scale_y_continuous(
       name = "Malaria TPR/Net Use Rate (%)",  # Primary y-axis label
       limits = c(0, 100),  # Primary y-axis scale from 0 to 100
@@ -1000,7 +953,7 @@ for (country_name in countries) {
       )
     ) +
     
-    # Add theme, labels, and scales
+    # add theme, labels, and scales
     theme_manuscript() +
     labs(
       x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"
@@ -1023,7 +976,7 @@ for (country_name in countries) {
   
   #------------------------------------------------------------------------------------------------------------------------------------------------#
   
-  # Create a new data frame for net distribution with a legend entry
+  # create a new data frame for net distribution with a legend entry
   net_data_country_num_legend <- net_data_country %>%
     mutate(data_type = "Nets Distributed")  # Add a column for the legend entry
   
@@ -1032,33 +985,33 @@ for (country_name in countries) {
     geom_line(size = 1) +  # Line for malaria TPR and net use
     geom_point(size = 3, alpha = 0.7) +  # Points for TPR and net use
     
-    # Add confidence intervals for Malaria TPR (agricultural)
+    # add confidence intervals for malaria TPR (agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR", household_type == "agric_percent"),
                   aes(ymin = agric_lower_ci, ymax = agric_upper_ci),
                   width = 0.3, color = "#5560AB", alpha = 0.7) +
     
-    # Add confidence intervals for Malaria TPR (non-agricultural)
+    # add confidence intervals for malaria TPR (non-agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Malaria TPR", household_type == "non_agric_percent"),
                   aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
                   width = 0.3, color = "#FAAF43", alpha = 0.7) +
     
-    # Add confidence intervals for Net Use Rate (agricultural)
+    # add confidence intervals for net use rate (agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate", household_type == "agric_percent"),
                   aes(ymin = agric_lower_ci, ymax = agric_upper_ci),
                   width = 0.3, color = "#5560AB", alpha = 0.7) +
     
-    # Add confidence intervals for Net Use Rate (non-agricultural)
+    # add confidence intervals for net use rate (non-agricultural)
     geom_errorbar(data = urban_combined_data %>% filter(data_type == "Net Use Rate", household_type == "non_agric_percent"),
                   aes(ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
                   width = 0.3, color = "#FAAF43", alpha = 0.7) +
     
-    # Add net distribution data as points and connect with a dotted line
+    # add net distribution data as points and connect with a dotted line
     geom_point(data = net_data_country_num_legend, aes(x = Year, y = scales::rescale(total_net_distributed, to = c(0, 100)), linetype = "Number of Nets Distributed"),  
-               color = "darkgreen", size = 1.5, alpha = 0.7) +  # Points for number nets distributed
+               color = "darkgreen", size = 1.5, alpha = 0.7) +  # points for number nets distributed
     geom_line(data = net_data_country_num_legend, aes(x = Year, y = scales::rescale(total_net_distributed, to = c(0, 100)), linetype = "Number of Nets Distributed"),  
-              color = "darkgreen", size = 0.5, linetype = "dotted") +  # Dotted line for nets distributed
+              color = "darkgreen", size = 0.5, linetype = "dotted") +  # dotted line for nets distributed
     
-    # Set up primary and secondary y-axes
+    # set up primary and secondary y-axes
     scale_y_continuous(
       name = "Malaria TPR/Net Use Rate (%)",  # Primary y-axis label
       limits = c(0, 100),  # Primary y-axis scale from 0 to 100
@@ -1068,7 +1021,7 @@ for (country_name in countries) {
       )
     ) +
     
-    # Add theme, labels, and scales
+    # add theme, labels, and scales
     theme_manuscript() +
     labs(
       x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"
@@ -1164,14 +1117,7 @@ print(Benin_urban_plot)
 ### Combine Malaria + Net Use + Percent Change in Net Distribution Urban Plots 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# function to extract the combined malaria/net use legend
-get_only_legend <- function(Benin_urban_plot) { 
-  plot_table <- ggplot_gtable(ggplot_build(Benin_urban_plot))  
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  legend <- plot_table$grobs[[legend_plot]] 
-  return(legend)  
-}
-
+# extract the combined malaria/net use legend
 legend <- get_only_legend(Benin_urban_plot) 
 
 # remove legends from all plots
@@ -1220,14 +1166,7 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_area_plots.pdf
 ### Combine Malaria + Net Use + Number of Nets Distributed Urban Plots 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# function to extract the combined malaria/net use legend
-get_only_legend <- function(Benin_urban_num_nets_plot) { 
-  plot_table <- ggplot_gtable(ggplot_build(Benin_urban_num_nets_plot))  
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  num_nets_legend <- plot_table$grobs[[legend_plot]] 
-  return(num_nets_legend)  
-}
-
+# extract the combined malaria/net use legend
 num_nets_legend <- get_only_legend(Benin_urban_num_nets_plot) 
 
 # remove legends from all plots
@@ -1276,22 +1215,7 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_final_num_nets
 ### Combine Malaria Urban Plots 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# function to extract the malaria legend
-get_only_legend <- function(Benin_malaria_urban_plot) { 
-  
-  # get tabular interpretation of plot 
-  plot_table <- ggplot_gtable(ggplot_build(Benin_malaria_urban_plot))  
-  
-  #  mark only legend in plot 
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  
-  # extract legend 
-  legend_malaria <- plot_table$grobs[[legend_plot]] 
-  
-  # return legend 
-  return(legend_malaria)  
-}
-
+# extract the malaria legend
 legend_malaria <- get_only_legend(Benin_malaria_urban_plot) 
 
 # remove legends from all plots
@@ -1331,22 +1255,7 @@ ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_CI_urban_malaria_final_line_
 ### Combine Net Use Urban Plots 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# function to extract the net use legend
-get_only_legend <- function(Benin_net_urban_plot) { 
-  
-  # get tabular interpretation of plot 
-  plot_table <- ggplot_gtable(ggplot_build(Benin_net_urban_plot))  
-  
-  #  mark only legend in plot 
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  
-  # extract legend 
-  legend_net <- plot_table$grobs[[legend_plot]] 
-  
-  # return legend 
-  return(legend_net)  
-}
-
+# extract the net use legend
 legend_net <- get_only_legend(Benin_net_urban_plot) 
 
 # remove legends from all plots
@@ -1450,40 +1359,40 @@ for (country_name in countries) {
   # PLOT: TPR AND NET USE AND PERCENT CHANGE IN NETS DISTRIBUTED FROM PRIOR YEAR
   rural_area_plot <- ggplot() +
     
-    # Area plot for percent change in net distribution
+    # area plot for percent change in net distribution
     geom_area(data = net_data_country_legend, 
               aes(x = Year, y = scales::rescale(pct_change_nets, to = c(0, 100))),
               fill = "lightgrey", alpha = 0.5, position = 'identity') +
     
-    # Line plot for malaria TPR and net use
+    # line plot for malaria TPR and net use
     geom_line(data = rural_combined_data, 
               aes(x = year, y = percent, linetype = data_type, color = household_type), size = 1) +
     
-    # Points for malaria TPR and net use
+    # points for malaria TPR and net use
     geom_point(data = rural_combined_data, 
                aes(x = year, y = percent, color = household_type), size = 3, alpha = 0.7) +
     
-    # Add confidence intervals for Malaria TPR (agricultural)
+    # add confidence intervals for malaria TPR (agricultural)
     geom_errorbar(data = rural_combined_data %>% filter(data_type == "Malaria TPR", household_type == "agric_percent"),
                   aes(x = year, ymin = agric_lower_ci, ymax = agric_upper_ci),
                   width = 0.3, color = "#5560AB", alpha = 0.7) +
     
-    # Add confidence intervals for Malaria TPR (non-agricultural)
+    # add confidence intervals for malaria TPR (non-agricultural)
     geom_errorbar(data = rural_combined_data %>% filter(data_type == "Malaria TPR", household_type == "non_agric_percent"),
                   aes(x = year, ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
                   width = 0.3, color = "#FAAF43", alpha = 0.7) +
     
-    # Add confidence intervals for Net Use Rate (agricultural)
+    # add confidence intervals for net use rate (agricultural)
     geom_errorbar(data = rural_combined_data %>% filter(data_type == "Net Use Rate", household_type == "agric_percent"),
                   aes(x = year, ymin = agric_lower_ci, ymax = agric_upper_ci),
                   width = 0.3, color = "#5560AB", alpha = 0.7) +
     
-    # Add confidence intervals for Net Use Rate (non-agricultural)
+    # add confidence intervals for net use rate (non-agricultural)
     geom_errorbar(data = rural_combined_data %>% filter(data_type == "Net Use Rate", household_type == "non_agric_percent"),
                   aes(x = year, ymin = non_agric_lower_ci, ymax = non_agric_upper_ci),
                   width = 0.3, color = "#FAAF43", alpha = 0.7) +
     
-    # Set up primary and secondary y-axes
+    # set up primary and secondary y-axes
     scale_y_continuous(
       name = "Malaria TPR/Net Use Rate (%)",  # Primary y-axis label
       limits = c(0, 100),  # Primary y-axis scale from 0 to 100
@@ -1493,7 +1402,7 @@ for (country_name in countries) {
       )
     ) +
     
-    # Add theme, labels, and scales
+    # add theme, labels, and scales
     theme_manuscript() +
     labs(
       x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"
