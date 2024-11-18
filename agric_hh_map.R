@@ -163,7 +163,7 @@ for (country_code in names(shapefiles)) {
 }
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
-### Read in Subdivision Shapefiles (e.g. State, Region, etc), Collect 3 Largest Cities in Each Country (by Population)
+### Read in Subdivision Shapefiles (e.g. State, Region, etc) - First-Level Administrative Subdivision in Each Country
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 library(sf)
@@ -208,9 +208,9 @@ subdivision_files[["UG"]] <- subdivision_files[["UG"]] %>%
 ### Create Maps Showing Agric HH Proportion per Subdivision (add Cluster points)
 ## =========================================================================================================================================
 
-agric_palette <- c("#018571", "#80cdc1", "#f5f5f5", "#dfc27d", "#a6611a")
+agric_palette <- c("#018571", "#80cdc1", "#f5f5f5", "#dfc27d", "#a6611a") # brown will be highest proportion of agric HHs
 
-# define the top 3 populous subdivisions for each country (all data from Wikipedia, which displays census data)
+# define the top 3 populous subdivisions for each country (all data from Wikipedia, which displays most recent census data)
 top_populous_subdivisions <- list(
   "Angola" = c("Luanda", "Huíla", "Benguela"),
   "Burkina Faso" = c("Centre", "Haut-Bassins", "Est"),
@@ -358,14 +358,7 @@ for (country_code in names(gps_survey_data)) {
 ### Combine Country Plots into Grid
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# function to extract the combined malaria/net use legend
-get_only_legend <- function(BU_subd_plot) { 
-  plot_table <- ggplot_gtable(ggplot_build(BU_subd_plot))  
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  legend <- plot_table$grobs[[legend_plot]] 
-  return(legend)  
-}
-
+# extract the combined malaria/net use legend
 prop_legend <- get_only_legend(BU_subd_plot) 
 
 # remove legends from all plots
