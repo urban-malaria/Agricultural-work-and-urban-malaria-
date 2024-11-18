@@ -129,6 +129,28 @@ all_df <- all_df %>%
   )
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
+### Make Chart for Figure 2 with New Housing Quality Variable
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# categorize roof type and prepare survey design
+all_df_hq <- all_df %>%
+  as_survey_design(ids = id, strata = strat, nest = T, weights = wt) %>%  # create a survey design object
+  mutate(housing_quality = ifelse(housing_quality == 1, "Good Quality", "Poor Quality")) %>%  # categorize housing quality
+  drop_na(housing_quality) %>%  # remove rows with missing hq values
+  mutate(hq_f = factor(housing_quality, levels = c("Good Quality", "Poor Quality"))) %>%  # convert hq to a factor
+  group_by(type_f, home_type3, hq_f) %>%  # group by type, home type, and housing quality
+  summarise(value = round(survey_total(), 0)) %>%  # calculate total survey values, rounded to nearest integer
+  mutate(percent = round(value / sum(value) * 100, 0))  # calculate percentage of total values
+
+# create a bar plot of roof type by home type
+p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) + 
+  geom_bar(aes(y = percent), position="stack", stat = "identity", show.legend = F)+
+  scale_fill_manual(name = "", values = c("#90c058", "#005500"))+
+  theme_manuscript() +
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Prepare Data for Analysis
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -908,14 +930,7 @@ rural_effect_size_plot <- rural_effect_size_plot +
   labs(title = NULL, subtitle = "Rural", x = NULL, y = NULL) + 
   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
 
-# function to extract the legend
-get_only_legend <- function(urban_effect_size_plot) { 
-  plot_table <- ggplot_gtable(ggplot_build(urban_effect_size_plot))  
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  legend <- plot_table$grobs[[legend_plot]] 
-  return(legend)  
-}
-
+# extract the legend
 legend <- get_only_legend(urban_effect_size_plot) 
 
 # remove individual legends as we need only one
@@ -971,14 +986,7 @@ rural_effect_size_plot <- ggplot(rural_effect_size_df, aes(x = Estimate, y = Med
   theme_minimal() +
   theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
 
-# function to extract the legend
-get_only_legend <- function(urban_effect_size_plot) {  
-  plot_table <- ggplot_gtable(ggplot_build(urban_effect_size_plot))  
-  legend_plot <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")  
-  legend <- plot_table$grobs[[legend_plot]]  
-  return(legend)  
-}
-
+# extract the legend
 legend <- get_only_legend(urban_effect_size_plot) 
 
 # remove individual legends as we need only one
@@ -1200,11 +1208,6 @@ for (country in names(urban_country_results)) {
 }
 
 # get one legend to use for the combined plots
-get_only_legend <- function(plot) {
-  plot_table <- ggplot_gtable(ggplot_build(plot))
-  country_mediation_legend <- which(sapply(plot_table$grobs, function(x) x$name) == "guide-box")
-  return(country_mediation_legend)
-}
 country_mediation_legend <- get_only_legend(country_forest_plots[["Angola"]])
 
 # remove titles, axis labels, legends, add subtitles with just the country name
