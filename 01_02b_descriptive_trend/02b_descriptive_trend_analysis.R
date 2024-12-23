@@ -722,7 +722,7 @@ all_diff_ci <- rbind(diff_d_u, diff_d_r) %>%
   mutate(country_surveyyears = ifelse(cntryId...8 == "GH", "Ghana 2014 Vs. 2022 - 23", country_surveyyears)) %>%
   group_by(cntryId...8, title)
 
-# Rename columns for clarity and include survey design variables
+# rename columns for clarity and include survey design variables
 all_diff2_ci <- all_diff_ci %>%
   rename(agric_percent = percent...3, 
          agric_lower_ci = lower_ci...4,
