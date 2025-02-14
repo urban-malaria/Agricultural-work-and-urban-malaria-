@@ -1773,3 +1773,96 @@ ggsave(paste0(FigDir,"/", Sys.Date(),"figure_4.pdf"), p_figure_4, width = 8.5, h
 # urban_pvalue <- rural_urban_fun(2)
 # 
 # 
+
+## =========================================================================================================================================
+### Remake figure for manuscript (countries' percentage of positive/negative results by urban and rural residence and by home type)
+## =========================================================================================================================================
+
+# Read and prepare urban data
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%
+  mutate(type = "Urban")
+
+# Read and prepare rural data
+rural_df <- read_csv(file.path(PopDir, "analysis_dat/240729_rural_df_for_analysis.csv")) %>%
+  mutate(type = "Rural")
+
+# Select relevant columns for urban and rural data
+plot_df_um <- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt, type) 
+plot_df_rm <- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt, type) 
+
+# Relabel home type categories
+plot_df_rm <- plot_df_rm %>%
+  mutate(home_type2 = ifelse(home_type2 == "A", "Agricultural Worker Household", "Non-Agricultural Worker Household"))
+plot_df_um <- plot_df_um %>%
+  mutate(home_type2 = ifelse(home_type2 == "A", "Agricultural Worker Household", "Non-Agricultural Worker Household"))
+
+# Update country_surveyyears to remove spaces around dashes
+plot_df_rm <- plot_df_rm %>%
+  mutate(country_year.x = str_replace_all(country_year.x, " - ", "–")) %>%
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013–14", "DRC 2013–14", country_year.x))
+plot_df_um <- plot_df_um %>%
+  mutate(country_year.x = str_replace_all(country_year.x, " - ", "–")) %>%
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013–14", "DRC 2013–14", country_year.x))
+
+# Function to summarize data for percentage calculations
+summarize_data <- function(df) {
+  df %>%
+    group_by(country_year.x, type, home_type2, test_result) %>%
+    summarise(value = n(), .groups = "drop") %>%
+    group_by(country_year.x, home_type2) %>%
+    mutate(percent = value / sum(value),
+           percent_label = ifelse(test_result == "-ve", 
+                                  paste0(round(value / sum(value[test_result == "-ve" | test_result == "+ve"]) * 100, 0), "%"), 
+                                  ""))
+}
+
+plot_country_urban <- summarize_data(plot_df_um)
+plot_country_rural <- summarize_data(plot_df_rm)
+
+# Function to calculate positivity rate for agricultural households
+calculate_positivity <- function(df) {
+  df %>%
+    filter(home_type2 == "Agricultural Worker Household", test_result == "+ve") %>%
+    group_by(country_year.x) %>%
+    summarise(positivity_rate = sum(percent))
+}
+
+urban_positivity <- calculate_positivity(plot_country_urban)
+rural_positivity <- calculate_positivity(plot_country_rural)
+
+# Merge positivity rates with the main dataframes
+plot_country_urban <- left_join(plot_country_urban, urban_positivity, by = "country_year.x")
+plot_country_rural <- left_join(plot_country_rural, rural_positivity, by = "country_year.x")
+
+# Define colors for the plot
+color <- c("-ve" = "#f2a5a1", "+ve" = "#c55c80")
+
+# Function to generate plots
+plot_malaria <- function(df, title) {
+  ggplot(df, aes(x = reorder(country_year.x, positivity_rate), y = percent, fill = test_result)) +
+    geom_bar(stat = "identity", position = "fill", width = 0.7) +  
+    coord_flip() +
+    scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +  
+    scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
+    facet_grid(. ~ home_type2) +  
+    geom_text(aes(label = percent_label, y = 0.85),
+              color = "black", hjust = 1) +
+    labs(x = "", y = "Percentage of malaria test results among tested children aged 6–59 months", title = title) +
+    theme_manuscript() +
+    theme(legend.position = "bottom")
+}
+
+# Create Urban and Rural plots
+urban_plot <- plot_malaria(filter(plot_country_urban), "Malaria Test Results in Urban Areas")
+rural_plot <- plot_malaria(filter(plot_country_rural), "Malaria Test Results in Rural Areas")
+
+# Display plots
+urban_plot
+rural_plot
+
+# Combine plots
+final_percentage_results_plot <- grid.arrange(urban_plot, rural_plot)
+
+# Save the combined plot
+ggsave(paste0(FigDir, "/", Sys.Date(), "_descending_country_positivity.pdf"), final_percentage_results_plot, width = 10, height = 12)
+
