@@ -724,27 +724,35 @@ p<-ggplot(plot_country , aes(x = reorder(country_year.x, -percent), y = percent,
   theme_manuscript()+
   theme(legend.position = "bottom")
 
+p
 
 
 
 
+p <- ggplot(plot_country, aes(fill = test_result, x = home_type2)) +
+  geom_bar(aes(y = value), position = "stack", stat = "identity") +
+  theme_manuscript() +  # Apply theme_manuscript separately
+  theme(
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title.x = element_text(size = 8),
+    axis.title.y = element_text(size = 8)
+  ) +
+  scale_x_discrete(labels = c("Agric worker \n HH", "Non-agric \n worker HH")) +
+  scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
+  geom_text(
+    aes(label = paste0(value, " (", percent, "%)"), y = value),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 8
+  ) +
+  labs(
+    x = "",
+    y = "Number of children, 6 - 59 months, tested positive for malaria\nin 22 DHS datasets"
+  ) +
+  facet_wrap(vars(country_year.x), scales = "free") +
+  theme(legend.position = "bottom")
+p
 
-# p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) + 
-#   geom_bar(aes(y = value), position="stack", stat = "identity")+
-#   theme_manuscript(theme(axis.text.x = element_text(size = 8), 
-#                          axis.text.y = element_text(size = 8),
-#                          axis.title.x = element_text(size = 8),
-#                          axis.title.y = element_text(size = 8)))+
-#   scale_x_discrete(labels = c("Agric worker \n HH", "Non-agric \n worker HH"))+
-#   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-#   geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
-#             position = position_stack(vjust = 0.5),
-#             color = "white", size =8) +
-#   labs(x = "", y  = "Number of children, 6 - 59 months, tested positive for malaria 
-#        in 22 DHS datasets") +
-#   facet_wrap(vars(country_year.x), scales="free") +
-#   theme(legend.position = 'bottom')
-  
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_urban_by_country.pdf"), p, width = 8.5, height = 6) 
 
 write_csv(urban_df, file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis.csv"))
@@ -885,7 +893,7 @@ p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) +
        in 22 DHS datasets") +
   facet_wrap(vars(country_year.x), scales="free")+
   theme(legend.position = 'bottom')
-
+p
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
 
 write_csv(rural_df, file.path(PopDir, "analysis_dat/240606_rural_df_for_analysis.csv"))
