@@ -121,14 +121,13 @@ rural_trend_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis_
 
 # combine urban and rural data frames (both current and trend data) into one
 all_df <- rbind(urban_df, rural_df, urban_trend_df, rural_trend_df) %>%
-  
   # create a survey design object with id, strata, and weights, setting nest to true
   as_survey_design(ids= id,strata=strat,nest=T,weights= wt)%>% 
-  
   # group by country and urban/rural type, then calculate total population using survey weights
   group_by(country_year.x, type) %>%
-  summarize(total = round(survey_total(),0)) %>%
+  dplyr::summarize(total = round(survey_total(),0)) %>%
   ungroup() 
+
 
 # calculate the percentage of the total for each group within a country/year
 df <- all_df %>% 
@@ -137,7 +136,7 @@ df <- all_df %>%
 
 # merge the calculated percentages with the original data frame and prepare for plotting
 all <- cbind(all_df, df) %>% 
-  select(-c("country_year.x")) %>% # remove duplicate country_year.x column
+  #select(-c("country_year.x")) %>% # remove duplicate country_year.x column
   mutate(plot_label = ifelse(type == "Rural", percent, NA)) %>% # create plot labels only for rural areas (to avoid label clutter)
   mutate(survey = ifelse(country_year.x %in% recent_to_remove, "Recent Survey", "Preceding Survey")) # categorize surveys into recent vs. preceding surveys based on the country year
 
@@ -267,23 +266,28 @@ table_df <- svytable(~home_type2 + interview_month, svyd_df)%>%
 
 # recode home type and calculate percentage
 table_df <- table_df %>%  
-  mutate(home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH")) %>% 
+  mutate(home_type2 = ifelse(home_type2 == 'A', 'Agricultural Worker Household', "Non-Agricultural Worker Household")) %>% 
   group_by(home_type2) %>%  
-  mutate(percent = round(Freq/sum(Freq)*100), 0) %>%  
+  mutate(percent = round(Freq/sum(Freq)*100), 0) %>%
+  mutate(interview_month = as.numeric(interview_month)) %>%
   ungroup() # reset grouping
 
 # create bar plot of percentages by interview month
-p3 <- table_df %>% 
+p3_black <- table_df %>% 
   ggplot(aes(x = interview_month, y = percent, label =percent)) +
   geom_col(fill = "forestgreen", alpha=0.8) + # bar plot
   geom_smooth(se = FALSE, color = "goldenrod2")+ # smooth line
   # geom_text(position = position_stack(vjust = 0.5),
   #           color = "black") +
+  geom_text(aes(label = paste0(percent, "%")),  
+            position = position_dodge(width = 0.9),  
+            vjust = -0.5,
+            color = "black",  
+            size = 3) +
   facet_wrap(vars(home_type2)) + # separate plots by home type
   theme_manuscript()+
   labs(title = "Percentage of Children Tested for Malaria by Interview Month",
-       y = "Percentage of children, 6 - 59 months tested for malaria 
-       by RDT or microscopy in urban and rural clusters", 
+       y = "Percentage of children (6–59 months) tested for \nmalaria by RDT or microscopy in urban and rural areas", 
        x = "Interview month"
   ) +
   theme(
@@ -293,10 +297,38 @@ p3 <- table_df %>%
   # theme(strip.background = element_blank(), strip.text.x = element_blank()) +
   scale_x_continuous(breaks = scales::pretty_breaks(n = 12), expand = expansion(mult = c(0.02, 0.02)))
 
-p3
+p3_black
 
-# save plot as a png
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(), "_tests_by_int_month.png"), p3, width = 8, height = 7)
+# save plot as a pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_tests_by_int_month_black.pdf"), p3_black, width = 8, height = 7)
+
+p3_white <- table_df %>% 
+  ggplot(aes(x = interview_month, y = percent, label =percent)) +
+  geom_col(fill = "forestgreen", alpha=0.8) + # bar plot
+  geom_smooth(se = FALSE, color = "goldenrod2")+ # smooth line
+  # geom_text(position = position_stack(vjust = 0.5),
+  #           color = "black") +
+  geom_text(aes(label = paste0(percent, "%")),  
+            position = position_stack(vjust = 0.5),
+            color = "white",  
+            size = 2.5) +
+  facet_wrap(vars(home_type2)) + # separate plots by home type
+  theme_manuscript()+
+  labs(title = "Percentage of Children Tested for Malaria by Interview Month",
+       y = "Percentage of children (6–59 months) tested for \nmalaria by RDT or microscopy in urban and rural areas", 
+       x = "Interview month"
+  ) +
+  theme(
+    plot.title = element_text(size = 12), # adjust the size as needed
+    axis.text.x = element_text(size = 10)  # adjust the x-axis label size
+  ) +
+  # theme(strip.background = element_blank(), strip.text.x = element_blank()) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 12), expand = expansion(mult = c(0.02, 0.02)))
+
+p3_white
+
+# save plot as a pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_tests_by_int_month_white.pdf"), p3_white, width = 8, height = 7)
 
 # combine plots if needed
 #p <- (p2 + p1)/p3
@@ -337,7 +369,7 @@ plot_df_um <- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, 
 plot_overall <- plot_df_um %>% 
   as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
   group_by(home_type2, test_result) %>% # group data by home type and test result  
-  summarise(
+  dplyr::summarise(
     value = survey_mean(vartype = "se") # calculate survey mean with standard error
   ) %>%
   mutate(lower_ci = value - (1.96 * value_se),  # calculate lower bound of 95% CI
@@ -373,7 +405,7 @@ plot_df_rm <- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, 
 plot_overall <- plot_df_rm %>% 
   as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
   group_by(home_type2, test_result) %>%   
-  summarise(
+  dplyr::summarise(
     value = survey_mean(vartype = "se")
   ) %>%
   mutate(
@@ -422,7 +454,7 @@ plot_df_un<- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, u
 plot_urban = plot_df_un %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
   group_by(home_type2, net_use) %>% # group by home type and net use 
-  summarise(value = round(survey_total(),0)) %>% # calculate total net use
+  dplyr::summarise(value = round(survey_total(),0)) %>% # calculate total net use
   mutate(percent = round(value/sum(value) *100, 0)) # calculate percentage of net use
 
 # set title for urban plot
@@ -432,13 +464,12 @@ plot_urban$title = "Urban"
 p_net_u <- ggplot(plot_urban, aes(fill=net_use, x= home_type2)) + 
   geom_bar(aes(y = value), position="stack", stat = "identity")+ # stacked bar chart
   theme_manuscript()+
-  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
+  scale_x_discrete(labels = c("Agricultural\nWorker HH", "Non-Agricultural\nWorker HH")) +
   scale_fill_manual(name = "", values= color)+ # set custom fill colors
   geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
             position = position_stack(vjust = 0.5),
             color = "white") +
-  labs(x = "", y  = "Number of children, 6 - 59 months,
-  tested positive for malaria in 22 DHS datasets") +
+  labs(x = "", y  = "Positive malaria tests: Children \n6-59 months (15 DHS datasets)") +
   facet_wrap(vars(title))+
   theme(strip.text.x = element_text(
     size = 12, color = "black")) +
@@ -452,7 +483,7 @@ plot_df_rn <- rural_df %>%
 plot_rural = plot_df_rn %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   mutate(net_use = ifelse(u5_net_use == 1, "Slept under \n a net", "Did not sleep \n under a net")) %>% 
   group_by(home_type2, net_use) %>% # group by home type and net use 
-  summarise(value = round(survey_total(),0)) %>% # calculate total net use
+  dplyr::summarise(value = round(survey_total(),0)) %>% # calculate total net use
   mutate(percent = round(value/sum(value) *100, 0)) # calculate percentage of net use
 
 # set title for rural plot
@@ -462,13 +493,12 @@ plot_rural$title = "Rural"
 p_net_r<-ggplot(plot_rural, aes(fill=net_use, x= home_type2)) + 
   geom_bar(aes(y = value), position="stack", stat = "identity")+
   theme_manuscript()+
-  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
+  scale_x_discrete(labels = c("Agricultural\nWorker HH", "Non-Agricultural\nWorker HH")) +
   scale_fill_manual(name = "", values= color)+
   geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
             position = position_stack(vjust = 0.5),
             color = "white") +
-  labs(x = "", y  = "Number of children, 6 - 59 months,
-  tested positive for malaria in 22 DHS datasets") +
+  labs(x = "", y  = "Positive malaria tests: Children \n6-59 months (15 DHS datasets)") +
   facet_wrap(vars(title))+
   theme(strip.text.x = element_text(
     size = 12, color = "black")) +
@@ -483,12 +513,12 @@ p_6 <- p_net_u + p_net_r
 # create a combined plot with legend positioned at the bottom and save as png
 p_6 <- p_net_u + p_net_r + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
 p_6
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"netuse_agric_positivity.png"),p_6, width = 8, height= 7) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"netuse_agric_positivity.pdf"),p_6, width = 8, height= 7) 
 
 # combine malaria positivity and net use plots and save the combined plot as pdf
 # p_malaria_p_net = p_3a / p_3b
 # p_malaria_p_net
-# ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural.pdf"),p_malaria_p_net, width = 8, height= 7) 
+# ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_test_positivity_netuse_agric_urban_rural.pdf"),p_malaria_p_net, width = 8, height= 7)
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Figure 3b
@@ -499,7 +529,7 @@ ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"netuse_agric_positivity.png")
 # prepare the country-level data for plotting
 plot_country = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
   group_by(country_year.x,home_type2, test_result) %>% # group by country, home type, and test result
-  summarise(value = round(survey_total(),0))%>% # calculate total values
+  dplyr::summarise(value = round(survey_total(),0))%>% # calculate total values
   mutate(percent = round(value/sum(value) *100, 0)) %>% # calculate percentage
   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
@@ -1724,3 +1754,96 @@ ggsave(paste0(FigDir,"/", Sys.Date(),"figure_4.pdf"), p_figure_4, width = 8.5, h
 # urban_pvalue <- rural_urban_fun(2)
 # 
 # 
+
+## =========================================================================================================================================
+### Remake figure for manuscript (countries' percentage of positive/negative results by urban and rural residence and by home type)
+## =========================================================================================================================================
+
+# Read and prepare urban data
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv")) %>%
+  mutate(type = "Urban")
+
+# Read and prepare rural data
+rural_df <- read_csv(file.path(PopDir, "analysis_dat/240729_rural_df_for_analysis.csv")) %>%
+  mutate(type = "Rural")
+
+# Select relevant columns for urban and rural data
+plot_df_um <- urban_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt, type) 
+plot_df_rm <- rural_df %>% dplyr::select(country_year.x, home_type2, code_year, test_result, id, strat, wt, type) 
+
+# Relabel home type categories
+plot_df_rm <- plot_df_rm %>%
+  mutate(home_type2 = ifelse(home_type2 == "A", "Agricultural Worker Household", "Non-Agricultural Worker Household"))
+plot_df_um <- plot_df_um %>%
+  mutate(home_type2 = ifelse(home_type2 == "A", "Agricultural Worker Household", "Non-Agricultural Worker Household"))
+
+# Update country_surveyyears to remove spaces around dashes
+plot_df_rm <- plot_df_rm %>%
+  mutate(country_year.x = str_replace_all(country_year.x, " - ", "–")) %>%
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013–14", "DRC 2013–14", country_year.x))
+plot_df_um <- plot_df_um %>%
+  mutate(country_year.x = str_replace_all(country_year.x, " - ", "–")) %>%
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013–14", "DRC 2013–14", country_year.x))
+
+# Function to summarize data for percentage calculations
+summarize_data <- function(df) {
+  df %>%
+    group_by(country_year.x, type, home_type2, test_result) %>%
+    summarise(value = n(), .groups = "drop") %>%
+    group_by(country_year.x, home_type2) %>%
+    mutate(percent = value / sum(value),
+           percent_label = ifelse(test_result == "-ve", 
+                                  paste0(round(value / sum(value[test_result == "-ve" | test_result == "+ve"]) * 100, 0), "%"), 
+                                  ""))
+}
+
+plot_country_urban <- summarize_data(plot_df_um)
+plot_country_rural <- summarize_data(plot_df_rm)
+
+# Function to calculate positivity rate for agricultural households
+calculate_positivity <- function(df) {
+  df %>%
+    filter(home_type2 == "Agricultural Worker Household", test_result == "+ve") %>%
+    group_by(country_year.x) %>%
+    summarise(positivity_rate = sum(percent))
+}
+
+urban_positivity <- calculate_positivity(plot_country_urban)
+rural_positivity <- calculate_positivity(plot_country_rural)
+
+# Merge positivity rates with the main dataframes
+plot_country_urban <- left_join(plot_country_urban, urban_positivity, by = "country_year.x")
+plot_country_rural <- left_join(plot_country_rural, rural_positivity, by = "country_year.x")
+
+# Define colors for the plot
+color <- c("-ve" = "#f2a5a1", "+ve" = "#c55c80")
+
+# Function to generate plots
+plot_malaria <- function(df, title) {
+  ggplot(df, aes(x = reorder(country_year.x, positivity_rate), y = percent, fill = test_result)) +
+    geom_bar(stat = "identity", position = "fill", width = 0.7) +  
+    coord_flip() +
+    scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +  
+    scale_fill_manual(name = "Malaria test result", labels = c("Negative", "Positive"), values = color) +
+    facet_grid(. ~ home_type2) +  
+    geom_text(aes(label = percent_label, y = 0.85),
+              color = "black", hjust = 1) +
+    labs(x = "", y = "Percentage of malaria test results among tested children aged 6–59 months", title = title) +
+    theme_manuscript() +
+    theme(legend.position = "bottom")
+}
+
+# Create Urban and Rural plots
+urban_plot <- plot_malaria(filter(plot_country_urban), "Malaria Test Results in Urban Areas")
+rural_plot <- plot_malaria(filter(plot_country_rural), "Malaria Test Results in Rural Areas")
+
+# Display plots
+urban_plot
+rural_plot
+
+# Combine plots
+final_percentage_results_plot <- grid.arrange(urban_plot, rural_plot)
+
+# Save the combined plot
+ggsave(paste0(FigDir, "/", Sys.Date(), "_descending_country_positivity.pdf"), final_percentage_results_plot, width = 10, height = 12)
+
