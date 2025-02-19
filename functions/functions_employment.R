@@ -131,7 +131,7 @@ result.prop<- function(var, var1, design) {
 }
 
 #survey design function 
-svydesign.fun <- function(filename){
+svydesign_fun <- function(filename){
   svydesign(id= ~id,
             strata=~strat,nest=T, 
             weights= ~wt, data=filename)

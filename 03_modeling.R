@@ -818,6 +818,19 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
 # create a Word document and add title
 doc <- read_docx()
 
+# make factor variables numeric
+urban_df$housing_quality <- as.numeric(urban_df$housing_quality)
+urban_df$home_type_dep <- as.numeric(urban_df$home_type_dep)
+urban_df$u5_net_use_dep <- as.numeric(urban_df$u5_net_use_dep)
+urban_df$roof_type_dep <- as.numeric(urban_df$roof_type_dep)
+urban_df$stunting_dep <- as.numeric(urban_df$stunting_dep)
+
+rural_df$housing_quality <- as.numeric(rural_df$housing_quality)
+rural_df$home_type_dep <- as.numeric(rural_df$home_type_dep)
+rural_df$u5_net_use_dep <- as.numeric(rural_df$u5_net_use_dep)
+rural_df$roof_type_dep <- as.numeric(rural_df$roof_type_dep)
+rural_df$stunting_dep <- as.numeric(rural_df$stunting_dep)
+
 # run the function for urban_df and add the table to the document
 urban_results <- run_mediation_analysis(urban_df)
 doc <- doc %>%
@@ -835,8 +848,8 @@ file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_boots
 print(doc, target = file_path)
 
 # save unrounded results in separate dfs
-urban_unrounded_results <- run_mediation_analysis(urban_df)
-rural_unrounded_results <- run_mediation_analysis(rural_df)
+urban_unrounded_results <- urban_results
+rural_unrounded_results <- rural_results
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Stratify Mediation Analysis by Country
@@ -1176,7 +1189,7 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_combined_mediation_perc_for
 # create a list to store plots (plots will show both urban+rural mediation data)
 country_forest_plots <- list()
 
-# loop over unique countries in urban_country_results (the countries are the same in rural_country_results)
+# loop over unique countries in urban and rural mediation results
 for (country in names(urban_country_results)) {
   
   # retrieve urban and rural data from the respective lists
@@ -1197,9 +1210,10 @@ for (country in names(urban_country_results)) {
          x = "Percent Mediation (%)", y = "Mediator") + 
     scale_x_continuous(limits = c(-50, 100)) +
     scale_color_manual(values = c("Urban" = "darkorchid", "Rural" = "#E07A5F")) + 
-    theme_manuscript() + 
+    theme_manuscript() +  
     theme(axis.text.y = element_text(size = 10), 
-          plot.title = element_text(size = 12, face = "bold", hjust = 0.5))
+          plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+          legend.position = "none")  # remove legend
     
   # store the plot in the list with the country name as the key
   country_forest_plots[[country]] <- country_forest_plot
@@ -1220,14 +1234,14 @@ for (country in names(urban_country_results)) {
 }  
 
 # arrange country % mediation forest plots in a grid
-country_perc_med_plots <- do.call(grid.arrange, c(country_forest_plots, nrow = 5, ncol = 3))
+country_perc_med_plots <- do.call(grid.arrange, c(country_forest_plots, ncol = 2))
 
 # format the grid
 country_perc_med_plots_final <- grid.arrange(
   country_perc_med_plots,
   country_mediation_legend,
   ncol = 2,  # legend in the second column, plots in the first column
-  widths = c(12, 2),
+  widths = c(12, 4),
   top = textGrob(
     "Percent Mediation by Key Mediators Across Countries, Stratified by Urban and Rural Residence",
     gp = gpar(fontsize = 16, fontface = "bold", hjust = 0.5)  # center the title
@@ -1235,9 +1249,9 @@ country_perc_med_plots_final <- grid.arrange(
 )
 
 # display the combined plot and save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_country_mediation_forest.pdf"), country_perc_med_plots_final, width = 30, height = 40) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_country_mediation_forest.pdf"), country_perc_med_plots_final, width = 12, height = 14) 
 
-# ----- make grid with only plots that have reasonable confidence intervals ------ 
+ # ----- make grid with only plots that have reasonable confidence intervals ------ 
 selected_countries <- c("Burundi", "Cote d'Ivoire", "Nigeria", "Togo")
 selected_plots <- lapply(selected_countries, function(country) country_forest_plots[[country]])
 country_subset_med_plots <- do.call(grid.arrange, c(selected_plots, nrow = 3, ncol = 2))
