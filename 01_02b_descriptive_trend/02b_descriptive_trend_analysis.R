@@ -820,7 +820,6 @@ diff_d_r_net <- bind_cols(df1_rural_net, df2_rural_net) %>%
 
 # filter plot_country to only include those that used nets (net use = 1)
 diff_d_r_net <- diff_d_r_net %>%
-  filter(u5_net_use...4 == 1)
 
 diff_d_r_net$title = "Rural"
 
