@@ -84,7 +84,7 @@ rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis
   transmute(country_year.x, country_year.x, id, strat, wt, type)  %>% # select and retain only these columns
   name_clean_fun() # clean column names using custom function
 
-# extract unique country-year values (e.g. Angola 2015 - 16) from the urban dataset
+f# extract unique country-year values (e.g. Angola 2015 - 16) from the urban dataset
 recent_to_remove <- urban_df$country_year.x %>% unique()
 
 # load urban trend dataset, filter out recent records, and add a 'type' column for urban
