@@ -1207,7 +1207,7 @@ for (country in names(urban_country_results)) {
                    height = 0.6, position = position_dodge(width = 0.5)) + 
     labs(title = paste("Percent Mediation Contributions in", country), 
          x = "Percent Mediation (%)", y = "Mediator") + 
-    scale_x_continuous(limits = c(-50, 100)) +
+    scale_x_continuous(limits = c(-25, 100)) +
     scale_color_manual(values = c("Urban" = "darkorchid", "Rural" = "#E07A5F")) + 
     theme_manuscript() +  
     theme(axis.text.y = element_text(size = 10), 
