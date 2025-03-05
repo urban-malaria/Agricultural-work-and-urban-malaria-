@@ -209,6 +209,10 @@ subdivision_files[["UG"]] <- subdivision_files[["UG"]] %>%
 ## =========================================================================================================================================
 
 agric_palette <- c("#018571", "#80cdc1", "#f5f5f5", "#dfc27d", "#a6611a") # brown will be highest proportion of agric HHs
+agric_palette2 <- c("#FAAD33", "#FF8A4D", "#FF6C6B", "#E95988", "#C1559F", "#8D58AA", "#4B59A7")
+agric_palette2 <- c("#FAAD33", "#FF6C6B", "#E95988", "#8D58AA", "#4B59A7")
+
+agric_palette3 <- c("#C1B4B4", "#B78D9F", "#976C9F", "#7961A3", "#4B59A7")
 
 # define the top 3 populous subdivisions for each country (all data from Wikipedia, which displays most recent census data)
 top_populous_subdivisions <- list(
@@ -316,7 +320,7 @@ for (country_code in names(gps_survey_data)) {
     geom_sf(data = spat_country_subd_with_prop, aes(fill = prop_cat, geometry = geometry), color = "white") +
     
     # apply agric_palette to the fill scale
-    scale_fill_manual(values = agric_palette, labels = interval_labels, na.value = "gray") +
+    scale_fill_manual(values = agric_palette2, labels = interval_labels, na.value = "gray") +
     
     # # add cluster data points with jitter to prevent overlap
     # geom_jitter(data = country_data, aes(x = LONGNUM, y = LATNUM, fill = prop_cat),
@@ -326,13 +330,13 @@ for (country_code in names(gps_survey_data)) {
     # cluster data points without jitter
     geom_point(data = country_data, aes(x = LONGNUM, y = LATNUM, fill = prop_cat),
                size = 1.5, shape = 21, stroke = 0.2, show.legend = FALSE) +
-    scale_color_gradientn(colors = agric_palette) +
+    scale_color_gradientn(colors = agric_palette2) +
     
-    # add thick orange outlines for top 3 most populous subdivisions in each country
+    # add thick black outlines for top 3 most populous subdivisions in each country
     geom_sf(data = filter(spat_country_subd_with_prop, is_top_populous == TRUE), 
             aes(geometry = geometry), 
             fill = NA, 
-            color = "orange", 
+            color = "black", 
             linewidth = 1,
             inherit.aes = FALSE) +
     
@@ -398,5 +402,5 @@ agric_final_subd_maps <- grid.arrange(
 )
 
 # save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_agric_maps.pdf"), agric_final_subd_maps, width = 10, height = 15)  
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_agric_maps_final_2.pdf"), agric_final_subd_maps, width = 10, height = 15)  
 
