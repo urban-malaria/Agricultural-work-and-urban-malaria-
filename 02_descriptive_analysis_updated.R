@@ -84,7 +84,7 @@ rural_df <- read_csv(file.path(PopDir,"analysis_dat/240729_rural_df_for_analysis
   transmute(country_year.x, country_year.x, id, strat, wt, type)  %>% # select and retain only these columns
   name_clean_fun() # clean column names using custom function
 
-f# extract unique country-year values (e.g. Angola 2015 - 16) from the urban dataset
+# extract unique country-year values (e.g. Angola 2015 - 16) from the urban dataset
 recent_to_remove <- urban_df$country_year.x %>% unique()
 
 # load urban trend dataset, filter out recent records, and add a 'type' column for urban
@@ -892,6 +892,46 @@ final_net_v_malaria_dots <- grid.arrange(
 
 # save as .png
 ggsave(paste0(FigDir, "/png_figures/figure_2/", Sys.Date(),"_malaria_test_positivity_netuse_agric_urban_rural_by_country.png"), final_net_v_malaria_dots, width = 8, height = 5) 
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+# LOGISTIC REGRESSION: Test difference in net use between agricultural and non-agricultural households in urban and rural areas
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+library(survey)
+
+# URBAN
+urban_survey_design <- svydesign(
+  id = ~id,
+  strata = ~strat,
+  weights = ~wt,
+  nest = TRUE,
+  data = plot_df_un
+)
+
+# run the logistic regression
+urban_logistic_model <- svyglm(
+  formula = u5_net_use ~ home_type2,
+  design = urban_survey_design,
+  family = quasibinomial()
+)
+summary(urban_logistic_model)
+
+# RURAL
+rural_survey_design <- svydesign(
+  id = ~id,
+  strata = ~strat,
+  weights = ~wt,
+  nest = TRUE,
+  data = plot_df_rn
+)
+
+# run the logistic regression
+rural_logistic_model <- svyglm(
+  formula = u5_net_use ~ home_type2,
+  design = rural_survey_design,
+  family = quasibinomial()
+)
+summary(rural_logistic_model)
 
 ## =========================================================================================================================================
 ### Trend Analysis
