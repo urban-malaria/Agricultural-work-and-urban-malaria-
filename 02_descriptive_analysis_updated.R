@@ -817,6 +817,7 @@ p_diff_r_malaria <- ggplot(diff_d_r_malaria , aes(x = reorder(country_year.x, -d
   facet_wrap(vars(title))+
   theme_manuscript()+
   theme(legend.position = "bottom") 
+p_diff_r_malaria
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 # join both dataframes (malaria and net use difference) to create a scatterplot for RURAL areas
@@ -1181,6 +1182,12 @@ test_df <- all_df %>%
   drop_na
 t.test(test_df$hh_size ~ test_df$home_type3) # conduct t-test
 
+# calculate mean household size for each group
+mean_values <- all_df %>%
+  group_by(home_type3, type_f) %>%
+  summarise(mean_hh_size = mean(hh_size, na.rm = TRUE))
+print(mean_values)
+
 # create a boxplot of household size by home type
 p1 <- ggplot(all_df, aes(x = home_type3, y = hh_size, fill = home_type3)) +
   scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
@@ -1416,6 +1423,12 @@ cohen_d <- (mean(test_df2[[1]]$EVI_2000m_new) - mean(test_df2[[2]]$EVI_2000m_new
 ### Enhanced Vegetation Index (EVI)
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
+# calculate mean EVI for each group (agric/non-agric, urban/rural)
+mean_values <- all_df %>%
+  group_by(home_type3, type_f) %>%
+  summarise(mean_evi = mean(EVI_2000m_new, na.rm = TRUE))
+print(mean_values)
+
 # create box plot for Enhanced Vegetation Index (EVI)
 p4 <- ggplot(all_df, aes(x = home_type3, y = EVI_2000m_new, fill = home_type3)) +
   scale_fill_manual(name = '', values =c('#5560AB','#FAAF43'))+
@@ -1465,6 +1478,12 @@ cohen_d <- (mean(test_df2[[1]]$preci_monthly_2000m) - mean(test_df2[[2]]$preci_m
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Precipitation
 ## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# calculate mean precipitation for each group (agric/non-agric, urban/rural)
+mean_values <- all_df %>%
+  group_by(home_type3, type_f) %>%
+  summarise(mean_preci = mean(preci_monthly_2000m, na.rm = TRUE))
+print(mean_values)
 
 # create box plot for monthly precipitation
 p5 <- ggplot(all_df, aes(x = home_type3, y = preci_monthly_2000m, fill = home_type3)) +
@@ -1641,6 +1660,16 @@ p_gender # display the gender distribution plot
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Stunting
 ## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# get percentages of stunting/non-stunting in each category
+stunting_percentages <- all_df %>%
+  drop_na(stunting_new) %>%
+  group_by(home_type3, type_f, stunting_new) %>%
+  summarise(count = n()) %>%
+  group_by(home_type3, type_f) %>%
+  mutate(percentage = count / sum(count) * 100) %>%
+  ungroup()
+print(stunting_percentages)
 
 # create a bar plot for stunting distribution, filtering out missing values in stunting_new
 p_stunting <- ggplot(all_df %>% drop_na(stunting_new), aes(x = home_type3, fill = stunting_new)) +
