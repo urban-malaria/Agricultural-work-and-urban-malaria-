@@ -962,8 +962,9 @@ for (country_name in countries) {
     
     # add theme, labels, and scales
     theme_manuscript() +
+    facet_wrap(~ country, labeller = label_value) +
     labs(
-      x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"
+      x = "Survey Year", y = "Percent (%)", color = "Household Type", linetype = "Data Type"
     ) +
     theme(
       axis.text.y = element_text(size = 12),
@@ -1220,7 +1221,7 @@ urban_country_final_line_plots <- grid.arrange(
 
 # display the combined plot and save as .png and .pdf
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_area_plots.pdf"), urban_country_final_line_plots, width = 9, height = 8) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_area_plots.pdf"), urban_country_final_line_plots, width = 8, height = 8) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria + Net Use + Number of Nets Distributed Urban Plots 
@@ -1465,8 +1466,9 @@ for (country_name in countries) {
     
     # add theme, labels, and scales
     theme_manuscript() +
+    facet_wrap(~ country, labeller = label_value) + 
     labs(
-      x = "Survey Year", y = "Percent (%)", title = paste(country_name), color = "Household Type", linetype = "Data Type"
+      x = "Survey Year", y = "Percent (%)", color = "Household Type", linetype = "Data Type"
     ) +
     theme(
       axis.text.y = element_text(size = 12),
@@ -1683,39 +1685,39 @@ rural_net_final_line_plots <- grid.arrange(
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_rural_net_final_line_plots.png"), rural_net_final_line_plots, width = 10, height = 10) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
-### Combine Malaria + Net Use + Percent Change in Net Distribution Urban Plots 
+### Combine Malaria + Net Use + Percent Change in Net Distribution Rural Plots 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # extract the combined malaria/net use legend
-legend <- get_only_legend(Benin_urban_plot) 
+legend <- get_only_legend(Benin_rural_area_plot) 
 
 # remove legends from all plots
-Benin_urban_plot <- Benin_urban_plot + 
+Benin_rural_area_plot <- Benin_rural_area_plot + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
-`Burkina Faso_urban_plot` <- `Burkina Faso_urban_plot` + 
+`Burkina Faso_rural_area_plot` <- `Burkina Faso_rural_area_plot` + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
-Cameroon_urban_plot <- Cameroon_urban_plot + 
+Cameroon_rural_area_plot <- Cameroon_rural_area_plot + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
-`Cote d'Ivoire_urban_plot` <- `Cote d'Ivoire_urban_plot` + 
+`Cote d'Ivoire_rural_area_plot` <- `Cote d'Ivoire_rural_area_plot` + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
-Mali_urban_plot <- Mali_urban_plot + 
+Mali_rural_area_plot <- Mali_rural_area_plot + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
-Mozambique_urban_plot <- Mozambique_urban_plot + 
+Mozambique_rural_area_plot <- Mozambique_rural_area_plot + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
-Ghana_urban_plot <- Ghana_urban_plot + 
+Ghana_rural_area_plot <- Ghana_rural_area_plot + 
   theme(legend.position = "none", axis.title.y = element_blank(), axis.title.x = element_blank())
 
-urban_country_line_plots <- grid.arrange(Benin_urban_plot, `Burkina Faso_urban_plot`, Cameroon_urban_plot, `Cote d'Ivoire_urban_plot`, Mali_urban_plot, Mozambique_urban_plot, Ghana_urban_plot,
+rural_country_line_plots <- grid.arrange(Benin_rural_area_plot, `Burkina Faso_rural_area_plot`, Cameroon_rural_area_plot, `Cote d'Ivoire_rural_area_plot`, Mali_rural_area_plot, Mozambique_rural_area_plot, Ghana_rural_area_plot,
                                          nrow = 4, ncol = 2)
 
 # combine the plots and legend
-urban_country_final_line_plots <- grid.arrange(
-  urban_country_line_plots,
+rural_country_final_line_plots <- grid.arrange(
+  rural_country_line_plots,
   legend,
   ncol = 2,  # legend in the second column, plots in the first column
   widths = c(10, 2),  # adjust the width to give more space to the plots
   top = textGrob(
-    "Urban",
+    "Rural",
     gp = gpar(fontsize = 16, fontface = "bold", hjust = 0.5)  # center the title
   ),
   bottom = textGrob(
@@ -1730,5 +1732,5 @@ urban_country_final_line_plots <- grid.arrange(
 )
 
 # display the combined plot and save as .png and .pdf
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_area_plots.pdf"), urban_country_final_line_plots, width = 9, height = 8) 
+ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_rural_country_final_line_plots.png"), rural_country_final_line_plots, width = 10, height = 10) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_rural_country_area_plots.pdf"), rural_country_final_line_plots, width = 8, height = 8) 
