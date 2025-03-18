@@ -642,7 +642,7 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
   
   # retain only relevant columns
   mediation_data <- data %>%    
-    select(home_type_dep, malaria_result, stunting_dep, roof_type, hh_size, wealth, housing_quality, u5_net_use_dep)
+    select(home_type_dep, malaria_result, stunting_dep, roof_type, hh_size, wealth, housing_quality, u5_net_use_dep, EVI_2000m_new, temp_monthly_2000m)
   
   # convert factor variables to numeric
   mediation_data$home_type_dep <- as.numeric(as.factor(mediation_data$home_type_dep))
@@ -656,7 +656,9 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
     model_number_3 = c("hh_size"),
     model_number_4 = c("wealth"),
     model_number_5 = c("housing_quality"),
-    model_number_6 = c("u5_net_use_dep")
+    model_number_6 = c("u5_net_use_dep"),
+    model_number_7 = c("EVI_2000m_new"),
+    model_number_8 = c("temp_monthly_2000m")
   )
   
   # initialize an empty data frame to store results
@@ -779,6 +781,8 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
       mediator == "wealth" ~ "Wealth",
       mediator == "housing_quality" ~ "Housing Quality",
       mediator == "u5_net_use_dep" ~ "Net Use",
+      mediator == "EVI_2000m_new" ~ "EVI",
+      mediator == "temp_monthly_2000m" ~ "Temperature",
       TRUE ~ mediator  # keep original if no match
     )) %>%
     rename(
@@ -843,7 +847,7 @@ doc <- doc %>%
   body_add_table(value = rural_results, style = "table_template")
 
 # save the document
-file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_bootstrapped.docx")
+file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_bootstrapped2.docx")
 print(doc, target = file_path)
 
 # save unrounded results in separate dfs
@@ -967,7 +971,7 @@ combined_effect_bar_plot <- grid.arrange(
 )
 
 # save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_bar.pdf"), combined_effect_bar_plot, width = 7, height = 7) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_bar.pdf"), combined_effect_bar_plot, width = 9, height = 7) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### 2) Effect Size Forest Plot for Indirect, Direct, and Total Effects with Confidence Intervals
@@ -1091,7 +1095,7 @@ combined_perc_mediation_bar_plot <- grid.arrange(
 ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_bar.pdf"), combined_perc_mediation_bar_plot, width = 7, height = 7) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
-### 4) Forest Plot for Percent Mediation with Confidence Intervals - IN FINAL PAPER
+### 4) Forest Plot for Percent Mediation with Confidence Intervals
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # create urban forest plot
@@ -1164,21 +1168,21 @@ combined_percent_mediation_df <- combined_percent_mediation_df %>%
 # create the combined forest plot
 combined_perc_med_forest <- ggplot(combined_percent_mediation_df,  
                                    aes(x = `% Mediation`, y = Mediator, color = Location)) +  
-  geom_point(size = 3, position = position_dodge(width = 0.5)) +  
+  geom_point(size = 3, position = position_dodge(width = 0.6)) +  
   geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`),  
-                 height = 0.2, position = position_dodge(width = 0.5)) +  
+                 height = 0.6, position = position_dodge(width = 0.6)) +  
   labs(title = "Percent Mediation Contributions of\n Various Mediators to Malaria Positivity",  
        x = "Percent Mediation (%)",  
        y = "Mediator") +  
-  scale_x_continuous(limits = c(0, 100)) +  
-  scale_color_manual(values = c("Urban" = "darkorchid", "Rural" = "#E07A5F")) +  
+  scale_x_continuous(limits = c(-20, 100)) +  
+  scale_color_manual(values = c("Urban" = "#1A478F", "Rural" = "#C01A81")) +  
   theme_manuscript() +  
   theme(axis.text.y = element_text(size = 10),  
         plot.title = element_text(size = 14, face = "bold"),  
         legend.background = element_rect(fill = "transparent"))
 
 # save the combined plot as a .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_combined_mediation_perc_forest.pdf"), combined_perc_med_forest, width = 7, height = 5)
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_combined_mediation_perc_forest2.pdf"), combined_perc_med_forest, width = 7, height = 5)
 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
@@ -1208,7 +1212,7 @@ for (country in names(urban_country_results)) {
     labs(title = paste("Percent Mediation Contributions in", country), 
          x = "Percent Mediation (%)", y = "Mediator") + 
     scale_x_continuous(limits = c(-25, 100)) +
-    scale_color_manual(values = c("Urban" = "darkorchid", "Rural" = "#E07A5F")) + 
+    scale_color_manual(values = c("Urban" = "#1A478F", "Rural" = "#C01A81")) +  
     theme_manuscript() +  
     theme(axis.text.y = element_text(size = 10), 
           plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
@@ -1282,22 +1286,24 @@ formulas <- list(malaria_result ~ home_type_dep,
                  malaria_result ~ home_type_dep + roof_type,
                  #malaria_result ~ home_type_dep + u5_net_use,
                  malaria_result ~ home_type_dep + hh_size,
-                 #malaria_result ~ home_type_dep + temp_monthly_2000m,
+                 malaria_result ~ home_type_dep + temp_monthly_2000m,
+                 malaria_result ~ home_type_dep + EVI_2000m_new,
                  malaria_result ~ home_type_dep + wealth_index,
                  malaria_result ~ home_type_dep + housing_quality,
                  malaria_result ~ home_type_dep + u5_net_use_dep)
 
 
-# define the term names based on formulas (remove net use and temp as they aren't significant)
+# define the term names based on formulas
 term_names <- c(
   "home type",
   "home type + stunting",
   "home type + roof type",
-  #"home type + u5 net use",
   "home type + household size",
-  #"home type + temperature",
+  "home type + temperature",
+  "home type + EVI",
   "home type + wealth index",
-  "home type + housing quality")
+  "home type + housing quality",
+  "home type + u5 net use")
 
 # apply the formulas to generate model results
 model_datasets_results <- lapply(formulas, fun_model)
@@ -1324,7 +1330,7 @@ fun_or <- function(model_) {
 # process all model results and bind them into one dataframe
 df_or <- lapply(model_datasets_results, fun_or) %>% 
   bind_rows(.id = "formula_id") %>% 
-  filter(term == "home_type_dep1") %>% 
+  filter(term == "home_type_dep") %>% 
   mutate(formula_name = term_names[as.numeric(formula_id)])
 
 # rename the 'term' column to 'formula_name'
@@ -1339,7 +1345,7 @@ df_or_significant <- df_or %>%
   filter(p.value < 0.05)
 print(df_or_significant) # all are significant
 
-color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347")
+color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "#7daca5", "#F4BC1C", "#ec0000")
 
 forest_b <- ggplot(df_or_significant, aes(x = odds, y = variables, color = variables)) + 
   geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
@@ -1354,30 +1360,31 @@ forest_b <- ggplot(df_or_significant, aes(x = odds, y = variables, color = varia
   theme_manuscript() +
   theme(legend.position = "none") +
   xlim(0.5, 3.7) + 
-  theme(axis.text.y = element_text(colour = color_list, size = 14, face = "bold"),
-        axis.text.x = element_text(size = 14, face = "bold"),
-        axis.title.x = element_text(size = 14, face = "bold")) +
+  theme(axis.text.y = element_text(colour = color_list, size = 14),
+        axis.text.x = element_text(size = 14),
+        axis.title.x = element_text(size = 14)) +
   ggtitle("Odds Ratios") +
-  theme(plot.title = element_text(size = 18, face = "bold", hjust = 0.5))
+  theme(plot.title = element_text(size = 18, hjust = 0.5))
 
-# display the plot and save as .png
+# display the plot and save as .pdf
 forest_b
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_forest_plot.png"), forest_b, width = 10, height = 10) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_forest_plot2.pdf"), forest_b, width = 10, height = 5) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Predicted Probabilities Generation and Plotting
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # define the term names based on formulas
-term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6"), 
+term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7", "8", "9"), 
                          variable = c("home type",
-                                       "home type + stunting",
-                                       "home type + roof type",
-                                       #"home type + u5 net use",
-                                       "home type + household size",
-                                       #"home type + temperature",
-                                       "home type + wealth index",
-                                       "home type + housing quality"))
+                                      "home type + stunting",
+                                      "home type + roof type",
+                                      "home type + household size",
+                                      "home type + temperature",
+                                      "home type + EVI",
+                                      "home type + wealth index",
+                                      "home type + housing quality",
+                                      "home type + u5 net use"))
   
 # process all model results and bind them into one dataframe
 effect_df_fun <- function(model_) {
@@ -1426,11 +1433,11 @@ pred_p <- ggplot() +
   theme(legend.position = "none") + 
   scale_y_discrete(labels = function(y) str_wrap(y, width = 15)) +
   theme(axis.title.y = element_blank(),
-        axis.text.y = element_text(colour = color_list, size = 14, face = "bold"),
-        axis.text.x = element_text(size = 14, face = "bold"),
-        axis.title.x = element_text(size = 14, face = "bold")) +
+        axis.text.y = element_text(colour = color_list, size = 14),
+        axis.text.x = element_text(size = 14),
+        axis.title.x = element_text(size = 14)) +
   ggtitle("Predicted Probabilities") + 
-  theme(plot.title = element_text(size = 18, face = "bold", hjust = 0.5))
+  theme(plot.title = element_text(size = 18, hjust = 0.5))
 
 # display the plot and save as .png
 pred_p
