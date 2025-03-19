@@ -118,7 +118,7 @@ all_df <- all_df %>%
     
     # create housing quality indicator:
     # if floor_type, wall_type, and roof_type = 1 (indicating higher quality for each component), housing_quality = 1 (good housing quality)
-    # if any of these components is 0 (indicating lower quality in any area), then housing_q is set to 0
+    # if any of these components is 0 (indicating lower quality in any area), then housing_quality is set to 0
     housing_quality = ifelse(floor_type == 1 & wall_type == 1 & roof_type == 1, 1, 0),
     
     # # parental education variable
@@ -164,7 +164,7 @@ table_names <- c("Household occupation category: agricultural", "Age", "Gender: 
                  "Wealth: poor", "Wealth: middle", "Wealth: rich", "Wealth: richest",
                  "DHS Year: 2013", "DHS Year: 2014", "DHS Year: 2015", "DHS Year: 2016", "DHS Year: 2017", 
                  "DHS Year: 2018", "DHS Year: 2019", "DHS Year: 2021", "DHS Year: 2022", "DHS Year: 2023", 
-                 "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature", "Modern House")
+                 "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature", "Housing Quality")
 
 # create a copy of all_df for further modifications if needed
 all_df_renamed_vars <- all_df
@@ -173,7 +173,7 @@ all_df_renamed_vars <- all_df
 location_types <- c("Urban", "Rural")
 
 ## =========================================================================================================================================
-### Single Logistic Regression Analysis (Unadjusted)
+### Single Logistic Regression Analysis (Unadjusted): Covariates and Malaria Positivity
 # this will go in the supplement
 # use this to identify what statistically significant relationships exist with the covariates and malaria positivity
 # if not statistically significant, the variable cannot be a mediator
@@ -194,7 +194,7 @@ for (location in location_types) {
   
   # loop through each variable of interest
   for (i in 1:length(var)) {
-    svy_design <- svydesign.fun(df_new) # create a survey design object for the filtered data
+    svy_design <- svydesign_fun(df_new) # create a survey design object for the filtered data
     
     # construct the formula dynamically for the model
     formula <- as.formula(paste("malaria_result ~", var[[i]], "+ (1|hv001)"))
@@ -236,23 +236,135 @@ all_results_combined <- bind_rows(all_results) %>%
     values_from = estimate
   )
 
-# display the combined results
-all_results_combined
-
 # assign descriptive table names to the term column in the combined results
-all_results_combined$term <- table_names 
+all_results_combined_labeled <- all_results_combined
+all_results_combined_labeled$term <- table_names 
 
 # create a reference dataframe with fixed values for certain terms
 ref_df <- data.frame(term = c("Gender: female", "Stunting: not stunted", 
-                              "Household occupation category: none agricultural worker HH",
+                              "Household occupation category: non-agricultural worker HH", "Housing Quality: not modern",
                               "Net use among children under the age of five years: did not use", 
                               "Roof type: poor","Wealth: poorest", "DHS Year: 2012"), 
-                     Urban = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000"), 
-                     Rural = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000"))
+                     Urban = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"), 
+                     Rural = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"))
 
 # combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
-all_results_final <- all_results_combined %>% bind_rows(ref_df) %>% arrange(term)
+all_results_final <- all_results_combined_labeled %>% bind_rows(ref_df) %>% arrange(term)
 write_xlsx(all_results_final, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
+
+## =========================================================================================================================================
+### Single Logistic Regression Analysis (Unadjusted): Home Type and Covariates
+# this will go in the supplement
+# use this to identify what statistically significant relationships exist with the home types and covariates
+# if not statistically significant, the variable cannot be a mediator
+## =========================================================================================================================================
+
+# initialize an empty list to store results for each location type
+all_results <- list()
+
+# make character variables factors
+all_df$home_type_factor <- as.factor(all_df$home_type_factor)
+all_df$sex <- as.factor(all_df$sex)
+all_df$stunting <- as.factor(all_df$stunting)
+all_df$u5_net_use_factor <- as.factor(all_df$u5_net_use_factor)
+all_df$roof_type_factor <- as.factor(all_df$roof_type_factor)
+all_df$housing_quality <- as.factor(all_df$housing_quality)
+
+# define descriptive table names for corresponding variables
+table_names <- c("DHS year", "EVI", "Age", "Household size", "Housing quality: modern",
+                 "Precipitation", "Relative humidity (%)", "Roof type: improved", "Sex: male", "Stunting: stunted", "Temperature",
+                 "Net use among children under the age of five years: use", "Wealth")
+
+# loop through each location type defined in location_types (urban or rural) to create a survey df with CIs
+for (location in location_types) {
+  # filter the data based on location type
+  df <- all_df %>%
+    filter(type == location)
+  
+  # drop NA values
+  df_new <- df %>% drop_na(EVI_2000m_new)
+  unadj_df <- list()
+  
+  # loop through each variable of interest
+  for (i in 1:length(var)) {
+    svy_design <- svydesign_fun(df_new) # create a survey design object for the filtered data
+    
+    # construct the formula dynamically for the model
+    formula <- as.formula(paste(var[[i]], "~ home_type_factor + (1|hv001)"))
+    
+    # Determine the appropriate family based on the dependent variable
+    is_binary <- is.factor(df_new[[var[[i]]]])
+    if (is_binary) {
+      # For binary outcomes
+      model_family <- binomial(link = "logit")
+    } else {
+      # For continuous outcomes
+      model_family <- gaussian(link = "identity")
+    }
+    
+    # fit the generalized linear mixed model using the survey design
+    result <- svyglm(formula, design = svy_design, family = model_family)
+    
+    # summarize and tidy the model results
+    df_result <- tidy(result)
+    
+    # filter out the intercept and calculate additional metrics
+    df_result <- df_result %>% 
+      filter(term != "(Intercept)") %>%  # exclude the intercept from the results
+      rename_at(3, ~"SE") %>%  # rename the third column to "SE"
+      mutate(
+        estimate_exp = ifelse(is_binary, exp(estimate), estimate),
+        lower_ci = ifelse(is_binary, exp(estimate - 1.96 * SE), estimate - 1.96 * SE),
+        upper_ci = ifelse(is_binary, exp(estimate + 1.96 * SE), estimate + 1.96 * SE),
+        estimate_type = ifelse(is_binary, "OR", "Coef")  # Add type directly here
+      ) %>%
+      tibble::rownames_to_column() %>%  # convert row names to a column
+      mutate(
+        type = "unadjusted", 
+        location = location,
+        dependent_var = var[[i]]
+      )  # add type, location, and dependent variable information
+    
+    # store the results for the current variable
+    unadj_df[[i]] <- df_result
+  }
+  
+  # combine results for the current location type into all_results
+  all_results[[location]] <- bind_rows(unadj_df)
+}
+
+# combine results for all location types into a single dataframe and format the output
+all_results_combined <- bind_rows(all_results) %>%
+  mutate(
+    estimate_formatted = sprintf("%.3f (%.3f – %.3f)", 
+                                 round(estimate_exp, 3), 
+                                 round(lower_ci, 3), 
+                                 round(upper_ci, 3))
+  ) %>%
+  select(term, estimate_formatted, location, dependent_var, estimate_type) %>%
+  pivot_wider(
+    names_from = location,
+    values_from = estimate_formatted
+  ) %>%
+  arrange(dependent_var)
+
+# assign descriptive table names to the term column in the combined results
+all_results_combined_labeled <- all_results_combined
+all_results_combined_labeled$dependent_var <- table_names 
+all_results_combined_labeled <- all_results_combined_labeled %>%
+  mutate(term = case_when(
+    term == "home_type_factorZ_Agric" ~ "Home type: agricultural",
+    TRUE ~ term
+  ))
+
+# write to an Excel file
+write_xlsx(all_results_combined_labeled, file.path(PopDir, "analysis_dat", "single_reg_results_hometype_covariate.xlsx"))
+
+# export to a word document
+doc <- read_docx()
+doc <- doc %>%
+  body_add_table(value = all_results_combined_labeled, style = "table_template")
+print(doc, target = file.path(PopDir, "analysis_dat", "single_reg_results_hometype_covariate.docx"))
 
 ## =========================================================================================================================================
 ### Mediation Analysis - Phase 1
@@ -571,6 +683,18 @@ write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_fi
 ### Mediation Analysis (Grace): URBAN
 # https://uedufy.com/how-to-run-mediation-analysis-in-r/ (adapted code)
 ## =========================================================================================================================================
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### 1) Use logistic regression to decide which variables to include in the mediation analysis
+### To choose variables for a mediation analysis, focus on a theoretical rationale linking the independent variable (X) to the 
+### dependent variable (Y) through a mediator (M), ensuring that X influences both M and Y, and M influences Y. 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# we already tested association between covariates (M) and positivity (Y) and the significant ones were wealth index, u5 net use, 
+# temperature, stunting, roof type, housing quality, household size, and EVI
+
+# test association between home type (X) to each of those covariates and print a table
+
 
 library(psych)
 library(lavaan)
@@ -892,7 +1016,7 @@ combined_urban_results <- bind_rows(urban_country_results_nop, .id = "Country")
 combined_rural_results <- bind_rows(rural_country_results_nop, .id = "Country")
 
 ## =========================================================================================================================================
-### Mediation Analysis: Visualization of Results
+### Mediation Analysis (Grace): Visualization of Results
 ## =========================================================================================================================================
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
