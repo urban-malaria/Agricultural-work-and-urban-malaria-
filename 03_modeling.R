@@ -997,14 +997,18 @@ rural_df$u5_net_use_dep <- as.numeric(as.factor(rural_df$u5_net_use))
 for (country in countries) {
   
   # urban data
+  print(paste("Processing urban data for", country, "..."))
   urban_country_data <- urban_df %>% filter(CountryName == country)
   urban_results <- run_mediation_analysis(urban_country_data)
   urban_country_results[[country]] <- urban_results
+  print(paste("Finished urban data for", country))
   
   # rural data
+  print(paste("Processing rural data for", country, "..."))
   rural_country_data <- rural_df %>% filter(CountryName == country)
   rural_results <- run_mediation_analysis(rural_country_data)
   rural_country_results[[country]] <- rural_results
+  print(paste("Finished rural data for", country))
 }
 
 # remove p-value from dfs in list (not joining properly and not needed for perc. mediation plots)
@@ -1014,6 +1018,11 @@ rural_country_results_nop <- lapply(rural_country_results, function(df) df %>% s
 # combine all results into single data frames
 combined_urban_results <- bind_rows(urban_country_results_nop, .id = "Country")
 combined_rural_results <- bind_rows(rural_country_results_nop, .id = "Country")
+
+# save to avoid running mediation again
+write.csv(combined_urban_results, file = file.path(PopDir, "analysis_dat", "urban_country_mediation_results.csv"), row.names = FALSE, quote = TRUE)
+write.csv(combined_rural_results, file = file.path(PopDir, "analysis_dat", "rural_country_mediation_results.csv"), row.names = FALSE, quote = TRUE)
+
 
 ## =========================================================================================================================================
 ### Mediation Analysis (Grace): Visualization of Results
@@ -1026,10 +1035,12 @@ combined_rural_results <- bind_rows(rural_country_results_nop, .id = "Country")
 # filter for effect sizes (indirect, direct, and total) - by urban and rural
 urban_effect_size_df <- urban_unrounded_results %>%
   filter(!is.na(Estimate) & `Effect Type` %in% c("Indirect", "Direct", "Total")) %>%
-  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`)
+  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`) %>%
+  filter(Mediator != "Roof Type")
 rural_effect_size_df <- rural_unrounded_results %>%
   filter(!is.na(Estimate) & `Effect Type` %in% c("Indirect", "Direct", "Total")) %>%
-  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`)
+  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`) %>%
+  filter(Mediator != "Roof Type")
 
 # create effect size plot (urban)
 urban_effect_size_plot <- ggplot(urban_effect_size_df, aes(x = Mediator, y = Estimate, fill = `Effect Type`)) +
@@ -1101,62 +1112,62 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_bar.pdf"), 
 ### 2) Effect Size Forest Plot for Indirect, Direct, and Total Effects with Confidence Intervals
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# create forest plot (urban)
-urban_effect_size_plot <- ggplot(urban_effect_size_df, aes(x = Estimate, y = Mediator, color = `Effect Type`)) +
-  geom_point(position = position_dodge(0.4), size = 2) +
-  geom_errorbarh(aes(xmin = `Lower 95% CI`, xmax = `Upper 95% CI`), 
-                 position = position_dodge(0.4), height = 0.5) +
-  scale_color_manual(values = c("Indirect" = "#ffa630", 
-                                "Direct" = "#d7e8ba", 
-                                "Total" = "#4da1a9")) +
-  labs(x = "Effect Size", y = "Mediator") +
-  scale_x_continuous(limits = c(0, 0.15)) +
-  theme_minimal() +
-  theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
-
-# create forest plot (rural)
-rural_effect_size_plot <- ggplot(rural_effect_size_df, aes(x = Estimate, y = Mediator, color = `Effect Type`)) +
-  geom_point(position = position_dodge(0.4), size = 2) +
-  geom_errorbarh(aes(xmin = `Lower 95% CI`, xmax = `Upper 95% CI`), 
-                 position = position_dodge(0.4), height = 0.5) +
-  scale_color_manual(values = c("Indirect" = "#ffa630", 
-                                "Direct" = "#d7e8ba", 
-                                "Total" = "#4da1a9")) +
-  labs(x = "Effect Size", y = "Mediator") +
-  scale_x_continuous(limits = c(0, 0.15)) +
-  theme_minimal() +
-  theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
-
-# extract the legend
-legend <- get_only_legend(urban_effect_size_plot) 
-
-# remove individual legends as we need only one
-urban_effect_size_plot <- urban_effect_size_plot + 
-  theme(legend.position = "none") +
-  labs(title = NULL, subtitle = "Urban", x = NULL)
-rural_effect_size_plot <- rural_effect_size_plot + 
-  theme(legend.position = "none") +
-  labs(title = NULL, subtitle = "Rural", x = NULL)
-
-# combine the forest plots vertically
-combined_effect_size_plot <- grid.arrange(urban_effect_size_plot, rural_effect_size_plot, nrow = 2)
-
-# arrange the combined plot and legend side by side
-final_effect_forest_plot <- grid.arrange(
-  combined_effect_size_plot,
-  legend,
-  nrow = 1,
-  ncol = 2,
-  heights = c(5),
-  widths = c(10, 2),
-  top = textGrob("Effect Sizes for Indirect, Direct, and Total Effects by Mediator", 
-                 gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
-  bottom = textGrob("Effect Size", 
-                    gp = gpar(fontsize = 12))
-)
-
-# save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_forest.pdf"), final_effect_forest_plot, width = 7, height = 10)
+# # create forest plot (urban)
+# urban_effect_size_plot <- ggplot(urban_effect_size_df, aes(x = Estimate, y = Mediator, color = `Effect Type`)) +
+#   geom_point(position = position_dodge(0.4), size = 2) +
+#   geom_errorbarh(aes(xmin = `Lower 95% CI`, xmax = `Upper 95% CI`), 
+#                  position = position_dodge(0.4), height = 0.5) +
+#   scale_color_manual(values = c("Indirect" = "#ffa630", 
+#                                 "Direct" = "#d7e8ba", 
+#                                 "Total" = "#4da1a9")) +
+#   labs(x = "Effect Size", y = "Mediator") +
+#   scale_x_continuous(limits = c(0, 0.15)) +
+#   theme_minimal() +
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
+# 
+# # create forest plot (rural)
+# rural_effect_size_plot <- ggplot(rural_effect_size_df, aes(x = Estimate, y = Mediator, color = `Effect Type`)) +
+#   geom_point(position = position_dodge(0.4), size = 2) +
+#   geom_errorbarh(aes(xmin = `Lower 95% CI`, xmax = `Upper 95% CI`), 
+#                  position = position_dodge(0.4), height = 0.5) +
+#   scale_color_manual(values = c("Indirect" = "#ffa630", 
+#                                 "Direct" = "#d7e8ba", 
+#                                 "Total" = "#4da1a9")) +
+#   labs(x = "Effect Size", y = "Mediator") +
+#   scale_x_continuous(limits = c(0, 0.15)) +
+#   theme_minimal() +
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 12))
+# 
+# # extract the legend
+# legend <- get_only_legend(urban_effect_size_plot) 
+# 
+# # remove individual legends as we need only one
+# urban_effect_size_plot <- urban_effect_size_plot + 
+#   theme(legend.position = "none") +
+#   labs(title = NULL, subtitle = "Urban", x = NULL)
+# rural_effect_size_plot <- rural_effect_size_plot + 
+#   theme(legend.position = "none") +
+#   labs(title = NULL, subtitle = "Rural", x = NULL)
+# 
+# # combine the forest plots vertically
+# combined_effect_size_plot <- grid.arrange(urban_effect_size_plot, rural_effect_size_plot, nrow = 2)
+# 
+# # arrange the combined plot and legend side by side
+# final_effect_forest_plot <- grid.arrange(
+#   combined_effect_size_plot,
+#   legend,
+#   nrow = 1,
+#   ncol = 2,
+#   heights = c(5),
+#   widths = c(10, 2),
+#   top = textGrob("Effect Sizes for Indirect, Direct, and Total Effects by Mediator", 
+#                  gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
+#   bottom = textGrob("Effect Size", 
+#                     gp = gpar(fontsize = 12))
+# )
+# 
+# # save as .pdf
+# ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_forest.pdf"), final_effect_forest_plot, width = 7, height = 10)
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### 3) Bar Plot for Percent Mediation with Confidence Intervals
@@ -1165,111 +1176,113 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_forest.pdf"
 # filter for percent mediation (by urban and rural)
 urban_percent_mediation_df <- urban_unrounded_results %>%
   filter(!is.na(`% Mediation`)) %>%
-  select(Mediator, `% Mediation`, `Bootstrapped Lower CI`, `Bootstrapped Upper CI`)
+  select(Mediator, `% Mediation`, `Bootstrapped Lower CI`, `Bootstrapped Upper CI`) %>%
+  filter(Mediator != "Roof Type")
 rural_percent_mediation_df <- rural_unrounded_results %>%
   filter(!is.na(`% Mediation`)) %>%
-  select(Mediator, `% Mediation`, `Bootstrapped Lower CI`, `Bootstrapped Upper CI`)
-
-# create bar plot with error bars: urban
-urban_perc_mediation_plot <- ggplot(urban_percent_mediation_df, aes(x = Mediator, y = `% Mediation`)) +
-  geom_bar(stat = "identity", fill = "#4da1a9", color = "black", width = 0.6) +
-  geom_errorbar(aes(ymin = `Bootstrapped Lower CI`, ymax = `Bootstrapped Upper CI`), width = 0.2) +
-  labs(title = "Percent Mediation by Mediator: Urban",
-       x = "Mediator",
-       y = "Percent Mediation (%)") +
-  theme_manuscript() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# create bar plot with error bars: rural
-rural_perc_mediation_plot <- ggplot(rural_percent_mediation_df, aes(x = Mediator, y = `% Mediation`)) +
-  geom_bar(stat = "identity", fill = "#4da1a9", color = "black", width = 0.6) +
-  geom_errorbar(aes(ymin = `Bootstrapped Lower CI`, ymax = `Bootstrapped Upper CI`), width = 0.2) +
-  labs(title = "Percent Mediation by Mediator: Rural",
-       x = "Mediator",
-       y = "Percent Mediation (%)") +
-  theme_manuscript() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# combine and save urban and rural % mediation bar plots
-
-# remove individual titles and x-axis labels from the urban and rural plots
-urban_perc_mediation_plot <- urban_perc_mediation_plot + 
-  labs(title = NULL, subtitle = "Urban", x = NULL) + 
-  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
-rural_perc_mediation_plot <- rural_perc_mediation_plot + 
-  labs(title = NULL, subtitle = "Rural", x = NULL, y = NULL) + 
-  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
-
-combined_perc_mediation_bar_plot <- grid.arrange(urban_perc_mediation_plot, rural_perc_mediation_plot, ncol = 2)
-
-# arrange the combined plot and legend side by side
-combined_perc_mediation_bar_plot <- grid.arrange(
-  combined_perc_mediation_bar_plot,
-  nrow = 1,
-  ncol = 2,
-  heights = c(5),
-  widths = c(10, 2),
-  top = textGrob("Percent Mediation Contributions of Various Mediators to Malaria Positivity",
-                 gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
-  bottom = textGrob("Mediator",
-                    gp = gpar(fontsize = 12))
-)
-
-# save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_bar.pdf"), combined_perc_mediation_bar_plot, width = 7, height = 7) 
+  select(Mediator, `% Mediation`, `Bootstrapped Lower CI`, `Bootstrapped Upper CI`) %>%
+  filter(Mediator != "Roof Type")
+# 
+# # create bar plot with error bars: urban
+# urban_perc_mediation_plot <- ggplot(urban_percent_mediation_df, aes(x = Mediator, y = `% Mediation`)) +
+#   geom_bar(stat = "identity", fill = "#4da1a9", color = "black", width = 0.6) +
+#   geom_errorbar(aes(ymin = `Bootstrapped Lower CI`, ymax = `Bootstrapped Upper CI`), width = 0.2) +
+#   labs(title = "Percent Mediation by Mediator: Urban",
+#        x = "Mediator",
+#        y = "Percent Mediation (%)") +
+#   theme_manuscript() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# 
+# # create bar plot with error bars: rural
+# rural_perc_mediation_plot <- ggplot(rural_percent_mediation_df, aes(x = Mediator, y = `% Mediation`)) +
+#   geom_bar(stat = "identity", fill = "#4da1a9", color = "black", width = 0.6) +
+#   geom_errorbar(aes(ymin = `Bootstrapped Lower CI`, ymax = `Bootstrapped Upper CI`), width = 0.2) +
+#   labs(title = "Percent Mediation by Mediator: Rural",
+#        x = "Mediator",
+#        y = "Percent Mediation (%)") +
+#   theme_manuscript() +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# 
+# # combine and save urban and rural % mediation bar plots
+# 
+# # remove individual titles and x-axis labels from the urban and rural plots
+# urban_perc_mediation_plot <- urban_perc_mediation_plot + 
+#   labs(title = NULL, subtitle = "Urban", x = NULL) + 
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+# rural_perc_mediation_plot <- rural_perc_mediation_plot + 
+#   labs(title = NULL, subtitle = "Rural", x = NULL, y = NULL) + 
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+# 
+# combined_perc_mediation_bar_plot <- grid.arrange(urban_perc_mediation_plot, rural_perc_mediation_plot, ncol = 2)
+# 
+# # arrange the combined plot and legend side by side
+# combined_perc_mediation_bar_plot <- grid.arrange(
+#   combined_perc_mediation_bar_plot,
+#   nrow = 1,
+#   ncol = 2,
+#   heights = c(5),
+#   widths = c(10, 2),
+#   top = textGrob("Percent Mediation Contributions of Various Mediators to Malaria Positivity",
+#                  gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
+#   bottom = textGrob("Mediator",
+#                     gp = gpar(fontsize = 12))
+# )
+# 
+# # save as .pdf
+# ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_bar.pdf"), combined_perc_mediation_bar_plot, width = 7, height = 7) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### 4) Forest Plot for Percent Mediation with Confidence Intervals
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# create urban forest plot
-urban_perc_med_forest <- ggplot(urban_percent_mediation_df, aes(x = `% Mediation`, y = Mediator)) +
-  geom_point(color = "darkorchid", size = 3) +
-  geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), height = 0.2, color = "darkorchid") +
-  labs(title = "Forest Plot for Percent Mediation",
-       x = "Percent Mediation (%)",
-       y = "Mediator") +
-  scale_x_continuous(limits = c(0, 100)) +
-  theme_manuscript() +
-  theme(axis.text.y = element_text(size = 10))
-
-# create rural forest plot
-rural_perc_med_forest <- ggplot(rural_percent_mediation_df, aes(x = `% Mediation`, y = Mediator)) +
-  geom_point(color = "#E07A5F", size = 3) +
-  geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), height = 0.2, color = "#E07A5F") +
-  labs(title = "Forest Plot for Percent Mediation",
-       x = "Percent Mediation (%)",
-       y = "Mediator") +
-  scale_x_continuous(limits = c(0, 100)) +
-  theme_manuscript() +
-  theme(axis.text.y = element_text(size = 10))
-
-# combine and save urban and rural % mediation forest plots
-
-# remove individual titles and x-axis labels from the urban and rural plots
-urban_perc_med_forest <- urban_perc_med_forest + 
-  labs(title = NULL, subtitle = "Urban", x = NULL) + 
-  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
-rural_perc_med_forest <- rural_perc_med_forest + 
-  labs(title = NULL, subtitle = "Rural", x = NULL) + 
-  theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
-
-combined_perc_mediation_forest <- grid.arrange(urban_perc_med_forest, rural_perc_med_forest)
-
-# arrange the combined plot and legend side by side
-combined_perc_mediation_forest <- grid.arrange(
-  combined_perc_mediation_forest,
-  nrow = 1,
-  heights = c(5),
-  widths = c(12),
-  top = textGrob("Percent Mediation Contributions of Various Mediators to Malaria Positivity",
-                 gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
-  bottom = textGrob("Percent Mediation (%)",
-                    gp = gpar(fontsize = 12))
-)
-
-# display the combined plot and save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_forest.pdf"), combined_perc_mediation_forest, width = 7, height = 7)
+# # create urban forest plot
+# urban_perc_med_forest <- ggplot(urban_percent_mediation_df, aes(x = `% Mediation`, y = Mediator)) +
+#   geom_point(color = "darkorchid", size = 3) +
+#   geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), height = 0.2, color = "darkorchid") +
+#   labs(title = "Forest Plot for Percent Mediation",
+#        x = "Percent Mediation (%)",
+#        y = "Mediator") +
+#   scale_x_continuous(limits = c(0, 100)) +
+#   theme_manuscript() +
+#   theme(axis.text.y = element_text(size = 10))
+# 
+# # create rural forest plot
+# rural_perc_med_forest <- ggplot(rural_percent_mediation_df, aes(x = `% Mediation`, y = Mediator)) +
+#   geom_point(color = "#E07A5F", size = 3) +
+#   geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), height = 0.2, color = "#E07A5F") +
+#   labs(title = "Forest Plot for Percent Mediation",
+#        x = "Percent Mediation (%)",
+#        y = "Mediator") +
+#   scale_x_continuous(limits = c(0, 100)) +
+#   theme_manuscript() +
+#   theme(axis.text.y = element_text(size = 10))
+# 
+# # combine and save urban and rural % mediation forest plots
+# 
+# # remove individual titles and x-axis labels from the urban and rural plots
+# urban_perc_med_forest <- urban_perc_med_forest + 
+#   labs(title = NULL, subtitle = "Urban", x = NULL) + 
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+# rural_perc_med_forest <- rural_perc_med_forest + 
+#   labs(title = NULL, subtitle = "Rural", x = NULL) + 
+#   theme(plot.subtitle = element_text(hjust = 0.5, size = 12)) 
+# 
+# combined_perc_mediation_forest <- grid.arrange(urban_perc_med_forest, rural_perc_med_forest)
+# 
+# # arrange the combined plot and legend side by side
+# combined_perc_mediation_forest <- grid.arrange(
+#   combined_perc_mediation_forest,
+#   nrow = 1,
+#   heights = c(5),
+#   widths = c(12),
+#   top = textGrob("Percent Mediation Contributions of Various Mediators to Malaria Positivity",
+#                  gp = gpar(fontsize = 12, fontface = "bold", hjust = 0.5)),
+#   bottom = textGrob("Percent Mediation (%)",
+#                     gp = gpar(fontsize = 12))
+# )
+# 
+# # display the combined plot and save as .pdf
+# ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_perc_forest.pdf"), combined_perc_mediation_forest, width = 7, height = 7)
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Display the Mediation Plots with Urban and Rural Data Together
@@ -1295,7 +1308,8 @@ combined_perc_med_forest <- ggplot(combined_percent_mediation_df,
   geom_point(size = 3, position = position_dodge(width = 0.6)) +  
   geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`),  
                  height = 0.6, position = position_dodge(width = 0.6)) +  
-  labs(title = "Percent Mediation Contributions of\n Various Mediators to Malaria Positivity",  
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Percent Mediation of Malaria Positivity by Mediators",  
        x = "Percent Mediation (%)",  
        y = "Mediator") +  
   scale_x_continuous(limits = c(-20, 100)) +  
@@ -1304,6 +1318,7 @@ combined_perc_med_forest <- ggplot(combined_percent_mediation_df,
   theme(axis.text.y = element_text(size = 10),  
         plot.title = element_text(size = 14, face = "bold"),  
         legend.background = element_rect(fill = "transparent"))
+combined_perc_med_forest
 
 # save the combined plot as a .pdf
 ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_combined_mediation_perc_forest2.pdf"), combined_perc_med_forest, width = 7, height = 5)
@@ -1313,15 +1328,26 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_combined_mediation_perc_for
 ### Make Mediation Plot for Each Country (with net use)
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
+urban_country_results <- read.csv(file.path(PopDir, "analysis_dat", "urban_country_mediation_results.csv"), check.names = FALSE) %>%
+  filter(Mediator != "Roof Type")
+rural_country_results <- read.csv(file.path(PopDir, "analysis_dat", "rural_country_mediation_results.csv"), check.names = FALSE) %>%
+  filter(Mediator != "Roof Type")
+
 # create a list to store plots (plots will show both urban+rural mediation data)
 country_forest_plots <- list()
 
 # loop over unique countries in urban and rural mediation results
-for (country in names(urban_country_results)) {
+for (country in unique(urban_country_results$Country)) {
   
-  # retrieve urban and rural data from the respective lists
-  urban_mediation_data <- urban_country_results[[country]]
-  rural_mediation_data <- rural_country_results[[country]]
+  # # retrieve urban and rural data from the respective lists
+  # urban_mediation_data <- urban_country_results[[country]]
+  # rural_mediation_data <- rural_country_results[[country]]
+  
+  # retrieve urban and rural data from the country of interest
+  urban_mediation_data <- urban_country_results %>%
+    filter(Country == country)
+  rural_mediation_data <- rural_country_results %>%
+    filter(Country == country)
 
   # combine urban and rural data for plotting
   all_country_mediation_data <- rbind(urban_mediation_data %>% mutate(Location = "Urban"),
@@ -1333,14 +1359,19 @@ for (country in names(urban_country_results)) {
     geom_point(size = 3, position = position_dodge(width = 0.5)) + 
     geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), 
                    height = 0.6, position = position_dodge(width = 0.5)) + 
-    labs(title = paste("Percent Mediation Contributions in", country), 
-         x = "Percent Mediation (%)", y = "Mediator") + 
-    scale_x_continuous(limits = c(-25, 100)) +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+    # labs(title = paste("Percent Mediation Contributions in", country), 
+    #      x = "Percent Mediation (%)", y = "Mediator") + 
+    scale_x_continuous(limits = c(-31, 100)) +
     scale_color_manual(values = c("Urban" = "#1A478F", "Rural" = "#C01A81")) +  
-    theme_manuscript() +  
-    theme(axis.text.y = element_text(size = 10), 
+    theme_manuscript() +
+    facet_wrap(~ Country, labeller = label_value) + 
+    theme(axis.text.y = element_text(size = 11), 
           plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-          legend.position = "none")  # remove legend
+          legend.position = "none",
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          strip.text = element_text(size = 14))
     
   # store the plot in the list with the country name as the key
   country_forest_plots[[country]] <- country_forest_plot
@@ -1349,36 +1380,35 @@ for (country in names(urban_country_results)) {
   assign(paste0(country, "_med_plot"), country_forest_plot)
 }
 
-# get one legend to use for the combined plots
-country_mediation_legend <- get_only_legend(country_forest_plots[["Angola"]])
-
-# remove titles, axis labels, legends, add subtitles with just the country name
-for (country in names(urban_country_results)) {
-  country_forest_plots[[country]] <- country_forest_plots[[country]] + 
-    labs(title = NULL, subtitle = country, x = NULL, y = NULL) + 
-    theme(plot.subtitle = element_text(hjust = 0.5, size = 12) +
-    theme(legend.position = "none"))
-}  
+# # get one legend to use for the combined plots
+# country_mediation_legend <- get_only_legend(country_forest_plots[["Angola"]])
+# 
+# # remove titles, axis labels, legends, add subtitles with just the country name
+# for (country in names(urban_country_results)) {
+#   country_forest_plots[[country]] <- country_forest_plots[[country]] + 
+#     labs(title = NULL, subtitle = country, x = NULL, y = NULL) + 
+#     theme(plot.subtitle = element_text(hjust = 0.5, size = 12) +
+#     theme(legend.position = "none"))
+# }  
 
 # arrange country % mediation forest plots in a grid
-country_perc_med_plots <- do.call(grid.arrange, c(country_forest_plots, ncol = 2))
+country_perc_med_plots <- do.call(grid.arrange, c(country_forest_plots, ncol = 3))
 
 # format the grid
 country_perc_med_plots_final <- grid.arrange(
   country_perc_med_plots,
-  country_mediation_legend,
-  ncol = 2,  # legend in the second column, plots in the first column
-  widths = c(12, 4),
+  ncol = 1,
   top = textGrob(
-    "Percent Mediation by Key Mediators Across Countries, Stratified by Urban and Rural Residence",
-    gp = gpar(fontsize = 16, fontface = "bold", hjust = 0.5)  # center the title
+    "Percent Mediation by Key Mediators Across Countries,
+    Stratified by Urban and Rural Residence",
+    gp = gpar(fontsize = 16, hjust = 0.5)  # center the title
   )
 )
 
 # display the combined plot and save as .pdf
 ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_country_mediation_forest.pdf"), country_perc_med_plots_final, width = 12, height = 14) 
 
- # ----- make grid with only plots that have reasonable confidence intervals ------ 
+# ----- make grid with only plots that have reasonable confidence intervals ------ 
 selected_countries <- c("Burundi", "Cote d'Ivoire", "Nigeria", "Togo")
 selected_plots <- lapply(selected_countries, function(country) country_forest_plots[[country]])
 country_subset_med_plots <- do.call(grid.arrange, c(selected_plots, nrow = 3, ncol = 2))
@@ -1407,8 +1437,6 @@ fun_model <- function(model_formula){
 
 formulas <- list(malaria_result ~ home_type_dep,
                  malaria_result ~ home_type_dep + stunting,
-                 malaria_result ~ home_type_dep + roof_type,
-                 #malaria_result ~ home_type_dep + u5_net_use,
                  malaria_result ~ home_type_dep + hh_size,
                  malaria_result ~ home_type_dep + temp_monthly_2000m,
                  malaria_result ~ home_type_dep + EVI_2000m_new,
@@ -1417,11 +1445,10 @@ formulas <- list(malaria_result ~ home_type_dep,
                  malaria_result ~ home_type_dep + u5_net_use_dep)
 
 
-# define the term names based on formulas
+# define the term names based on formulas (remove net use and temp as they aren't significant)
 term_names <- c(
   "home type",
   "home type + stunting",
-  "home type + roof type",
   "home type + household size",
   "home type + temperature",
   "home type + EVI",
@@ -1448,13 +1475,13 @@ fun_or <- function(model_) {
       upper_ci = exp(estimate + 1.96 * SE)
     ) %>%
     tibble::rownames_to_column() %>%
-  return(df)
+    return(df)
 }
 
 # process all model results and bind them into one dataframe
 df_or <- lapply(model_datasets_results, fun_or) %>% 
   bind_rows(.id = "formula_id") %>% 
-  filter(term == "home_type_dep") %>% 
+  filter(term == "home_type_dep1") %>% 
   mutate(formula_name = term_names[as.numeric(formula_id)])
 
 # rename the 'term' column to 'formula_name'
@@ -1469,12 +1496,13 @@ df_or_significant <- df_or %>%
   filter(p.value < 0.05)
 print(df_or_significant) # all are significant
 
-color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "#7daca5", "#F4BC1C", "#ec0000")
+#color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "#7daca5", "#ec0000")
+color_list <- c("#154D42", "#84a2cd", "#6f3096", "#fa7a48", "#028E41", "#ff8da1", "#4777cd", "#ab0a58")
 
 forest_b <- ggplot(df_or_significant, aes(x = odds, y = variables, color = variables)) + 
   geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
-  geom_errorbarh(aes(xmax = lower_ci, xmin = upper_ci), size = .5, height = .2) + 
-  geom_point(size = 6) +
+  geom_errorbarh(aes(xmax = lower_ci, xmin = upper_ci), size = .5, height = .3) + 
+  geom_point(size = 4) +
   scale_color_manual(name = "", values = color_list) +
   theme_bw() +
   theme(panel.grid.minor = element_blank()) + 
@@ -1490,26 +1518,25 @@ forest_b <- ggplot(df_or_significant, aes(x = odds, y = variables, color = varia
   ggtitle("Odds Ratios") +
   theme(plot.title = element_text(size = 18, hjust = 0.5))
 
-# display the plot and save as .pdf
+# display the plot and save as .png
 forest_b
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_forest_plot2.pdf"), forest_b, width = 10, height = 5) 
+ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_forest_plot.png"), forest_b, width = 10, height = 10) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Predicted Probabilities Generation and Plotting
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # define the term names based on formulas
-term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7", "8", "9"), 
+term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7", "8"), 
                          variable = c("home type",
                                       "home type + stunting",
-                                      "home type + roof type",
                                       "home type + household size",
                                       "home type + temperature",
                                       "home type + EVI",
                                       "home type + wealth index",
                                       "home type + housing quality",
                                       "home type + u5 net use"))
-  
+
 # process all model results and bind them into one dataframe
 effect_df_fun <- function(model_) {
   effect_list_est <- summary(Effect("home_type_dep", model_))
@@ -1545,8 +1572,8 @@ df_effect <- lapply(model_datasets_results, effect_df_fun) %>%
 
 # predicted probability plot, visual elements match odds ratio plot
 pred_p <- ggplot() + 
-  geom_errorbarh(data = df_effect, aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), size = .5, height = .2) + 
-  geom_point(data = df_effect, aes(x = effect, y = variable, color = variable), size = 6) +
+  geom_errorbarh(data = df_effect, aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), size = .5, height = .3) + 
+  geom_point(data = df_effect, aes(x = effect, y = variable, color = variable), size = 4) +
   theme_bw() +
   theme(panel.grid.minor = element_blank()) + 
   theme(panel.border = element_blank()) + 
@@ -1580,15 +1607,11 @@ or_pp_plots <- grid.arrange(
   pred_p, 
   nrow = 1, 
   ncol = 2,
-  widths = c(4.5, 3),
-  top = textGrob("Odds Ratios and Predicted Probabilities of Testing Positive for Malaria\n (RDT or Microscopy) in Children Aged 6-59 Months from Agricultural vs.\n Non-Agricultural Households, Controlling for Other Variables",
-                 gp = gpar(fontsize = 14, fontface = "bold", hjust = 0.5))  # Adjusted hjust for centering
+  widths = c(5.15, 3)
 )
 
-# save final combined OR and PP plot as .png and .pdf
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_odds_pred_prob.png"), or_pp_plots, width = 15, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_odds_pred_prob.pdf"), or_pp_plots, width = 15, height = 10) 
-
+# save final combined OR and PP plot as .pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_odds_pred_prob.pdf"), or_pp_plots, width = 10, height = 4) 
 
 
 ## -----------------------------------------
