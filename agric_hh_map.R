@@ -208,27 +208,28 @@ subdivision_files[["UG"]] <- subdivision_files[["UG"]] %>%
 ### Create Maps Showing Agric HH Proportion per Subdivision (add Cluster points)
 ## =========================================================================================================================================
 
-agric_palette <- c("#018571", "#80cdc1", "#f5f5f5", "#dfc27d", "#a6611a") # brown will be highest proportion of agric HHs
-agric_palette2 <- c("#FAAD33", "#FF8A4D", "#FF6C6B", "#E95988", "#C1559F", "#8D58AA", "#4B59A7")
+# agric_palette <- c("#018571", "#80cdc1", "#f5f5f5", "#dfc27d", "#a6611a") # brown will be highest proportion of agric HHs
+# agric_palette2 <- c("#FAAD33", "#FF8A4D", "#FF6C6B", "#E95988", "#C1559F", "#8D58AA", "#4B59A7")
 agric_palette2 <- c("#FAAD33", "#FF6C6B", "#E95988", "#8D58AA", "#4B59A7")
 
-agric_palette3 <- c("#C1B4B4", "#B78D9F", "#976C9F", "#7961A3", "#4B59A7")
+# agric_palette3 <- c("#C1B4B4", "#B78D9F", "#976C9F", "#7961A3", "#4B59A7")
 
-# define the top 3 populous subdivisions for each country (all data from Wikipedia, which displays most recent census data)
+# define the top 3 populous subdivisions for each country
+# all data from population raster extractions (overlaid with subdivision shapefiles): code in 04_population_rasters.R
 top_populous_subdivisions <- list(
   "Angola" = c("Luanda", "Huíla", "Benguela"),
   "Burkina Faso" = c("Centre", "Haut-Bassins", "Est"),
-  "Benin" = c("Atlantique", "Borgou", "Ouémé"),
-  "Burundi" = c("Gitega", "Ngozi", "Muyinga"),
-  "Congo Democratic Republic" = c("Kinshasa", "Nord-Kivu", "Sud-Kivu"),
+  "Benin" = c("Atlantique", "Borgou", "Alibori"),
+  "Burundi" = c("Gitega", "Kayanza", "Muyinga"),
+  "Congo Democratic Republic" = c("Haut-Katanga", "Nord-Kivu", "Haut-Lomami"),
   "Côte d'Ivoire" = c("Abidjan", "Montagnes", "Sassandra-Marahoué"),
-  "Cameroon" = c("Centre", "Adamaoua", "Est"),
+  "Cameroon" = c("Centre", "Extrême-Nord", "Littoral"),
   "Ghana" = c("Greater Accra", "Ashanti", "Eastern"),
-  "Guinea" = c("Boké", "Conakry", "Faranah"),
-  "Madagascar" = c("Analamanga", "Vakinankaratra", "Atsimo-Andrefana"),
+  "Guinea" = c("Kankan", "Conakry", "Kindia"),
+  "Madagascar" = c("Analamanga", "Vakinankaratra", "Vatovavy Fitovinany"),
   "Mali" = c("Sikasso", "Koulikoro", "Ségou"),
-  "Mozambique" = c("Cabo Delgado", "Gaza", "Inhambane"),
-  "Nigeria" = c("Kano", "Lagos", "Katsina"),
+  "Mozambique" = c("Nampula", "Tete", "Zambezia"),
+  "Nigeria" = c("Kano", "Lagos", "Kaduna"),
   "Togo" = c("Maritime", "Plateaux", "Savanes"),
   "Uganda" = c("Central", "Eastern", "Western")
 )
@@ -402,5 +403,5 @@ agric_final_subd_maps <- grid.arrange(
 )
 
 # save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_agric_maps_final_2.pdf"), agric_final_subd_maps, width = 10, height = 15)  
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_agric_maps_final_3.pdf"), agric_final_subd_maps, width = 10, height = 15)  
 

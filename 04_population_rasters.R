@@ -85,6 +85,7 @@ library(raster)
 library(sf)
 library(dplyr)
 library(exactextractr)
+library(officer)
 
 # create an empty list to store population counts per subdivision
 pop_counts <- list()
@@ -117,6 +118,41 @@ pop_counts_df <- bind_rows(pop_counts, .id = "Country_Code")
 pop_counts_final <- pop_counts_df %>%
   select(Country_Code, COUNTRY, NAME_1, ENGTYPE_1, pop_total)
 
+pop_top_3 <- pop_counts_final %>%
+  group_by(COUNTRY) %>%
+  top_n(3, pop_total) %>%
+  ungroup()
 
+# fill in uganda name, set madagascar type to region
+pop_top_3 <- pop_top_3 %>%
+  mutate(COUNTRY = case_when(
+    Country_Code == "UG" ~ "Uganda",
+    TRUE ~ COUNTRY
+  )) %>%
+  mutate(ENGTYPE_1 = case_when(
+    Country_Code %in% c("UG", "MD") ~ "Region",
+    TRUE ~ ENGTYPE_1
+  )) %>%
+  mutate(ENGTYPE_1 = case_when(
+    Country_Code %in% c("MZ") ~ "Province",
+    TRUE ~ ENGTYPE_1
+  )) %>%
+  mutate(ENGTYPE_1 = case_when(
+    NAME_1 == "Abidjan" ~ "District",
+    TRUE ~ ENGTYPE_1
+  ))
 
+# make word doc table with this data to put in supplement
+pop_top_3_df <- pop_top_3 %>% 
+  st_drop_geometry() %>%
+  mutate(pop_total = round(pop_total)) %>% # round population to nearest whole number
+  select(-Country_Code) %>%
+  rename("Country" = COUNTRY,
+         "Subdivision Name" = NAME_1,
+         "Subdivision Type" = ENGTYPE_1,
+         "Population Estimate" = pop_total)
 
+doc <- read_docx()
+doc <- doc %>%
+  body_add_table(value = pop_top_3_df, style = "table_template")
+print(doc, target = file.path(PopDir, "analysis_dat", "pop_top_3_df.docx"))
