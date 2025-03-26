@@ -176,20 +176,20 @@ p1bc_survey2 <- generate_survey_plot(all, "Recent Survey") + # plots for recent 
   theme(axis.title.x = element_text(size = 11))
 
 # now add separate annotations after creating each plot
-p1bc_survey1 <- p1bc_survey1 + 
+p1bc_survey1 <- p1bc_survey1 +
   annotate("text", x = 3.5, y = 8500, label = "Rural", color = "#E07A5F", hjust = 0, fontface = "bold") +
   annotate("text", x = 4.5, y = 8500, label = "Urban", color = "darkorchid", hjust = 0, fontface = "bold")
 
-p1bc_survey2 <- p1bc_survey2 + 
+p1bc_survey2 <- p1bc_survey2 +
   annotate("text", x = 7.5, y = 8500, label = "Rural", color = "#E07A5F", hjust = 0, fontface = "bold") +
   annotate("text", x = 8.5, y = 8500, label = "Urban", color = "darkorchid", hjust = 0, fontface = "bold")
 
 # reduces the space between plots
-p1bc_combined_plot <- p1bc_survey1 / plot_spacer() / p1bc_survey2 + 
+p1bc_combined_plot <- p1bc_survey1 / plot_spacer() / p1bc_survey2 +
   plot_layout(heights = c(1, -0.1, 2)) # adjust heights; second value controls the spacing
 
-p1bc_combined_plot <- (p1bc_survey1 / plot_spacer() / p1bc_survey2) + 
-  plot_layout(heights = c(1, -0.1, 2)) + 
+p1bc_combined_plot <- (p1bc_survey1 / plot_spacer() / p1bc_survey2) +
+  plot_layout(heights = c(1, -0.1, 2)) +
   theme(plot.margin = margin(10, 10, 10, 10))
 
 # display the combined plot

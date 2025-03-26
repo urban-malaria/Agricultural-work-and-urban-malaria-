@@ -16,6 +16,7 @@ Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", 
 Drive <- file.path(gsub("[//]", "/", Drive))
 DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
 DataDir <- file.path(DriveDir, "data")
+PopDir <- file.path(DriveDir, "data", "data_agric_analysis")
 
 
 ## =========================================================================================================================================
@@ -26,7 +27,6 @@ DataDir <- file.path(DriveDir, "data")
 # devtools::install_github("ropensci/rdhs")
 source("functions/functions_employment.R")
 options(survey.lonely.psu="adjust")  # this option allows admin units with only one cluster to be analyzed
-
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Read in Top-Down Constrained Estimates Rasters for each Country
@@ -123,7 +123,7 @@ pop_top_3 <- pop_counts_final %>%
   top_n(3, pop_total) %>%
   ungroup()
 
-# fill in uganda name, set madagascar type to region
+# fill in uganda name, set types
 pop_top_3 <- pop_top_3 %>%
   mutate(COUNTRY = case_when(
     Country_Code == "UG" ~ "Uganda",
