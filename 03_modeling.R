@@ -155,7 +155,7 @@ p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) +
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # define variables of interest for analysis
-var <- list("home_type_factor", "hc1", "sex", "stunting", "u5_net_use_factor", "hh_size", "roof_type_factor", 
+var <- list("hc1", "sex", "stunting", "u5_net_use_factor", "hh_size", "roof_type_factor", 
             "wealth_index", "dhs_year_factor", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m", "housing_quality")
 
 # define descriptive table names for corresponding variables
@@ -173,14 +173,15 @@ all_df_renamed_vars <- all_df
 location_types <- c("Urban", "Rural")
 
 ## =========================================================================================================================================
-### Single Logistic Regression Analysis (Unadjusted): Covariates and Malaria Positivity
+### Single Logistic Regression Analysis (Adjusted): Covariates and Malaria Positivity
+# adjusted for home type to get the direct effect of covariates on malaria positivity
 # this will go in the supplement
 # use this to identify what statistically significant relationships exist with the covariates and malaria positivity
 # if not statistically significant, the variable cannot be a mediator
 ## =========================================================================================================================================
 
 # initialize an empty list to store results for each location type
-all_results <- list() # To store results for each location type
+all_results <- list() 
 
 # loop through each location type defined in location_types (urban or rural) to create a survey df with CIs
 for (location in location_types) {
@@ -190,14 +191,14 @@ for (location in location_types) {
   
   # drop NA values
   df_new <- df %>% drop_na(EVI_2000m_new)
-  unadj_df <- list()
+  adj_df <- list()
   
   # loop through each variable of interest
   for (i in 1:length(var)) {
     svy_design <- svydesign_fun(df_new) # create a survey design object for the filtered data
     
-    # construct the formula dynamically for the model
-    formula <- as.formula(paste("malaria_result ~", var[[i]], "+ (1|hv001)"))
+    # construct the formula dynamically for the model, adjusting for X
+    formula <- as.formula(paste("malaria_result ~", var[[i]], "+ home_type2 + (1|hv001)"))
     
     # fit the generalized linear model using the survey design
     result <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
@@ -213,14 +214,14 @@ for (location in location_types) {
       mutate(lower_ci = exp(-1.96 * SE + estimate)) %>%  # calculate lower confidence interval
       mutate(upper_ci = exp(1.96 * SE + estimate)) %>%  # calculate upper confidence interval
       tibble::rownames_to_column() %>%  # convert row names to a column
-      mutate(type = "unadjusted", location = location)  # add type and location information
+      mutate(type = "adjusted", location = location)  # add type and location information
     
     # store the results for the current variable
-    unadj_df[[i]] <- df_result
+    adj_df[[i]] <- df_result
   }
   
   # combine results for the current location type into all_results
-  all_results[[location]] <- bind_rows(unadj_df)
+  all_results[[location]] <- bind_rows(adj_df)
 }
 
 # combine results for all location types into a single dataframe and format the output to just include ORs and CIs
@@ -240,17 +241,17 @@ all_results_combined <- bind_rows(all_results) %>%
 all_results_combined_labeled <- all_results_combined
 all_results_combined_labeled$term <- table_names 
 
-# create a reference dataframe with fixed values for certain terms
-ref_df <- data.frame(term = c("Gender: female", "Stunting: not stunted", 
-                              "Household occupation category: non-agricultural worker HH", "Housing Quality: not modern",
-                              "Net use among children under the age of five years: did not use", 
-                              "Roof type: poor","Wealth: poorest", "DHS Year: 2012"), 
-                     Urban = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"), 
-                     Rural = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"))
-
-# combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
-all_results_final <- all_results_combined_labeled %>% bind_rows(ref_df) %>% arrange(term)
-write_xlsx(all_results_final, file.path(PopDir, "analysis_dat", "single_reg_results.xlsx"))
+# # create a reference dataframe with fixed values for certain terms
+# ref_df <- data.frame(term = c("Gender: female", "Stunting: not stunted", 
+#                               "Household occupation category: non-agricultural worker HH", "Housing Quality: not modern",
+#                               "Net use among children under the age of five years: did not use", 
+#                               "Roof type: poor","Wealth: poorest", "DHS Year: 2012"), 
+#                      Urban = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"), 
+#                      Rural = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"))
+# 
+# # combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
+# all_results_final <- all_results_combined_labeled %>% bind_rows(ref_df) %>% arrange(term)
+write_csv(all_results_combined_labeled, file.path(PopDir, "analysis_dat", "adjusted_reg_results.csv"))
 
 ## =========================================================================================================================================
 ### Single Logistic Regression Analysis (Unadjusted): Home Type and Covariates
@@ -683,18 +684,6 @@ write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_fi
 ### Mediation Analysis (Grace): URBAN
 # https://uedufy.com/how-to-run-mediation-analysis-in-r/ (adapted code)
 ## =========================================================================================================================================
-
-## -----------------------------------------------------------------------------------------------------------------------------------------
-### 1) Use logistic regression to decide which variables to include in the mediation analysis
-### To choose variables for a mediation analysis, focus on a theoretical rationale linking the independent variable (X) to the 
-### dependent variable (Y) through a mediator (M), ensuring that X influences both M and Y, and M influences Y. 
-## -----------------------------------------------------------------------------------------------------------------------------------------
-
-# we already tested association between covariates (M) and positivity (Y) and the significant ones were wealth index, u5 net use, 
-# temperature, stunting, roof type, housing quality, household size, and EVI
-
-# test association between home type (X) to each of those covariates and print a table
-
 
 library(psych)
 library(lavaan)
@@ -1429,189 +1418,187 @@ ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_country_subset_med_plots_fin
 ### Mediation Analysis: Predicted Probabilities and OR plots
 ## =========================================================================================================================================
 
-svy_design <- svydesign_fun(urban_df)
+library(survey)
+library(broom)
+library(ggplot2)
+library(gridExtra)
+library(effects)
+library(writexl)
 
-fun_model <- function(model_formula){
-  svyglm(model_formula, design = svy_design, family = binomial(link = "logit"))
+create_or_pp_plots <- function(df, area_type) {
+  # create survey design
+  svy_design <- svydesign_fun(df)
+  
+  # define formulas
+  formulas <- list(
+    malaria_result ~ home_type_dep,
+    malaria_result ~ home_type_dep + stunting,
+    malaria_result ~ home_type_dep + hh_size,
+    malaria_result ~ home_type_dep + EVI_2000m_new,
+    malaria_result ~ home_type_dep + wealth_index,
+    malaria_result ~ home_type_dep + housing_quality,
+    malaria_result ~ home_type_dep + u5_net_use_dep
+  )
+  
+  # define term names
+  term_names <- c(
+    "home type",
+    "home type + stunting",
+    "home type + household size", 
+    "home type + EVI",
+    "home type + wealth index",
+    "home type + housing quality",
+    "home type + u5 net use"
+  )
+  
+  # model function
+  fun_model <- function(model_formula) {
+    svyglm(model_formula, design = svy_design, family = binomial(link = "logit"))
+  }
+  
+  # apply models
+  model_datasets_results <- lapply(formulas, fun_model)
+  
+  # odds ratio function
+  fun_or <- function(model_) {
+    df <- tidy(model_) %>%
+      filter(term != "(Intercept)") %>%
+      rename(SE = std.error) %>%
+      mutate(
+        odds = exp(estimate),
+        lower_ci = exp(estimate - 1.96 * SE),
+        upper_ci = exp(estimate + 1.96 * SE)
+      ) %>%
+      tibble::rownames_to_column() %>%
+      return(df)
+  }
+  
+  # process OR
+  df_or <- lapply(model_datasets_results, fun_or) %>% 
+    bind_rows(.id = "formula_id") %>% 
+    filter(term == "home_type_dep1") %>% 
+    mutate(formula_name = term_names[as.numeric(formula_id)])
+  
+  df_or <- df_or %>% 
+    rename(variables = formula_name) %>% 
+    select(variables, odds, lower_ci, upper_ci, p.value)
+  
+  # write OR results to Excel
+  write_xlsx(df_or, file.path(PopDir, "analysis_dat", paste0(area_type, "_df_or_results.xlsx")))
+  
+  # filter significant results
+  # df_or_significant <- df_or %>% filter(p.value < 0.05)
+  
+  # color palette
+  color_list <- c("#154D42", "#6f3096", "#fa7a48", "#028E41", "#ff8da1", "#4777cd", "#ab0a58")
+  
+  # odds ratio plot
+  forest_b <- ggplot(df_or, aes(x = odds, y = variables, color = variables)) + 
+    geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
+    geom_errorbarh(aes(xmax = lower_ci, xmin = upper_ci), size = .5, height = .3) + 
+    geom_point(size = 4) +
+    scale_color_manual(name = "", values = color_list) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank()) + 
+    theme(panel.border = element_blank()) +
+    ylab("") + 
+    xlab("Odds Ratio") +
+    theme_manuscript() +
+    theme(legend.position = "none") +
+    xlim(0.5, 3.7) + 
+    theme(axis.text.y = element_text(colour = color_list, size = 14),
+          axis.text.x = element_text(size = 14),
+          axis.title.x = element_text(size = 14)) +
+    ggtitle(paste(area_type, "Odds Ratios")) +
+    theme(plot.title = element_text(size = 18, hjust = 0.5))
+  
+  # predicted probabilities function
+  effect_df_fun <- function(model_) {
+    effect_list_est <- summary(Effect("home_type_dep", model_))
+    effect_list_est$effect %>% as.data.frame() %>%
+      bind_cols(effect_list_est$lower %>% as.data.frame()) %>%
+      bind_cols(effect_list_est$upper %>% as.data.frame()) %>%
+      rename(effect = ....1, lower = ....2, upper = ....3) %>%
+      tibble::rownames_to_column(var = "term_name")
+  }
+  
+  # term names for predicted probabilities
+  term_names_pred <- data.frame(
+    model_id = c("1", "2", "3", "4", "5", "6", "7"), 
+    variable = term_names
+  )
+  
+  # combine effect dataframes
+  df_effect <- lapply(model_datasets_results, effect_df_fun) %>%
+    bind_rows(.id = "model_id") %>% 
+    left_join(term_names_pred, by = "model_id") %>%
+    filter(term_name == "1")
+  
+  # predicted probability plot
+  pred_p <- ggplot() + 
+    geom_errorbarh(data = df_effect, 
+                   aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), 
+                   size = .5, height = .3) + 
+    geom_point(data = df_effect, 
+               aes(x = effect, y = variable, color = variable), 
+               size = 4) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank()) + 
+    theme(panel.border = element_blank()) + 
+    xlab("Predicted Probability") +
+    scale_color_manual(name = "", values = color_list) + 
+    theme_manuscript() +
+    xlim(0, 0.5) + 
+    theme(legend.position = "none") + 
+    scale_y_discrete(labels = function(y) str_wrap(y, width = 15)) +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_text(colour = color_list, size = 14),
+          axis.text.x = element_text(size = 14),
+          axis.title.x = element_text(size = 14)) +
+    ggtitle(paste(area_type, "Predicted Probabilities")) + 
+    theme(plot.title = element_text(size = 18, hjust = 0.5))
+  
+  # remove titles and adjust plots
+  forest_b <- forest_b + labs(title = NULL)
+  pred_p <- pred_p + 
+    labs(title = NULL) + 
+    scale_y_discrete(labels = NULL)
+  
+  # arrange combined plot
+  or_pp_plots <- grid.arrange(
+    forest_b,
+    pred_p, 
+    nrow = 1, 
+    ncol = 2,
+    widths = c(5.15, 3)
+  )
+  
+  # return results
+  return(list(
+    odds_ratios = df_or,
+    significant_odds_ratios = df_or_significant,
+    forest_plot = forest_b,
+    predicted_probabilities_plot = pred_p
+  ))
 }
 
-formulas <- list(malaria_result ~ home_type_dep,
-                 malaria_result ~ home_type_dep + stunting,
-                 malaria_result ~ home_type_dep + hh_size,
-                 malaria_result ~ home_type_dep + temp_monthly_2000m,
-                 malaria_result ~ home_type_dep + EVI_2000m_new,
-                 malaria_result ~ home_type_dep + wealth_index,
-                 malaria_result ~ home_type_dep + housing_quality,
-                 malaria_result ~ home_type_dep + u5_net_use_dep)
+# run function for urban and rural data
+urban_results <- create_or_pp_plots(urban_df, "urban")
+rural_results <- create_or_pp_plots(rural_df, "rural")
 
-
-# define the term names based on formulas (remove net use and temp as they aren't significant)
-term_names <- c(
-  "home type",
-  "home type + stunting",
-  "home type + household size",
-  "home type + temperature",
-  "home type + EVI",
-  "home type + wealth index",
-  "home type + housing quality",
-  "home type + u5 net use")
-
-# apply the formulas to generate model results
-model_datasets_results <- lapply(formulas, fun_model)
-
-## -----------------------------------------------------------------------------------------------------------------------------------------
-### OR generation and plotting
-## -----------------------------------------------------------------------------------------------------------------------------------------
-
-# function to tidy and process the model results
-# added filter to filter out variables that are not statistically significant
-fun_or <- function(model_) {
-  df <- tidy(model_) %>%
-    filter(term != "(Intercept)") %>%
-    rename(SE = std.error) %>%
-    mutate(
-      odds = exp(estimate),
-      lower_ci = exp(estimate - 1.96 * SE),
-      upper_ci = exp(estimate + 1.96 * SE)
-    ) %>%
-    tibble::rownames_to_column() %>%
-    return(df)
-}
-
-# process all model results and bind them into one dataframe
-df_or <- lapply(model_datasets_results, fun_or) %>% 
-  bind_rows(.id = "formula_id") %>% 
-  filter(term == "home_type_dep1") %>% 
-  mutate(formula_name = term_names[as.numeric(formula_id)])
-
-# rename the 'term' column to 'formula_name'
-df_or <- df_or %>% rename(variables = formula_name) %>% 
-  select(variables, odds, lower_ci, upper_ci, p.value) 
-
-# save as an excel file
-write_xlsx(df_or, file.path(PopDir, "analysis_dat", "df_or_results.xlsx"))
-
-# save only models with statistically signficant p-values
-df_or_significant <- df_or %>%
-  filter(p.value < 0.05)
-print(df_or_significant) # all are significant
-
-#color_list <- c("#006400", "#4B0082", "#DDA0DD", "#1E90FF", "#C71585", "#FF6347", "#7daca5", "#ec0000")
-color_list <- c("#154D42", "#84a2cd", "#6f3096", "#fa7a48", "#028E41", "#ff8da1", "#4777cd", "#ab0a58")
-
-forest_b <- ggplot(df_or_significant, aes(x = odds, y = variables, color = variables)) + 
-  geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
-  geom_errorbarh(aes(xmax = lower_ci, xmin = upper_ci), size = .5, height = .3) + 
-  geom_point(size = 4) +
-  scale_color_manual(name = "", values = color_list) +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank()) + 
-  theme(panel.border = element_blank()) +
-  ylab("") + 
-  xlab("Odds Ratio") +
-  theme_manuscript() +
-  theme(legend.position = "none") +
-  xlim(0.5, 3.7) + 
-  theme(axis.text.y = element_text(colour = color_list, size = 14),
-        axis.text.x = element_text(size = 14),
-        axis.title.x = element_text(size = 14)) +
-  ggtitle("Odds Ratios") +
-  theme(plot.title = element_text(size = 18, hjust = 0.5))
-
-# display the plot and save as .png
-forest_b
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_forest_plot.png"), forest_b, width = 10, height = 10) 
-
-## -----------------------------------------------------------------------------------------------------------------------------------------
-### Predicted Probabilities Generation and Plotting
-## -----------------------------------------------------------------------------------------------------------------------------------------
-
-# define the term names based on formulas
-term_names <- data.frame(model_id = c("1", "2", "3", "4", "5", "6", "7", "8"), 
-                         variable = c("home type",
-                                      "home type + stunting",
-                                      "home type + household size",
-                                      "home type + temperature",
-                                      "home type + EVI",
-                                      "home type + wealth index",
-                                      "home type + housing quality",
-                                      "home type + u5 net use"))
-
-# process all model results and bind them into one dataframe
-effect_df_fun <- function(model_) {
-  effect_list_est <- summary(Effect("home_type_dep", model_))
-  effect_list_est$effect %>% as.data.frame() %>%
-    bind_cols(effect_list_est$lower %>% as.data.frame()) %>%
-    bind_cols(effect_list_est$upper %>% as.data.frame()) %>%
-    rename(effect = ....1, lower = ....2, upper = ....3) %>%
-    tibble::rownames_to_column(var = "term_name")
-}
-
-# combine all effect dataframes and add term names
-df_effect <- lapply(model_datasets_results, effect_df_fun) %>%
-  bind_rows(.id = "model_id") %>% left_join(term_names, by = "model_id") %>%
-  filter(term_name == "1")
-
-# # predicted probability plot - model on x axis, PP on y axis
-# pred_p <- ggplot() + 
-#   geom_errorbarh(data = df_effect, aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), size = .5, height = .2) + 
-#   geom_point(data = df_effect, aes(x = effect, y = variable, color = variable), size = 6) +
-#   theme(panel.grid.minor = element_blank()) + 
-#   theme(panel.border = element_blank(), axis.title.y = element_blank(),  # updated axis title
-#         plot.title = element_blank()) +  # use plot.title instead of main.title.x
-#   scale_color_manual(name ="", values = color_list) +
-#   theme_manuscript() +
-#   labs(y = "", x = "Predicted probability of testing positive for malaria\nwith RDT or microscopy among children,\n6 - 59 months") + 
-#   xlim(0, 0.5) +  # updated limit for x-axis instead of y-axis
-#   theme(legend.position = "none") + 
-#   scale_y_discrete(labels = function(y) str_wrap(y, width = 15)) +  # adjust width as necessary
-#   theme(axis.text.y = element_text(colour=color_list)) + 
-#   theme(axis.text.y = element_text(angle = 0, hjust = 1)) +  # keep y-axis labels horizontal
-#   ggtitle("Predicted Probabilities") +
-#   theme(plot.title = element_text(size = 18, face = "bold", hjust = 0.5))
-
-# predicted probability plot, visual elements match odds ratio plot
-pred_p <- ggplot() + 
-  geom_errorbarh(data = df_effect, aes(x = effect, y = variable, xmax = lower, xmin = upper, color = variable), size = .5, height = .3) + 
-  geom_point(data = df_effect, aes(x = effect, y = variable, color = variable), size = 4) +
-  theme_bw() +
-  theme(panel.grid.minor = element_blank()) + 
-  theme(panel.border = element_blank()) + 
-  xlab("Predicted Probability") +
-  scale_color_manual(name = "", values = color_list) + 
-  theme_manuscript() +
-  xlim(0, 0.5) + 
-  theme(legend.position = "none") + 
-  scale_y_discrete(labels = function(y) str_wrap(y, width = 15)) +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_text(colour = color_list, size = 14),
-        axis.text.x = element_text(size = 14),
-        axis.title.x = element_text(size = 14)) +
-  ggtitle("Predicted Probabilities") + 
-  theme(plot.title = element_text(size = 18, hjust = 0.5))
-
-# display the plot and save as .png
-pred_p
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_predicted_probability_plot.png"), pred_p, width = 10, height = 10) 
-
-# remove individual titles from OR and PP plots and y-axis labels from the PP plot
-forest_b <- forest_b + 
-  labs(title = NULL)
-pred_p <- pred_p + 
-  labs(title = NULL) +  # Keep title as NULL
-  scale_y_discrete(labels = NULL)  # Remove y-axis labels
-
-# Arrange the combined plot and legend side by side
+# arrange the combined plot
 or_pp_plots <- grid.arrange(
-  forest_b,
-  pred_p, 
-  nrow = 1, 
+  urban_results$forest_plot,
+  urban_results$predicted_probabilities_plot,
+  rural_results$forest_plot,
+  rural_results$predicted_probabilities_plot, 
+  nrow = 2, 
   ncol = 2,
   widths = c(5.15, 3)
 )
 
 # save final combined OR and PP plot as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_odds_pred_prob.pdf"), or_pp_plots, width = 10, height = 4) 
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_odds_pred_prob.pdf"), or_pp_plots, width = 10, height = 6) 
 
 
 ## -----------------------------------------
