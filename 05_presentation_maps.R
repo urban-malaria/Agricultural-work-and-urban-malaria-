@@ -70,6 +70,7 @@ hr_data <- read_dta(file.path(DHS_data, "2021_CI", "CIHR81DT", "CIHR81FL.DTA"))
 
 # rename region column
 pr_data$district <- as_label(pr_data$hv024)
+hr_data$district <- as_label(hr_data$hv024)
 
 # pr_files[[1]]$region <- as_label(pr_files[[1]]$hv024)
 # pr_files[[2]]$region <- as_label(pr_files[[2]]$hv024)
@@ -313,5 +314,148 @@ malaria_prev <- pr_data %>%
              total_malaria = survey_total()) %>%
   drop_na(prev)
 
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### 4.	Net Use for Côte d’Ivoire, using DHS-representative district boundaries
+## -----------------------------------------------------------------------------------------------------------------------------------------
 
+# compute net use at cluster level
+nets_cluster <- pr_data %>%
+  filter(hv103 == 1) %>% 
+  mutate(net_use = ifelse(hml12 %in% c(1) ,1, 0), wt = hv005/1000000, id  = hv021, strat=hv022) %>% 
+  srvyr::as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+  group_by(cluster = hv001, year = hv007) %>% 
+  summarize(net_use_new =round(survey_mean(net_use),2) * 100,
+            total_pop_net_use = survey_total(), first_month_survey = as.character(first(hv006))) %>%
+  mutate(class= cut(net_use_new,   c(seq(0, 20, 5),30,50, 60, 70, 80, 90, 100), include.lowest = T)) %>% 
+  inner_join(sf21, by = c("year" = "DHSYEAR","cluster" = "cluster" )) %>%
+  drop_na(net_use_new)
 
+# compute net use at district level
+nets_district <- pr_data %>%
+  filter(hv103 == 1) %>% 
+  mutate(net_use = ifelse(hml12 %in% c(1) ,1, 0), wt = hv005/1000000, id  = hv021, strat=hv022) %>% 
+  srvyr::as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+  group_by(district, year = hv007) %>%
+  summarize(net_use_new =round(survey_mean(net_use),2) * 100,
+            total_pop_net_use = survey_total(), first_month_survey = as.character(first(hv006))) %>%
+  mutate(class= cut(net_use_new,   c(seq(0, 20, 5),30,50, 60, 70, 80, 90, 100), include.lowest = T))
+
+# rename districts to match the shapefile format
+nets_district <- nets_district %>%
+  mutate(district = case_when(
+    district == "bas sassandra" ~ "Bas-Sassandra",
+    district == "comoe" ~ "Comoé",
+    district == "denguele" ~ "Denguélé",
+    district == "goh-djiboua" ~ "Gôh-Djiboua",
+    district == "sassandra-marahoue" ~ "Sassandra-Marahoué",
+    district == "vallee du bandama" ~ "Vallée du Bandama",
+    TRUE ~ str_to_title(district)  # capitalize other district names
+  ))
+
+# prepare spatial data
+district_net_map_data <- district_shp %>%
+  left_join(nets_district, by = c("NAME_1" = "district"))
+
+cluster_plot_data <- sf::st_as_sf(nets_cluster, coords = c("LONGNUM", "LATNUM"), crs = 4326)
+
+# create country-level malaria prevalence map
+civ_net_plot <- ggplot(district_net_map_data) +
+  geom_sf(aes(fill = class), color = "black", linewidth = 0.25) +
+  geom_sf(data = cluster_plot_data, aes(fill = class), size = 4, shape = 21, alpha = 0.7, color = "black", stroke = 0.25) +
+  geom_text_repel(aes(label = str_to_sentence(NAME_1), geometry = geometry), 
+                  stat = "sf_coordinates", min.segment.length = 0, size = 6, force = 5) +
+  labs(title = "U5 Net Use by District and Cluster in Cote d'Ivoire (2021)", 
+       fill = "U5 Net Use (%)",
+       x = NULL,
+       y = NULL) + 
+  scale_fill_manual(values = rev(RColorBrewer::brewer.pal(11, "RdYlBu")), 
+                    name = "U5 Net Use (%)",
+                    drop = FALSE) +
+  map_theme() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 18),
+    plot.title = element_text(size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 16, hjust = 0.5)
+  )
+civ_net_plot
+
+ggsave(file.path(plots, "CIV_nets_districts_clusters.pdf"), civ_net_plot, width = 12, height = 12, dpi = 300)
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### 5.	Net Use Given Access for Côte d’Ivoire, using DHS-representative district boundaries
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# compute net use given access at cluster level
+net_access_cluster <- hr_data %>%
+  mutate(potuse = 2 * rowSums(dplyr::select(., contains('hml10')),na.rm=T),
+         slept_night = rowSums(dplyr::select(., contains('hv103')), na.rm=T),
+         potuse2 = ifelse(potuse/slept_night > 1, slept_night, potuse),
+         access = potuse2/slept_night,
+         wt = hv005/1000000, id  = hv021, strat=hv022) %>% 
+  drop_na(access) %>% 
+  srvyr:: as_survey_design(., ids= id,strata=strat,nest=T,weights= wt) %>%
+  group_by(cluster = hv001, year = hv007) %>% 
+  summarize(net_access =round(survey_mean(access),2) * 100,
+            total_pop_net_access = survey_total(), first_month_survey = as.character(first(hv006))) %>%
+  mutate(class= cut(net_access,  c(seq(0, 20, 5),30,50, 60, 70, 80, 90, 100), include.lowest = T)) %>% 
+  inner_join(sf21, by = c("year" = "DHSYEAR","cluster" = "cluster" )) %>%
+  drop_na(net_access)
+
+# compute net use given access at district level
+net_access_district <- hr_data %>%
+  mutate(potuse = 2 * rowSums(dplyr::select(., contains('hml10')),na.rm=T),
+         slept_night = rowSums(dplyr::select(., contains('hv103')), na.rm=T),
+         potuse2 = ifelse(potuse/slept_night > 1, slept_night, potuse),
+         access = potuse2/slept_night,
+         wt = hv005/1000000, id  = hv021, strat=hv022) %>% 
+  drop_na(access) %>% 
+  srvyr::as_survey_design(ids = id, strata = strat, nest = TRUE, weights = wt) %>%
+  group_by(district, year = hv007) %>%
+  summarize(net_access =round(survey_mean(access),2) * 100,
+            total_pop_net_access = survey_total(), first_month_survey = as.character(first(hv006))) %>%
+  mutate(class= cut(net_access, c(seq(0, 20, 5),30,50, 60, 70, 80, 90, 100), include.lowest = T))
+
+# rename districts to match the shapefile format
+net_access_district <- net_access_district %>%
+  mutate(district = case_when(
+    district == "bas sassandra" ~ "Bas-Sassandra",
+    district == "comoe" ~ "Comoé",
+    district == "denguele" ~ "Denguélé",
+    district == "goh-djiboua" ~ "Gôh-Djiboua",
+    district == "sassandra-marahoue" ~ "Sassandra-Marahoué",
+    district == "vallee du bandama" ~ "Vallée du Bandama",
+    TRUE ~ str_to_title(district)  # capitalize other district names
+  ))
+
+# prepare spatial data
+district_net_access_map_data <- district_shp %>%
+  left_join(net_access_district, by = c("NAME_1" = "district"))
+
+cluster_plot_data <- sf::st_as_sf(net_access_cluster, coords = c("LONGNUM", "LATNUM"), crs = 4326)
+
+# create country-level malaria prevalence map
+civ_net_access_plot <- ggplot(district_net_access_map_data) +
+  geom_sf(aes(fill = class), color = "black", linewidth = 0.25) +
+  geom_sf(data = cluster_plot_data, aes(fill = class), size = 4, shape = 21, alpha = 0.7, color = "black", stroke = 0.25) +
+  geom_text_repel(aes(label = str_to_sentence(NAME_1), geometry = geometry), 
+                  stat = "sf_coordinates", min.segment.length = 0, size = 6, force = 5) +
+  labs(title = "U5 Net Use Given Access by District and Cluster in Cote d'Ivoire (2021)", 
+       fill = "U5 Net Use (%)",
+       x = NULL,
+       y = NULL) + 
+  scale_fill_manual(values = rev(RColorBrewer::brewer.pal(11, "RdYlBu")), 
+                    name = "U5 Net Use (%)",
+                    drop = FALSE) +
+  map_theme() +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 16),
+    legend.title = element_text(size = 18),
+    plot.title = element_text(size = 20, hjust = 0.5),
+    plot.subtitle = element_text(size = 16, hjust = 0.5)
+  )
+civ_net_access_plot
+
+ggsave(file.path(plots, "CIV_net_access_districts_clusters.pdf"), civ_net_access_plot, width = 12, height = 12, dpi = 300)
