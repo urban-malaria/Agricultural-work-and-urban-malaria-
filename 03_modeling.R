@@ -756,7 +756,7 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
   
   # retain only relevant columns
   mediation_data <- data %>%    
-    select(home_type_dep, malaria_result, stunting_dep, roof_type, hh_size, wealth, housing_quality, u5_net_use_dep, EVI_2000m_new, temp_monthly_2000m)
+    select(home_type_dep, malaria_result, stunting_dep, hh_size, wealth, housing_quality, u5_net_use_dep, EVI_2000m_new)
   
   # convert factor variables to numeric
   mediation_data$home_type_dep <- as.numeric(as.factor(mediation_data$home_type_dep))
@@ -766,13 +766,11 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
   # define the models as a named list of mediator variables
   models <- list(
     model_number_1 = c("stunting_dep"),
-    model_number_2 = c("roof_type"),
-    model_number_3 = c("hh_size"),
-    model_number_4 = c("wealth"),
-    model_number_5 = c("housing_quality"),
-    model_number_6 = c("u5_net_use_dep"),
-    model_number_7 = c("EVI_2000m_new"),
-    model_number_8 = c("temp_monthly_2000m")
+    model_number_2 = c("hh_size"),
+    model_number_3 = c("wealth"),
+    model_number_4 = c("housing_quality"),
+    model_number_5 = c("u5_net_use_dep"),
+    model_number_6 = c("EVI_2000m_new")
   )
   
   # initialize an empty data frame to store results
@@ -890,13 +888,11 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
   results_df <- results_df %>%
     mutate(mediator = case_when(
       mediator == "stunting_dep" ~ "Stunting",
-      mediator == "roof_type" ~ "Roof Type",
       mediator == "hh_size" ~ "Household Size",
       mediator == "wealth" ~ "Wealth",
       mediator == "housing_quality" ~ "Housing Quality",
       mediator == "u5_net_use_dep" ~ "Net Use",
       mediator == "EVI_2000m_new" ~ "EVI",
-      mediator == "temp_monthly_2000m" ~ "Temperature",
       TRUE ~ mediator  # keep original if no match
     )) %>%
     rename(
@@ -950,18 +946,22 @@ rural_df$stunting_dep <- as.numeric(rural_df$stunting_dep)
 
 # run the function for urban_df and add the table to the document
 urban_results <- run_mediation_analysis(urban_df)
+urban_results <- urban_results  %>%
+  mutate(across(where(is.numeric), round, 4))
 doc <- doc %>%
   body_add_par("Mediation Analysis Results - Urban", style = "heading 1") %>%
   body_add_table(value = urban_results, style = "table_template")
 
 # run the function for rural_df and add the table to the document
 rural_results <- run_mediation_analysis(rural_df)
+rural_results <- rural_results  %>%
+  mutate(across(where(is.numeric), round, 4))
 doc <- doc %>%
   body_add_par("Mediation Analysis Results - Rural", style = "heading 1") %>%
   body_add_table(value = rural_results, style = "table_template")
 
 # save the document
-file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_bootstrapped2.docx")
+file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_bootstrapped3.docx")
 print(doc, target = file_path)
 
 # save unrounded results in separate dfs
@@ -1025,12 +1025,10 @@ write.csv(combined_rural_results, file = file.path(PopDir, "analysis_dat", "rura
 # filter for effect sizes (indirect, direct, and total) - by urban and rural
 urban_effect_size_df <- urban_unrounded_results %>%
   filter(!is.na(Estimate) & `Effect Type` %in% c("Indirect", "Direct", "Total")) %>%
-  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`) %>%
-  filter(Mediator != "Roof Type")
+  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`)
 rural_effect_size_df <- rural_unrounded_results %>%
   filter(!is.na(Estimate) & `Effect Type` %in% c("Indirect", "Direct", "Total")) %>%
-  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`) %>%
-  filter(Mediator != "Roof Type")
+  select(Mediator, `Effect Type`, Estimate, `Lower 95% CI`, `Upper 95% CI`)
 
 # create effect size plot (urban)
 urban_effect_size_plot <- ggplot(urban_effect_size_df, aes(x = Mediator, y = Estimate, fill = `Effect Type`)) +
