@@ -156,16 +156,14 @@ p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) +
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # define variables of interest for analysis
-var <- list("hc1", "sex", "stunting", "u5_net_use_factor", "hh_size", "roof_type_factor", 
-            "wealth_index", "dhs_year_factor", "EVI_2000m_new", "preci_monthly_2000m", "RH_monthly_2000m", "temp_monthly_2000m", "housing_quality")
+var <- list("stunting", "u5_net_use_factor", "hh_size", 
+            "wealth_index", "EVI_2000m_new", "housing_quality")
 
 # define descriptive table names for corresponding variables
-table_names <- c("Household occupation category: agricultural", "Age", "Gender: male", "Stunting: stunted", 
-                 "Net use among children under the age of five years: use", "Household size", "Roof type: improved", 
-                 "Wealth: poor", "Wealth: middle", "Wealth: rich", "Wealth: richest",
-                 "DHS Year: 2013", "DHS Year: 2014", "DHS Year: 2015", "DHS Year: 2016", "DHS Year: 2017", 
-                 "DHS Year: 2018", "DHS Year: 2019", "DHS Year: 2021", "DHS Year: 2022", "DHS Year: 2023", 
-                 "Enhanced vegetation index", "Precipitation", "Relative humidity (%)", "Temperature", "Housing Quality")
+table_names <- c("Stunting: Stunted", "Home type: Non-agricultural",
+                 "Net Use: Used", "Household Size", 
+                 "Wealth: Poor", "Wealth: Middle", "Wealth: Rich", "Wealth: Richest",
+                 "EVI", "Housing Quality: Modern House")
 
 # create a copy of all_df for further modifications if needed
 all_df_renamed_vars <- all_df
@@ -242,17 +240,97 @@ all_results_combined <- bind_rows(all_results) %>%
 all_results_combined_labeled <- all_results_combined
 all_results_combined_labeled$term <- table_names 
 
-# # create a reference dataframe with fixed values for certain terms
-# ref_df <- data.frame(term = c("Gender: female", "Stunting: not stunted", 
-#                               "Household occupation category: non-agricultural worker HH", "Housing Quality: not modern",
-#                               "Net use among children under the age of five years: did not use", 
-#                               "Roof type: poor","Wealth: poorest", "DHS Year: 2012"), 
-#                      Urban = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"), 
-#                      Rural = c("1.000","1.000","1.000","1.000","1.000","1.000","1.000","1.000"))
-# 
-# # combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
-# all_results_final <- all_results_combined_labeled %>% bind_rows(ref_df) %>% arrange(term)
+# remove "Home type" and keep the rest
+all_results_combined_labeled <- all_results_combined_labeled %>%
+  filter(!str_detect(term, "Home type: Non-agricultural"))
+
+# create a reference dataframe with fixed values for certain terms
+# ref_df <- data.frame(term = c("Stunting: Not stunted",
+#                               "Housing Quality: Non-modern house",
+#                               "Net use among children under the age of five years: Did not use",
+#                               "Wealth: Poorest"),
+#                      Urban = c("1.000","1.000","1.000","1.000"),
+#                      Rural = c("1.000","1.000","1.000","1.000"))
+
+# combine the formatted results with the reference dataframe and arrange by term, write to an Excel file
+# all_results_final <- all_results_combined_labeled %>%
+#   mutate(
+#     Urban = as.character(Urban),
+#     Rural = as.character(Rural)
+#   ) %>%
+#   bind_rows(ref_df) %>%
+#   arrange(term)
+
 write_csv(all_results_combined_labeled, file.path(PopDir, "analysis_dat", "adjusted_reg_results.csv"))
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
+### Make Forest Plots
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# reshape data to long format
+plot_data_long <- all_results_combined_labeled %>%
+  pivot_longer(cols = c(Urban, Rural), names_to = "area_type", values_to = "or_ci") %>%
+  filter(!is.na(or_ci))  # remove empty rows if any
+
+# extract odds ratio, lower CI, upper CI from the strings
+plot_data_clean <- plot_data_long %>%
+  mutate(
+    or_ci = str_replace_all(or_ci, "[()]", ""),  # remove parentheses
+    or_ci = str_replace_all(or_ci, "–", "-"),     # normalize dash
+    odds = as.numeric(str_extract(or_ci, "^[0-9.]+")),
+    lower_ci = as.numeric(str_extract(or_ci, "(?<= )[0-9.]+(?= -)")),
+    upper_ci = as.numeric(str_extract(or_ci, "(?<=- )[0-9.]+")),
+    variables = term  # rename for plotting
+  )
+
+# set colors and order of variables to appear on the graph
+or_colors <- c("Urban" = "#1A478F", "Rural" = "#C01A81")
+variable_order <- c(
+  "Wealth: Poor",
+  "Wealth: Middle",
+  "Wealth: Rich",
+  "Wealth: Richest",
+  "EVI",
+  "Housing Quality: Modern House",
+  "Household Size",
+  "Stunting: Stunted",
+  "Net Use: Used"
+)
+plot_data_clean <- plot_data_clean %>%
+  mutate(variables = factor(variables, levels = variable_order))
+
+# plot
+forest_plot_combined <- ggplot(plot_data_clean, 
+                               aes(x = odds, 
+                                   y = fct_rev(variables), 
+                                   color = area_type)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "gray30", size = 0.25) +
+  geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci), 
+                 height = 0.6, 
+                 position = position_dodge(width = 0.6), 
+                 size = 0.5) +
+  geom_point(size = 3.5, position = position_dodge(width = 0.6)) +
+  scale_color_manual(values = or_colors, name = "") +
+  labs(
+    title = "Adjusted Odds Ratios for Malaria Positivity",
+    x = "Odds Ratio", 
+    y = ""
+  ) +
+  scale_x_continuous(limits = c(0, 2)) +
+  theme_manuscript() +
+  theme(
+    legend.position = "right",
+    axis.text.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12),
+    axis.title.x = element_text(size = 13),
+    plot.title = element_text(size = 15, hjust = 0.5),
+    legend.background = element_rect(fill = "transparent")
+  )
+
+forest_plot_combined
+
+# save as .pdf
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_logistic_forest_plot.pdf"), forest_plot_combined, width = 9, height = 7) 
 
 ## =========================================================================================================================================
 ### Single Logistic Regression Analysis (Unadjusted): Home Type and Covariates
