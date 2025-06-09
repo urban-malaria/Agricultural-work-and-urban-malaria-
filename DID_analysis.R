@@ -11,7 +11,8 @@ rm(list = ls())
 ## =========================================================================================================================================
 
 user <- Sys.getenv("USER")
-if ("ozodi" %in% user) {
+username <- Sys.getenv("USERNAME")
+if ("ozodi" %in% username) {
   Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
   Drive <- file.path(gsub("[//]", "/", Drive))
   DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
@@ -1606,10 +1607,15 @@ rural_country_final_line_plots <- grid.arrange(
   # )
 )
 
+
 # display the combined plot and save as .png and .pdf
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_rural_country_final_line_plots.png"), rural_country_final_line_plots, width = 10, height = 10) 
 ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_rural_malaria_net_plots.pdf"), rural_country_final_line_plots, width = 6, height = 8) 
 
+p_rural = Benin_rural_main_plot + `Burkina Faso_rural_main_plot`+ Cameroon_rural_main_plot +`Cote d'Ivoire_rural_main_plot`+ Mali_rural_main_plot+ Mozambique_rural_main_plot+ Ghana_rural_main_plot
+p_urban = Benin_urban_main_plot + `Burkina Faso_urban_main_plot` + Cameroon_urban_main_plot + `Cote d'Ivoire_urban_main_plot`+ Mali_urban_main_plot + Mozambique_urban_main_plot+Ghana_urban_main_plot
+p_all_urban_rural = p_urban / p_rural
+ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_rural_country_final_line_plots.pdf"), p_all_urban_rural, width = 8, height =10)
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria Rural Plots 
 ## -----------------------------------------------------------------------------------------------------------------------------------------

@@ -511,6 +511,13 @@ plot_u_df <- plyr::ldply(plot_u_df) %>%mutate(test_result = factor(test_result, 
 
 
 
+
+
+
+
+
+
+
 ## --------------------------------------------------------------------------------------------
 ### get survey ids for dataset with > 1% positive malaria tests and the most recent survey
 ## ---------------------------------------------------------------------------------------------
@@ -913,7 +920,7 @@ p<-ggplot(plot_country, aes(fill=test_result, x= home_type2)) +
        in 22 DHS datasets") +
   facet_wrap(vars(country_year.x), scales="free")+
   theme(legend.position = 'bottom')
-p
+
 ggsave(paste0(FigDir,"/", Sys.Date(),"malaria_prevalence_by agric_exposure_rural_by_country.pdf"), p, width = 7, height = 8) 
 
 write_csv(rural_df, file.path(PopDir, "analysis_dat/241021_rural_df_for_analysis.csv"))
@@ -922,6 +929,147 @@ write_csv(rural_df, file.path(PopDir, "analysis_dat/241021_rural_df_for_analysis
 
 
 
+## ----------------------------------------------------------------------
+### Adding the treatment seeking variable by loading the KR dataset
+## ---------------------------------------------------------------------------
+
+# download PR datasets 
+kr_datasets <- dhs_datasets(surveyIds = survs$SurveyId, fileFormat = "DT", fileType = "KR") #%>%
+#group_by(CountryName) %>%
+#slice_max(SurveyYear)
+
+kr_downloads <- list()
+
+for (i in 1:nrow(kr_datasets)){
+  # if (ir_datasets$FileName[i] == "MDIR81DT.ZIP"){ # for some reason, I am not able to download this file with my credentials so downloading manually
+  #   df <- list("MDIR81FL"="project_one/datasets/MDIR81FL.ZIP") #manually create link for madagascar 2021
+  #   ir_downloads<- append(ir_downloads, df)
+  # }
+  # sending ir data link to the folder "project_one
+  tryCatch({
+    df <- get_datasets(kr_datasets$FileName[i], download_option = "zip", verbose_argument= T)
+    kr_downloads<- append(kr_downloads, df)
+    
+  }, error = function(e){cat("ERROR:", conditionMessage(e), "\n")})
+  
+}
+
+saveRDS(kr_downloads, file.path(PopDir, "analysis_dat/kr_downloads.rds"))
+kr_downloads<- readRDS(file.path(PopDir, "analysis_dat/kr_downloads.rds"))
+
+for (i in 1:length(kr_downloads)){
+  unzip(kr_downloads[[i]],  exdir = file.path(PopDir, "data/opened/KR"))
+}
+
+# creates lists of dataframes and cleans it up, adding NA columns where mutated variables are absent 
+dhs_kr_urban <- list()
+dhs_kr_rural <- list()
+
+link_kr <- list.files(path = file.path(PopDir, "data", "opened", "KR"), pattern = "DTA", full.names = TRUE, recursive = F)
+
+for (i in 1:length(link_kr)){
+  dhs_kr <- read_dta(link_kr[[i]])
+  
+  df <- dhs_kr %>%
+    dplyr::select(matches("v000|v001|v002|v003|v005|v006|v007|v012|v021|v022|v025|v106|h22|h32z")) %>%
+    mutate(fever = ifelse(h22 %in% c(8,9), NA, h22)) %>%
+    mutate(med_treat_fever = ifelse(h32z %in% c(8,9), NA, h32z)) %>%
+    mutate(wt=v005/1000000) %>% 
+    dplyr::rename(dhs_year = v007)
+  
+  df <- df %>%  mutate(DHS_CountryCode = str_sub(v000, 1, 2)) %>%  left_join(ids) %>%
+    mutate( min_year =min(dhs_year), code_year = paste0(DHS_CountryCode, min_year))
+  
+  df_urban <- df %>%  filter(v025 == 1) #filter to urban
+  
+  print(paste("appending urban data from", unique(df_urban[["CountryName"]]), "to list of data frames"))
+  dhs_kr_urban <- append(dhs_kr_urban, list(df_urban))
+  
+  df_rural <- df %>%  filter(v025 == 2)
+  
+  print(paste("appending rural data from", unique(df_urban[["CountryName"]]), "to list of data frames"))
+  dhs_kr_rural <- append(dhs_kr_rural, list(df_rural))
+}
+
+
+
+saveRDS(dhs_kr_urban, file.path(PopDir, "analysis_dat/dhs_kr_urban.rds"))
+dhs_kr_urban<-readRDS(file.path(PopDir, "analysis_dat/dhs_kr_urban.rds"))
+
+saveRDS(dhs_kr_rural, file.path(PopDir, "analysis_dat/dhs_kr_rural.rds"))
+dhs_kr_rural<-readRDS(file.path(PopDir, "analysis_dat/dhs_kr_rural.rds"))
+
+
+# plot data
+dhs_kr_urban <- dhs_kr_urban %>% map(~mutate(., max_year = max(dhs_year), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-",str_sub(max_year, -2))),
+                                             country_year = paste0(CountryName, " ", year_combo)))
+dhs_kr_rural <- dhs_kr_rural %>% map(~mutate(., max_year = max(dhs_year), min_year = min(as.numeric(dhs_year)), year_combo = ifelse(max_year == min_year, max_year, paste(min_year, "-", str_sub(max_year, -2))),
+                                             country_year = paste0(CountryName, " ", year_combo)))
+
+plot_u_df<- dhs_kr_urban %>% map(~dplyr::select(., v001, country_year, code_year, fever, med_treat_fever)) %>%  bind_rows(.id = "column_label")
+plot_r_df <- dhs_kr_rural %>% map(~dplyr::select(., v001, country_year, code_year, fever, med_treat_fever)) %>%  bind_rows(.id = "column_label")
+
+
+label = "fever"
+color = c("darkslategray2", "deeppink3", "#aaa3a2") #"#967cb9"
+p <- bar_fun(plot_u_df, "med_treat_fever" , "med_treat_fever", "DHS datasets with medical treatment fever", label)+
+  scale_fill_manual(values= color)+
+  xlab("fever")+
+  facet_wrap(vars(country_year), scales="free")
+# ggsave(paste0(FigDir,"/", Sys.Date(),"_urban_DHS_datasets_malaria_test_data.png"), p, width = 13, height = 13)
+
+#treatment seeking defined as living in a cluster where no fever was reported or over 60% reported seeking medical treatment for fever
+#compute treatment seeking variable for urban 
+plot_u_df_med <- plot_u_df %>% 
+  drop_na(fever) %>% 
+  group_by(country_year, v001) %>%  
+  summarise(majority_treat_fever = mean(med_treat_fever, na.rm=TRUE)*100, 
+            .groups = "drop") %>% 
+  mutate(med_treat_stat = ifelse(majority_treat_fever >= 60, 1, 0))
+
+plot_u_df_fever <- plot_u_df %>% 
+  drop_na(fever) %>% 
+  group_by(country_year, v001) %>%  
+  summarise(fever_stat = mean(fever, na.rm=TRUE)*100, 
+            .groups = "drop")
+
+fever_med = plot_u_df_med %>% left_join(plot_u_df_fever) %>% 
+  mutate(med_treat_fever_none = ifelse(fever_stat == 0,1, med_treat_stat ))
+
+urban_df <- read.csv(file.path(PopDir, "analysis_dat/241021_urban_df_for_analysis.csv"))
+glimpse(urban_df)
+
+urban_df_final <-urban_df%>%
+  left_join(fever_med, by = c("country_year.x" = "country_year", "hv001" = "v001"))
+
+write_csv(urban_df_final, file.path(PopDir, "analysis_dat/250605_urban_df_for_analysis.csv"))
+
+#compute treatment seeking variable for rural 
+
+plot_r_df_med <- plot_r_df %>% 
+  drop_na(fever) %>% 
+  group_by(country_year, v001) %>%  
+  summarise(majority_treat_fever = mean(med_treat_fever, na.rm=TRUE)*100, 
+            .groups = "drop") %>% 
+  mutate(med_treat_stat = ifelse(majority_treat_fever >= 60, 1, 0))
+
+plot_r_df_fever <- plot_r_df %>% 
+  drop_na(fever) %>% 
+  group_by(country_year, v001) %>%  
+  summarise(fever_stat = mean(fever, na.rm=TRUE)*100, 
+            .groups = "drop")
+
+#treatment seeking defined as living in a cluster where no fever was reported or over 60% reported seeking medical treatment for fever
+fever_med = plot_r_df_med %>% left_join(plot_r_df_fever) %>% 
+  mutate(med_treat_fever_none = ifelse(fever_stat == 0,1, med_treat_stat ))
+
+rural_df <- read.csv(file.path(PopDir, "analysis_dat/241021_rural_df_for_analysis.csv"))
+glimpse(rural_df)
+
+rural_df_final <-rural_df%>%
+  left_join(fever_med, by = c("country_year.x" = "country_year", "hv001" = "v001"))
+
+write_csv(rural_df_final, file.path(PopDir, "analysis_dat/250605_rural_df_for_analysis.csv"))
 
 
 
