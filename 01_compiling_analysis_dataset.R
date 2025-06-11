@@ -5,15 +5,16 @@
 
 rm(list = ls())
 
-devtools::install_github("ropensci/rdhs")
+#devtools::install_github("ropensci/rdhs")
 
 library(rdhs)
 
 ## -----------------------------------------
 ### Directories
 ## -----------------------------------------
-user <- Sys.getenv("USERNAME")
-if ("ozodi" %in% user) {
+username <- Sys.getenv("USERNAME")
+user <- Sys.getenv("USER")
+if ("ozodi" %in% username) {
     Drive <- file.path(gsub("[\\]", "/", gsub("Documents", "", gsub("OneDrive", "", Sys.getenv("HOME")))))
     Drive <- file.path(gsub("[//]", "/", Drive))
     DriveDir <- file.path(Drive, "Urban Malaria Proj Dropbox", "urban_malaria")
@@ -167,7 +168,7 @@ dhs_ir_rural <- append(dhs_ir_rural, list(df_rural))
 saveRDS(dhs_ir_urban, file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
 dhs_ir_urban<- readRDS(file.path(PopDir, "analysis_dat/dhs_ir_urban.rds"))
 saveRDS(dhs_ir_rural, file.path(PopDir, "analysis_dat/dhs_ir_rural.rds"))
-
+dhs_ir_rural<- readRDS(file.path(PopDir, "analysis_dat/dhs_ir_rural.rds"))
 # filter list to keep only datasets with agriculture workers that are partners as this eliminates countries with no agricultural data 
 #dhs_ir_urban <- dhs_ir_urban %>%purrr::discard(~all(is.na(.x$agri_partner)))
 #dhs_ir_rural <- dhs_ir_rural %>%purrr::discard(~all(is.na(.x$agri_partner)))
@@ -288,10 +289,10 @@ dhs_mr_rural <- append(dhs_mr_rural, list(df_rural))
 }
 
 saveRDS(dhs_mr_urban, file.path(PopDir, "analysis_dat/dhs_mr_urban.rds"))
-#dhs_mr_urban <- readRDS("dhs_mr_urban.rds")
+dhs_mr_urban <- readRDS(file.path(PopDir, "analysis_dat/dhs_mr_urban.rds"))
 
 saveRDS(dhs_mr_rural, file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
-#dhs_mr_rural <- readRDS("dhs_mr_rural.rds")
+dhs_mr_rural <- readRDS(file.path(PopDir, "analysis_dat/dhs_mr_rural.rds"))
 
 
 
@@ -416,7 +417,8 @@ for (i in 1:length(link_pr)){
 
     df <- df %>% mutate(hml32 = tryCatch(ifelse(hml32 > 1, NA, hml32), error = function(e) return(NA)),
                         hml35 = tryCatch(ifelse(hml35 > 1, NA, hml35), error = function(e) return(NA)),
-                        test_result=tryCatch(ifelse(!is.na(hml32), hml32, hml35), error =function(e) return(NA)),
+                        #test_result=tryCatch(ifelse(!is.na(hml32), hml32,  hml35), error =function(e) return(NA)),
+                        test_result=ifelse(!is.na(hml32), hml32,  hml35),
                         test_result = ifelse(test_result==1, "+ve",ifelse(test_result==0, "-ve", NA)), test_result = as.character(test_result))
   }
 
@@ -472,7 +474,7 @@ dhs_pr_rural <- dhs_pr_rural %>% map(~mutate(., max_year = max(dhs_year), min_ye
 plot_u_df<- dhs_pr_urban %>% map(~dplyr::select(., country_year, test_result, code_year)) %>%  bind_rows(.id = "column_label")
 plot_r_df <- dhs_pr_rural %>% map(~dplyr::select(., country_year, test_result, code_year)) %>%  bind_rows(.id = "column_label")
 
-
+lapply(dhs_pr_urban, function(x) table(x$country_year))
 
 #do we have enough data for this analysis?
 # label = "malaria_test results"
@@ -529,13 +531,15 @@ df <- plot_u_df  %>% mutate(cntryId = stringr::str_extract(code_year, "^.{2}")) 
 write_csv(df, file.path(PopDir, "analysis_dat/final_surveys.csv"))
 # 
 # 
-# 
+lapply(dhs_pr_urban, function(x) table(x$country_year))
 # 
 # ## --------------------------------------------------------------------------------------------
 # ### create analysis datasets   
 # ## ---------------------------------------------------------------------------------------------
 ir_urban <- dhs_ir_urban %>%purrr::keep(~all(.x$code_year %in% df$code_year))
 ir_rural <- dhs_ir_rural %>%purrr::keep(~all(.x$code_year %in% df$code_year))
+
+#remove ghana repeat from ir surveys 
 
 mr_urban <- dhs_mr_urban %>%purrr::keep(~all(.x$code_year %in% df$code_year))
 mr_rural <- dhs_mr_rural %>%purrr::keep(~all(.x$code_year %in% df$code_year))
@@ -562,7 +566,7 @@ mr_urban <- plyr::ldply(mr_urban)
 
 
 mr_rural %>% map(~dim(.x)[[2]]) #get smallest column length in list and position
-mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[10]])))
+mr_rural<- mr_rural %>%map(~dplyr::select(., colnames(mr_rural[[5]])))
 mr_rural<- plyr::ldply(mr_rural)
 
 
@@ -1037,10 +1041,13 @@ fever_med = plot_u_df_med %>% left_join(plot_u_df_fever) %>%
   mutate(med_treat_fever_none = ifelse(fever_stat == 0,1, med_treat_stat ))
 
 urban_df <- read.csv(file.path(PopDir, "analysis_dat/241021_urban_df_for_analysis.csv"))
+
 glimpse(urban_df)
+table(urban_df$country_year.x)
 
 urban_df_final <-urban_df%>%
   left_join(fever_med, by = c("country_year.x" = "country_year", "hv001" = "v001"))
+
 
 write_csv(urban_df_final, file.path(PopDir, "analysis_dat/250605_urban_df_for_analysis.csv"))
 
@@ -1063,11 +1070,22 @@ plot_r_df_fever <- plot_r_df %>%
 fever_med = plot_r_df_med %>% left_join(plot_r_df_fever) %>% 
   mutate(med_treat_fever_none = ifelse(fever_stat == 0,1, med_treat_stat ))
 
-rural_df <- read.csv(file.path(PopDir, "analysis_dat/241021_rural_df_for_analysis.csv"))
+rural_df <- read.csv(file.path(PopDir, "analysis_dat/241021_rural_df_for_analysis.csv")) 
+table(rural_df$country_year.x)
+
+rural_df2 <- rural_df %>% 
+  group_by(across(all_of(setdiff(names(rural_df), "hml32")))) %>%                # Group by all columns except hml32
+  filter(!(is.na(hml32) & n_distinct(hml32, na.rm = TRUE) > 0)) %>% 
+  ungroup()
+
+check<- rural_df2 %>%  filter(hv000 == "GH8")
+
 glimpse(rural_df)
 
 rural_df_final <-rural_df%>%
   left_join(fever_med, by = c("country_year.x" = "country_year", "hv001" = "v001"))
+
+table(rural_df_final$country_year.x)
 
 write_csv(rural_df_final, file.path(PopDir, "analysis_dat/250605_rural_df_for_analysis.csv"))
 
