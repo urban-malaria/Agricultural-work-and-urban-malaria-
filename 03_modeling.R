@@ -45,6 +45,7 @@ if ("ozodi" %in% user) {
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
   FigDir <- file.path(ManDir, "figures", "main_figures")
+  UpdatedFigDir <- file.path(ManDir, "Figures", "updated data plots")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
 } else {
@@ -72,8 +73,8 @@ library(svylme) #use glmer package instead
 ### Read in Analysis Datasets
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# read data from CSV file into all_df and apply transformations
-all_df <- read_csv(file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv")) %>%  
+# read data from (updated 6/12/25) CSV file into all_df and apply transformations
+all_df <- read_csv(file.path(PopDir, "analysis_dat/251206_urban_rural_analysis_data_for_modeling.csv")) %>%  
   mutate(malaria_result = ifelse(test_result == "+ve", 1, 0),  # create binary malaria_result based on test_result
          EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,  # handle missing values in EVI_2000m_new
                                    TRUE ~ EVI_2000m_new * 10),  # scale EVI_2000m_new by a factor of 10
@@ -133,23 +134,23 @@ all_df <- all_df %>%
 ### Make Chart for Figure 2 with New Housing Quality Variable
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# categorize roof type and prepare survey design
-all_df_hq <- all_df %>%
-  as_survey_design(ids = id, strata = strat, nest = T, weights = wt) %>%  # create a survey design object
-  mutate(housing_quality = ifelse(housing_quality == 1, "Good Quality", "Poor Quality")) %>%  # categorize housing quality
-  drop_na(housing_quality) %>%  # remove rows with missing hq values
-  mutate(hq_f = factor(housing_quality, levels = c("Good Quality", "Poor Quality"))) %>%  # convert hq to a factor
-  group_by(type_f, home_type3, hq_f) %>%  # group by type, home type, and housing quality
-  summarise(value = round(survey_total(), 0)) %>%  # calculate total survey values, rounded to nearest integer
-  mutate(percent = round(value / sum(value) * 100, 0))  # calculate percentage of total values
-
-# create a bar plot of roof type by home type
-p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) + 
-  geom_bar(aes(y = percent), position="stack", stat = "identity", show.legend = F)+
-  scale_fill_manual(name = "", values = c("#90c058", "#005500"))+
-  theme_manuscript() +
-  facet_wrap(vars(type_f)) +
-  theme(strip.text.x = element_text(size = 12))
+# # categorize roof type and prepare survey design
+# all_df_hq <- all_df %>%
+#   as_survey_design(ids = id, strata = strat, nest = T, weights = wt) %>%  # create a survey design object
+#   mutate(housing_quality = ifelse(housing_quality == 1, "Good Quality", "Poor Quality")) %>%  # categorize housing quality
+#   drop_na(housing_quality) %>%  # remove rows with missing hq values
+#   mutate(hq_f = factor(housing_quality, levels = c("Good Quality", "Poor Quality"))) %>%  # convert hq to a factor
+#   group_by(type_f, home_type3, hq_f) %>%  # group by type, home type, and housing quality
+#   summarise(value = round(survey_total(), 0)) %>%  # calculate total survey values, rounded to nearest integer
+#   mutate(percent = round(value / sum(value) * 100, 0))  # calculate percentage of total values
+# 
+# # create a bar plot of roof type by home type
+# p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) + 
+#   geom_bar(aes(y = percent), position="stack", stat = "identity", show.legend = F)+
+#   scale_fill_manual(name = "", values = c("#90c058", "#005500"))+
+#   theme_manuscript() +
+#   facet_wrap(vars(type_f)) +
+#   theme(strip.text.x = element_text(size = 12))
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Prepare Data for Analysis
@@ -157,13 +158,15 @@ p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) +
 
 # define variables of interest for analysis
 var <- list("stunting", "u5_net_use_factor", "hh_size", 
-            "wealth_index", "EVI_2000m_new", "housing_quality")
+            "wealth_index", "EVI_2000m_new", "housing_quality",
+            "med_treat_fever_none")
 
 # define descriptive table names for corresponding variables
 table_names <- c("Stunting: Stunted", "Home type: Non-agricultural",
                  "Net Use: Used", "Household Size", 
                  "Wealth: Poor", "Wealth: Middle", "Wealth: Rich", "Wealth: Richest",
-                 "EVI", "Housing Quality: Modern House")
+                 "EVI", "Housing Quality: Modern House",
+                 "Treatment-Seeking: Over 60% Sought")
 
 # create a copy of all_df for further modifications if needed
 all_df_renamed_vars <- all_df
@@ -261,7 +264,18 @@ all_results_combined_labeled <- all_results_combined_labeled %>%
 #   bind_rows(ref_df) %>%
 #   arrange(term)
 
-write_csv(all_results_combined_labeled, file.path(PopDir, "analysis_dat", "adjusted_reg_results.csv"))
+write_csv(all_results_combined_labeled, file.path(UpdatedFigDir, "tables", "adjusted_reg_results.csv"))
+
+# export both tables to a word document
+library(officer)
+doc <- read_docx()
+doc <- doc %>%
+  body_add_par("Logistic Regression: Covariates and Positivity, Adjusted for Home Type", style = "heading 1") %>%
+  body_add_table(value = all_results_combined_labeled, style = "table_template")
+
+# save the document
+file_path <- file.path(UpdatedFigDir, "adjusted_reg_results.docx")
+print(doc, target = file_path)
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Make Forest Plots
@@ -294,7 +308,8 @@ variable_order <- c(
   "Housing Quality: Modern House",
   "Household Size",
   "Stunting: Stunted",
-  "Net Use: Used"
+  "Net Use: Used",
+  "Treatment-Seeking: Over 60% Sought"
 )
 plot_data_clean <- plot_data_clean %>%
   mutate(variables = factor(variables, levels = variable_order))
@@ -330,7 +345,7 @@ forest_plot_combined <- ggplot(plot_data_clean,
 forest_plot_combined
 
 # save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_logistic_forest_plot.pdf"), forest_plot_combined, width = 9, height = 7) 
+ggsave(paste0(UpdatedFigDir, "_logistic_forest_plot.pdf"), forest_plot_combined, width = 9, height = 7) 
 
 ## =========================================================================================================================================
 ### Single Logistic Regression Analysis (Unadjusted): Home Type and Covariates

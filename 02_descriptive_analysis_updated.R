@@ -199,7 +199,7 @@ p1bc_combined_plot <- (p1bc_survey1 / plot_spacer() / p1bc_survey2) +
 p1bc_combined_plot
 
 # save the combined plot as a png
-ggsave(paste0(file.path(UpdatedFigDir, "figure_1bc.png")), p1bc_combined_plot, width = 4.5, height = 6) 
+ggsave(paste0(file.path(UpdatedFigDir, "figure_1bc.pdf")), p1bc_combined_plot, width = 4.5, height = 6) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Supplement Table: # Children tested for malaria by RDT or microscopy aggregated across urban and rural clusters (show counts)
@@ -700,25 +700,27 @@ ggsave(paste0(file.path(UpdatedFigDir, "_bar_charts_fig2.pdf")), final_fig2, wid
 # ## -----------------------------------------------------------------------------------------------------------------------------------------
 # # calculate the difference in MALARIA POSITIVITY between agricultural and non-agricultural workers in URBAN areas
 # # prepare the country-level data for plotting
-# plot_country = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
-#   group_by(country_year.x,home_type2, test_result) %>% # group by country, home type, and test result
-#   summarise(value = round(survey_total(),0))%>% # calculate total values
-#   mutate(percent = round(value/sum(value) *100, 0)) %>% # calculate percentage
-#   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
-#          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
-# 
-# # df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
-# # 
-# # plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
-# 
-# # filter data for positive test results
-# plot_country = plot_country %>% filter(test_result == "+ve")
-# 
-# # calculate the difference in malaria test positivity rates
-# diff_d_u_malaria <- plot_country %>% group_by(country_year.x) %>%  
-#   mutate(diff_val_urban_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% # calculate the difference
-#   filter(home_type2 == "Non-Agricultural worker HH") # filter for non-agricultural households
-# 
+plot_country = plot_df_um %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>%
+  group_by(country_year.x,home_type2, test_result) %>% # group by country, home type, and test result
+  summarise(value = round(survey_total(),0))%>% # calculate total values
+  mutate(percent = round(value/sum(value) *100, 0)) %>% # calculate percentage
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x),
+         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH"))
+
+df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
+
+plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))# df_u <- all_df %>% group_by(country_year.x) %>%  summarise(total2 = sum(total))
+
+plot_country <- plot_country  %>%  left_join(df_u, by = "country_year.x")  %>% mutate(plot_label = ifelse(test_result == "-ve", percent, NA))
+
+# filter data for positive test results
+plot_country = plot_country %>% filter(test_result == "+ve")
+
+# calculate the difference in malaria test positivity rates
+diff_d_u_malaria <- plot_country %>% group_by(country_year.x) %>%
+  mutate(diff_val_urban_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% # calculate the difference
+  filter(home_type2 == "Non-Agricultural worker HH") # filter for non-agricultural households
+
 # # visualize the differences
 # diff_d_u_malaria$title = "Urban" # set title for the plot
 # p_diff_u_malaria <- ggplot(diff_d_u_malaria , aes(x = reorder(country_year.x, -diff_val_urban_malaria), y = diff_val_urban_malaria, fill)) +
@@ -741,25 +743,25 @@ ggsave(paste0(file.path(UpdatedFigDir, "_bar_charts_fig2.pdf")), final_fig2, wid
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 # calculate the difference in NET USE between agricultural and non-agricultural workers in RURAL areas
 # prepare the country-level data for plotting
-# plot_country = plot_df_rn %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>% 
-#   group_by(country_year.x,home_type2, u5_net_use) %>% # group by country, home type, and net use
-#   summarise(value = round(survey_total(),0)) %>% # calculate total values and round them
-#   mutate(percent = round(value/sum(value) *100, 0)) %>% # calculate percentage of each group
-#   mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x), # standardize country name
-#          home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH")) # label home types
-# 
-# # filter for households with net use
-# plot_country = plot_country %>% filter( u5_net_use == "1")
-# 
-# # calculate difference in net use rates for rural households
-# diff_d_r_nets <- plot_country %>% 
-#   group_by(country_year.x) %>% # group by country and year
-#   mutate(diff_val_rural_nets = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% # calculate the difference
-#   filter(home_type2 == "Non-Agricultural worker HH") # filter for non-agricultural households
-# 
-# 
-# # set title for the plot
-# diff_d_r_nets$title = "Urban"
+plot_country = plot_df_rn %>% as_survey_design(ids= id,strata=strat,nest=T,weights= wt) %>%
+  group_by(country_year.x,home_type2, u5_net_use) %>% # group by country, home type, and net use
+  summarise(value = round(survey_total(),0)) %>% # calculate total values and round them
+  mutate(percent = round(value/sum(value) *100, 0)) %>% # calculate percentage of each group
+  mutate(country_year.x = ifelse(country_year.x == "Congo Democratic Republic 2013 - 14", "DRC 2013 - 14",country_year.x), # standardize country name
+         home_type2 = ifelse(home_type2 == 'A', 'Agricultural worker Household (HH)', "Non-Agricultural worker HH")) # label home types
+
+# filter for households with net use
+plot_country = plot_country %>% filter( u5_net_use == "1")
+
+# calculate difference in net use rates for rural households
+diff_d_r_nets <- plot_country %>%
+  group_by(country_year.x) %>% # group by country and year
+  mutate(diff_val_rural_nets = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% # calculate the difference
+  filter(home_type2 == "Non-Agricultural worker HH") # filter for non-agricultural households
+
+
+# set title for the plot
+diff_d_r_nets$title = "Urban"
 # 
 # # create the plot
 # p_diff_r_nets <- ggplot(diff_d_r_nets , aes(x = reorder(country_year.x, -diff_val_rural_nets), y = diff_val_rural_nets, fill)) +
@@ -935,7 +937,7 @@ country_m_n_rural
 
 # remove individual titles and x-axis labels from the urban and rural plots
 country_m_n_urban <- country_m_n_urban + 
-  labs(x = NULL)
+  labs(x = NULL, y = NULL)
 country_m_n_rural <- country_m_n_rural + 
   labs(x = NULL, y = NULL)
 
@@ -963,9 +965,9 @@ final_net_v_malaria_dots <- grid.arrange(
 
 final_fig3 <- grid.arrange(final_fig2, final_net_v_malaria_dots, nrow = 2, heights = c(11, 6))
 
-# save as .png
-ggsave(paste0(file.path(UpdatedFigDir, "_malaria_test_positivity_netuse_agric_urban_rural_by_country.png")), final_net_v_malaria_dots, width = 8, height = 5) 
-ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.png")), final_fig3, width = 8, height = 11) 
+# save as .pdf
+ggsave(paste0(file.path(UpdatedFigDir, "_malaria_test_positivity_netuse_agric_urban_rural_by_country.pdf")), final_net_v_malaria_dots, width = 8, height = 5) 
+ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 8, height = 11) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 # LOGISTIC REGRESSION: Test difference in net use between agricultural and non-agricultural households in urban and rural areas
@@ -1363,6 +1365,29 @@ p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) +
   theme(strip.text.x = element_text(size = 12))
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
+### Treatment-Seeking
+## -----------------------------------------------------------------------------------------------------------------------------------------
+
+# categorize roof type and prepare survey design
+all_df_ts <- all_df %>%
+  as_survey_design(ids = id, strata = strat, nest = T, weights = wt) %>%  # create a survey design object
+  mutate(med_treat_fever_none = ifelse(med_treat_fever_none == 1, ">= 60% Sought Treatment", "< 60% Sought Treatment")) %>%  # categorize treatment-seeking
+  drop_na(med_treat_fever_none) %>%  # remove rows with missing values
+  mutate(ts_f = factor(med_treat_fever_none, levels = c(">= 60% Sought Treatment", "< 60% Sought Treatment"))) %>%  # convert hq to a factor
+  group_by(type_f, home_type3, ts_f) %>%  # group by type, home type, and treatment-seeking
+  summarise(value = round(survey_total(), 0)) %>%  # calculate total survey values, rounded to nearest integer
+  mutate(percent = round(value / sum(value) * 100, 0))  # calculate percentage of total values
+
+# create a bar plot of roof type by home type
+p_ts <- ggplot(all_df_ts, aes(fill = ts_f, x= home_type3)) + 
+  geom_bar(aes(y = percent), position="stack", stat = "identity", show.legend = F)+
+  scale_fill_manual(name = "", values = c("#f5bbcc", "#e75480"))+
+  theme_manuscript() +
+  facet_wrap(vars(type_f)) +
+  theme(strip.text.x = element_text(size = 12))
+p_ts
+
+## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Wealth
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1435,7 +1460,7 @@ all_df <- rbind(urban_df2, rural_df2) %>%
 all_df$type_f <- factor(all_df$type, levels=c("Urban", "Rural")) # create a factor for type with specified levels
 
 # write the final analysis dataset to a CSV file
-write.csv(all_df, file.path(PopDir, "analysis_dat/urban_rural_analysis_data_for_modeling.csv"))
+write.csv(all_df, file.path(PopDir, "analysis_dat/251206_urban_rural_analysis_data_for_modeling.csv"))
 
 # check the number of missing values for selected environmental variables
 check <- all_df %>%  
@@ -1760,12 +1785,17 @@ p_stunting <- ggplot(all_df %>% drop_na(stunting_new), aes(x = home_type3, fill 
   theme(strip.text.x = element_text(size = 12))
 p_stunting # display the stunting distribution plot
 
-# combine various plots into a single figure layout
-figure4_bottom <- p_hq + p3 + p_gender + p_stunting 
-figure4_bottom
+library(patchwork)
+
+# combine plots
+bottom_row <- p_gender + p_stunting + p_ts
+middle_row <- p_hq + p3
+
+categorical_vars <- middle_row / bottom_row
+categorical_vars
 
 # create a final figure layout with all_p1 above figure4_bottom and annotate with tag levels and save final figure as pdf
-p_figure_4 <- all_p1 / figure4_bottom + plot_annotation(tag_levels = 'A')
+p_figure_4 <- all_p1 / categorical_vars + plot_annotation(tag_levels = 'A')
 p_figure_4
 ggsave(paste0(file.path(UpdatedFigDir, "_covariate_plots.pdf")), p_figure_4, width = 8.5, height = 11) 
 
