@@ -363,10 +363,11 @@ all_df$stunting <- as.factor(all_df$stunting)
 all_df$u5_net_use_factor <- as.factor(all_df$u5_net_use_factor)
 all_df$roof_type_factor <- as.factor(all_df$roof_type_factor)
 all_df$housing_quality <- as.factor(all_df$housing_quality)
+all_df$med_treat_fever_none <- as.factor(all_df$housing_quality)
 
 # define descriptive table names for corresponding variables
-table_names <- c("DHS year", "EVI", "Age", "Household size", "Housing quality: modern",
-                 "Precipitation", "Relative humidity (%)", "Roof type: improved", "Sex: male", "Stunting: stunted", "Temperature",
+table_names <- c("EVI", "Household size", "Housing quality: modern",
+                 "Treatment-Seeking: Over 60% Sought", "Stunting: stunted",
                  "Net use among children under the age of five years: use", "Wealth")
 
 # loop through each location type defined in location_types (urban or rural) to create a survey df with CIs
@@ -452,66 +453,66 @@ all_results_combined_labeled <- all_results_combined_labeled %>%
   ))
 
 # write to an Excel file
-write_xlsx(all_results_combined_labeled, file.path(PopDir, "analysis_dat", "single_reg_results_hometype_covariate.xlsx"))
+write_xlsx(all_results_combined_labeled, file.path(UpdatedFigDir, "single_reg_results_hometype_covariate.xlsx"))
 
 # export to a word document
 doc <- read_docx()
 doc <- doc %>%
   body_add_table(value = all_results_combined_labeled, style = "table_template")
-print(doc, target = file.path(PopDir, "analysis_dat", "single_reg_results_hometype_covariate.docx"))
+print(doc, target = file.path(UpdatedFigDir, "single_reg_results_hometype_covariate.docx"))
 
 ## =========================================================================================================================================
 ### Mediation Analysis - Phase 1
 ## =========================================================================================================================================
 
-# define a function to run survey-weighted logistic or linear regression
-run_svyglm <- function(formula, data) {
-  # create survey design object using the helper function (see functions_employment.R)
-  svy_design <- svydesign_fun(data)
-  
-  # extract the outcome variable from the formula
-  outcome_var <- all.vars(formula)[1]
-  
-  # check if the outcome variable is binary (for logistic regression)
-  if (is.factor(data[[outcome_var]]) || length(unique(data[[outcome_var]])) == 2) {
-    # logistic regression using survey design using survey design if outcome is binary
-    model <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
-    
-    # tidy the logistic regression model and calculate odds ratios (OR) and confidence intervals (CI)
-    tidy_model <- tidy(model) %>%
-      filter(term != "(Intercept)") %>%  # exclude the intercept term from results
-      rename(SE = std.error) %>%
-      mutate(OR = exp(estimate),         # calculate odds ratio (exponentiate the estimate)
-             lower_ci = exp(estimate - 1.96 * SE),
-             upper_ci = exp(estimate + 1.96 * SE))
-    
-    # select relevant columns to return for logistic regression
-    tidy_model <- tidy_model %>%
-      select(term, OR, lower_ci, upper_ci, p.value)
-    
-  } else {
-    # perform linear regression using survey design if outcome is continuous
-    model <- svyglm(formula, design = svy_design)
-    
-    # tidy the linear regression model and extract coefficients and confidence intervals
-    tidy_model <- tidy(model) %>%
-      filter(term != "(Intercept)") %>% # exclude the intercept term
-      rename_at(3, ~"SE") %>% # rename standard error column to 'SE'
-      #mutate(odds = exp(estimate)) %>%
-      mutate(lower_ci = exp(-1.96 * SE + estimate)) %>%
-      mutate(upper_ci = exp(1.96 * SE + estimate)) %>%
-      tibble::rownames_to_column() %>% # add rownames as a column
-      mutate(type = "unadjusted", location = location) # add additional details: type and location
-  }
-  
-  return(tidy_model)
-}
-
+# # define a function to run survey-weighted logistic or linear regression
+# run_svyglm <- function(formula, data) {
+#   # create survey design object using the helper function (see functions_employment.R)
+#   svy_design <- svydesign_fun(data)
+#   
+#   # extract the outcome variable from the formula
+#   outcome_var <- all.vars(formula)[1]
+#   
+#   # check if the outcome variable is binary (for logistic regression)
+#   if (is.factor(data[[outcome_var]]) || length(unique(data[[outcome_var]])) == 2) {
+#     # logistic regression using survey design using survey design if outcome is binary
+#     model <- svyglm(formula, design = svy_design, family = binomial(link = "logit"))
+#     
+#     # tidy the logistic regression model and calculate odds ratios (OR) and confidence intervals (CI)
+#     tidy_model <- tidy(model) %>%
+#       filter(term != "(Intercept)") %>%  # exclude the intercept term from results
+#       rename(SE = std.error) %>%
+#       mutate(OR = exp(estimate),         # calculate odds ratio (exponentiate the estimate)
+#              lower_ci = exp(estimate - 1.96 * SE),
+#              upper_ci = exp(estimate + 1.96 * SE))
+#     
+#     # select relevant columns to return for logistic regression
+#     tidy_model <- tidy_model %>%
+#       select(term, OR, lower_ci, upper_ci, p.value)
+#     
+#   } else {
+#     # perform linear regression using survey design if outcome is continuous
+#     model <- svyglm(formula, design = svy_design)
+#     
+#     # tidy the linear regression model and extract coefficients and confidence intervals
+#     tidy_model <- tidy(model) %>%
+#       filter(term != "(Intercept)") %>% # exclude the intercept term
+#       rename_at(3, ~"SE") %>% # rename standard error column to 'SE'
+#       #mutate(odds = exp(estimate)) %>%
+#       mutate(lower_ci = exp(-1.96 * SE + estimate)) %>%
+#       mutate(upper_ci = exp(1.96 * SE + estimate)) %>%
+#       tibble::rownames_to_column() %>% # add rownames as a column
+#       mutate(type = "unadjusted", location = location) # add additional details: type and location
+#   }
+#   
+#   return(tidy_model)
+# }
+# 
 # assuming your dataset is named 'all_df2', and 'typem' contains "urban" and "rural"
-all_df2 <- all_df %>% 
-  
+all_df2 <- all_df %>%
+
   # create a binary variable for malaria result (1 for positive, 0 for negative)
-  mutate(malaria_result = ifelse(test_result =="+ve", 1,0), 
+  mutate(malaria_result = ifelse(test_result =="+ve", 1,0),
          # multiply the 'EVI_2000m_new' variable by 10, but keep missing values as NA
          EVI_2000m_new = case_when(is.na(EVI_2000m_new) ~ NA,
                                    TRUE ~ EVI_2000m_new * 10),
@@ -533,96 +534,96 @@ all_df2 <- all_df %>%
 # filter the data to separate urban and rural models
 urban_df <- all_df2 %>% filter(type == "Urban")
 rural_df <- all_df2 %>% filter(type == "Rural")
-
-# define the formulas for the regression models to be run
-formulas <- list(
-  stunting_dep  ~ home_type_dep,
-  roof_type_dep ~ home_type_dep,
-  u5_net_use_dep ~ home_type_dep,
-  hh_size ~ home_type_dep,
-  temp_monthly_2000m ~ home_type_dep,
-  wealth  ~ home_type_dep,
-  home_type_dep ~ stunting_dep,
-  home_type_dep ~ roof_type_dep,
-  home_type_dep ~ u5_net_use_dep,
-  home_type_dep ~ hh_size,
-  home_type_dep ~ temp_monthly_2000m,
-  home_type_dep ~ wealth_index,
-  home_type_dep ~ housing_quality)
-
-# run the regressions separately for urban and rural datasets
-urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
-rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
-
-# bind the results into a single dataframe with an indicator for urban and rural
-urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
-  mutate(location = "Urban") # add a column to specify urban location
-rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
-  mutate(location = "Rural") # add a column to specify rural location
-
-# combine the results from urban and rural datasets into one dataframe
-final_results <- bind_rows(urban_results_df, rural_results_df)  %>% 
-  mutate(p.value = round(p.value, 4))%>%
-  mutate(model_number = case_when(
-    model_number == 1 ~ "stunting_dep  ~ home_type2",
-    model_number == 2 ~ "roof_type_dep ~ home_type2",
-    model_number == 3 ~ "u5_net_use_dep ~ home_type2",
-    model_number == 4 ~ "hh_size ~ home_type2",
-    model_number == 5 ~ "temp_monthly_2000m ~ home_type2",
-    model_number == 6 ~ "wealth  ~ home_type2",
-    model_number == 7 ~ "home_type_dep ~ stunting",
-    model_number == 8 ~ "home_type_dep ~ roof_type",
-    model_number == 9 ~ "home_type_dep ~ u5_net_use",
-    model_number == 10 ~ "home_type_dep ~ hh_size",
-    model_number == 11 ~ "home_type_dep ~ temp_monthly_2000m",
-    model_number == 12 ~ "home_type_dep ~ wealth",
-    model_number == 13 ~ "home_type_dep ~ housing_quality",
-    TRUE ~ model_number ))
-
-# display the final results
-final_results
-write_xlsx(final_results, file.path(PopDir, "analysis_dat", "mediation_first_phase_results.xlsx"))
-
-## =========================================================================================================================================
-### Mediation Analysis - Phase 2
-## =========================================================================================================================================
-
-# define list of formulas for the models
-formulas <- list(
-  malaria_result ~ home_type_dep + stunting,
-  malaria_result ~ home_type_dep + roof_type,
-  malaria_result ~ home_type_dep + u5_net_use,
-  malaria_result ~ home_type_dep + hh_size,
-  malaria_result ~ home_type_dep + temp_monthly_2000m,
-  malaria_result ~ home_type_dep + wealth_index,
-  malaria_result ~ home_type_dep + housing_quality)
-
-# run the regressions separately for urban and rural
-urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
-rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
-
-# bind the results into a single dataframe with an indicator for urban and rural
-urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
-  mutate(location = "Urban")
-rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
-  mutate(location = "Rural")
-
-# combine the results into one dataframe
-final_results_phase2 <- bind_rows(urban_results_df, rural_results_df)  %>% 
-  mutate(p.value = round(p.value, 4))%>%
-  mutate(model_number = case_when(
-    model_number == 1 ~ "malaria_result ~ home_type_dep + stunting",
-    model_number == 2 ~ "malaria_result ~ home_type_dep + roof_type",
-    model_number == 3 ~ "malaria_result ~ home_type_dep + u5_net_use",
-    model_number == 4 ~ "malaria_result ~ home_type_dep + hh_size",
-    model_number == 5 ~ "malaria_result ~ home_type_dep + temp_monthly_2000m",
-    model_number == 6 ~ "malaria_result ~ home_type_dep + wealth",
-    model_number == 7 ~ "malaria_result ~ home_type_dep + housing_quality",
-    TRUE ~ model_number ))
-
-# display the final results and save as excel file
-final_results_phase2
-write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_final_phase_results.xlsx"))
+# 
+# # define the formulas for the regression models to be run
+# formulas <- list(
+#   stunting_dep  ~ home_type_dep,
+#   roof_type_dep ~ home_type_dep,
+#   u5_net_use_dep ~ home_type_dep,
+#   hh_size ~ home_type_dep,
+#   temp_monthly_2000m ~ home_type_dep,
+#   wealth  ~ home_type_dep,
+#   home_type_dep ~ stunting_dep,
+#   home_type_dep ~ roof_type_dep,
+#   home_type_dep ~ u5_net_use_dep,
+#   home_type_dep ~ hh_size,
+#   home_type_dep ~ temp_monthly_2000m,
+#   home_type_dep ~ wealth_index,
+#   home_type_dep ~ housing_quality)
+# 
+# # run the regressions separately for urban and rural datasets
+# urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
+# rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
+# 
+# # bind the results into a single dataframe with an indicator for urban and rural
+# urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
+#   mutate(location = "Urban") # add a column to specify urban location
+# rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
+#   mutate(location = "Rural") # add a column to specify rural location
+# 
+# # combine the results from urban and rural datasets into one dataframe
+# final_results <- bind_rows(urban_results_df, rural_results_df)  %>% 
+#   mutate(p.value = round(p.value, 4))%>%
+#   mutate(model_number = case_when(
+#     model_number == 1 ~ "stunting_dep  ~ home_type2",
+#     model_number == 2 ~ "roof_type_dep ~ home_type2",
+#     model_number == 3 ~ "u5_net_use_dep ~ home_type2",
+#     model_number == 4 ~ "hh_size ~ home_type2",
+#     model_number == 5 ~ "temp_monthly_2000m ~ home_type2",
+#     model_number == 6 ~ "wealth  ~ home_type2",
+#     model_number == 7 ~ "home_type_dep ~ stunting",
+#     model_number == 8 ~ "home_type_dep ~ roof_type",
+#     model_number == 9 ~ "home_type_dep ~ u5_net_use",
+#     model_number == 10 ~ "home_type_dep ~ hh_size",
+#     model_number == 11 ~ "home_type_dep ~ temp_monthly_2000m",
+#     model_number == 12 ~ "home_type_dep ~ wealth",
+#     model_number == 13 ~ "home_type_dep ~ housing_quality",
+#     TRUE ~ model_number ))
+# 
+# # display the final results
+# final_results
+# write_xlsx(final_results, file.path(PopDir, "analysis_dat", "mediation_first_phase_results.xlsx"))
+# 
+# ## =========================================================================================================================================
+# ### Mediation Analysis - Phase 2
+# ## =========================================================================================================================================
+# 
+# # define list of formulas for the models
+# formulas <- list(
+#   malaria_result ~ home_type_dep + stunting,
+#   malaria_result ~ home_type_dep + roof_type,
+#   malaria_result ~ home_type_dep + u5_net_use,
+#   malaria_result ~ home_type_dep + hh_size,
+#   malaria_result ~ home_type_dep + temp_monthly_2000m,
+#   malaria_result ~ home_type_dep + wealth_index,
+#   malaria_result ~ home_type_dep + housing_quality)
+# 
+# # run the regressions separately for urban and rural
+# urban_results <- lapply(formulas, function(f) run_svyglm(f, urban_df))
+# rural_results <- lapply(formulas, function(f) run_svyglm(f, rural_df)) 
+# 
+# # bind the results into a single dataframe with an indicator for urban and rural
+# urban_results_df <- bind_rows(urban_results, .id = "model_number") %>%
+#   mutate(location = "Urban")
+# rural_results_df <- bind_rows(rural_results, .id = "model_number") %>%
+#   mutate(location = "Rural")
+# 
+# # combine the results into one dataframe
+# final_results_phase2 <- bind_rows(urban_results_df, rural_results_df)  %>% 
+#   mutate(p.value = round(p.value, 4))%>%
+#   mutate(model_number = case_when(
+#     model_number == 1 ~ "malaria_result ~ home_type_dep + stunting",
+#     model_number == 2 ~ "malaria_result ~ home_type_dep + roof_type",
+#     model_number == 3 ~ "malaria_result ~ home_type_dep + u5_net_use",
+#     model_number == 4 ~ "malaria_result ~ home_type_dep + hh_size",
+#     model_number == 5 ~ "malaria_result ~ home_type_dep + temp_monthly_2000m",
+#     model_number == 6 ~ "malaria_result ~ home_type_dep + wealth",
+#     model_number == 7 ~ "malaria_result ~ home_type_dep + housing_quality",
+#     TRUE ~ model_number ))
+# 
+# # display the final results and save as excel file
+# final_results_phase2
+# write_xlsx(final_results_phase2, file.path(PopDir, "analysis_dat", "mediation_final_phase_results.xlsx"))
 
 ## =========================================================================================================================================
 ### Multiple Logistic Regression Analysis (Adjusted)
@@ -848,7 +849,7 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
   
   # retain only relevant columns
   mediation_data <- data %>%    
-    select(home_type_dep, malaria_result, stunting_dep, hh_size, wealth, housing_quality, u5_net_use_dep, EVI_2000m_new)
+    select(home_type_dep, malaria_result, stunting_dep, hh_size, wealth, housing_quality, u5_net_use_dep, EVI_2000m_new, med_treat_fever_none)
   
   # convert factor variables to numeric
   mediation_data$home_type_dep <- as.numeric(as.factor(mediation_data$home_type_dep))
@@ -862,7 +863,8 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
     model_number_3 = c("wealth"),
     model_number_4 = c("housing_quality"),
     model_number_5 = c("u5_net_use_dep"),
-    model_number_6 = c("EVI_2000m_new")
+    model_number_6 = c("EVI_2000m_new"),
+    model_number_7 = c("med_treat_fever_none")
   )
   
   # initialize an empty data frame to store results
@@ -985,6 +987,7 @@ run_mediation_analysis <- function(data, n_bootstrap = 1000) {
       mediator == "housing_quality" ~ "Housing Quality",
       mediator == "u5_net_use_dep" ~ "Net Use",
       mediator == "EVI_2000m_new" ~ "EVI",
+      mediator == "med_treat_fever_none" ~ "Treatment-Seeking",
       TRUE ~ mediator  # keep original if no match
     )) %>%
     rename(
@@ -1029,12 +1032,14 @@ urban_df$home_type_dep <- as.numeric(urban_df$home_type_dep)
 urban_df$u5_net_use_dep <- as.numeric(urban_df$u5_net_use_dep)
 urban_df$roof_type_dep <- as.numeric(urban_df$roof_type_dep)
 urban_df$stunting_dep <- as.numeric(urban_df$stunting_dep)
+urban_df$med_treat_fever_none <- as.numeric(urban_df$med_treat_fever_none)
 
 rural_df$housing_quality <- as.numeric(rural_df$housing_quality)
 rural_df$home_type_dep <- as.numeric(rural_df$home_type_dep)
 rural_df$u5_net_use_dep <- as.numeric(rural_df$u5_net_use_dep)
 rural_df$roof_type_dep <- as.numeric(rural_df$roof_type_dep)
 rural_df$stunting_dep <- as.numeric(rural_df$stunting_dep)
+rural_df$med_treat_fever_none <- as.numeric(rural_df$med_treat_fever_none)
 
 # run the function for urban_df and add the table to the document
 urban_results <- run_mediation_analysis(urban_df)
@@ -1053,7 +1058,7 @@ doc <- doc %>%
   body_add_table(value = rural_results, style = "table_template")
 
 # save the document
-file_path <- file.path(PopDir, "analysis_dat", "mediation_analysis_results_bootstrapped3.docx")
+file_path <- file.path(UpdatedFigDir, "mediation_analysis_results_bootstrapped3.docx")
 print(doc, target = file_path)
 
 # save unrounded results in separate dfs
@@ -1102,8 +1107,8 @@ combined_urban_results <- bind_rows(urban_country_results_nop, .id = "Country")
 combined_rural_results <- bind_rows(rural_country_results_nop, .id = "Country")
 
 # save to avoid running mediation again
-write.csv(combined_urban_results, file = file.path(PopDir, "analysis_dat", "urban_country_mediation_results.csv"), row.names = FALSE, quote = TRUE)
-write.csv(combined_rural_results, file = file.path(PopDir, "analysis_dat", "rural_country_mediation_results.csv"), row.names = FALSE, quote = TRUE)
+write.csv(combined_urban_results, file = file.path(UpdatedFigDir, "urban_country_mediation_results.csv"), row.names = FALSE, quote = TRUE)
+write.csv(combined_rural_results, file = file.path(UpdatedFigDir, "rural_country_mediation_results.csv"), row.names = FALSE, quote = TRUE)
 
 
 ## =========================================================================================================================================
@@ -1186,7 +1191,7 @@ combined_effect_bar_plot <- grid.arrange(
 )
 
 # save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_mediation_effect_bar.pdf"), combined_effect_bar_plot, width = 9, height = 7) 
+ggsave(paste0(UpdatedFigDir, "_mediation_effect_bar.pdf"), combined_effect_bar_plot, width = 9, height = 7) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### 2) Effect Size Forest Plot for Indirect, Direct, and Total Effects with Confidence Intervals
@@ -1401,16 +1406,16 @@ combined_perc_med_forest <- ggplot(combined_percent_mediation_df,
 combined_perc_med_forest
 
 # save the combined plot as a .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(), "_combined_mediation_perc_forest2.pdf"), combined_perc_med_forest, width = 7, height = 5)
+ggsave(paste0(UpdatedFigDir, "_combined_mediation_perc_forest2.pdf"), combined_perc_med_forest, width = 7, height = 5)
 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Make Mediation Plot for Each Country (with net use)
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-urban_country_results <- read.csv(file.path(PopDir, "analysis_dat", "urban_country_mediation_results.csv"), check.names = FALSE) %>%
+urban_country_results <- read.csv(file.path(UpdatedFigDir, "tables", "urban_country_mediation_results.csv"), check.names = FALSE) %>%
   filter(Mediator != "Roof Type")
-rural_country_results <- read.csv(file.path(PopDir, "analysis_dat", "rural_country_mediation_results.csv"), check.names = FALSE) %>%
+rural_country_results <- read.csv(file.path(UpdatedFigDir, "tables", "rural_country_mediation_results.csv"), check.names = FALSE) %>%
   filter(Mediator != "Roof Type")
 
 # create a list to store plots (plots will show both urban+rural mediation data)
@@ -1433,6 +1438,17 @@ for (country in unique(urban_country_results$Country)) {
   all_country_mediation_data <- rbind(urban_mediation_data %>% mutate(Location = "Urban"),
       rural_mediation_data %>% mutate(Location = "Rural")
   )
+  
+  # Get unique mediator names for Urban, ordered by descending % Mediation
+  urban_order <- all_country_mediation_data %>%
+    filter(Location == "Urban") %>%
+    arrange((`% Mediation`)) %>%
+    distinct(Mediator, .keep_all = TRUE) %>%  # ensure uniqueness
+    pull(Mediator)
+
+  # Convert Mediator to factor with correct order
+  all_country_mediation_data <- all_country_mediation_data %>%
+    mutate(Mediator = factor(Mediator, levels = urban_order))
     
   # create forest plot for the current country
   country_forest_plot <- ggplot(all_country_mediation_data, aes(x = `% Mediation`, y = Mediator, color = Location)) + 
@@ -1440,18 +1456,18 @@ for (country in unique(urban_country_results$Country)) {
     geom_errorbarh(aes(xmin = `Bootstrapped Lower CI`, xmax = `Bootstrapped Upper CI`), 
                    height = 0.6, position = position_dodge(width = 0.5)) + 
     geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
-    # labs(title = paste("Percent Mediation Contributions in", country), 
-    #      x = "Percent Mediation (%)", y = "Mediator") + 
     scale_x_continuous(limits = c(-31, 100)) +
     scale_color_manual(values = c("Urban" = "#1A478F", "Rural" = "#C01A81")) +  
     theme_manuscript() +
     facet_wrap(~ Country, labeller = label_value) + 
-    theme(axis.text.y = element_text(size = 11), 
-          plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-          legend.position = "none",
-          axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          strip.text = element_text(size = 14))
+    theme(
+      axis.text.y = element_text(size = 11), 
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      strip.text = element_text(size = 14)
+    )
     
   # store the plot in the list with the country name as the key
   country_forest_plots[[country]] <- country_forest_plot
@@ -1486,7 +1502,7 @@ country_perc_med_plots_final <- grid.arrange(
 )
 
 # display the combined plot and save as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_country_mediation_forest.pdf"), country_perc_med_plots_final, width = 12, height = 14) 
+ggsave(paste0(UpdatedFigDir, "_country_mediation_forest.pdf"), country_perc_med_plots_final, width = 12, height = 14) 
 
 # ----- make grid with only plots that have reasonable confidence intervals ------ 
 selected_countries <- c("Burundi", "Cote d'Ivoire", "Nigeria", "Togo")
@@ -1503,7 +1519,7 @@ country_subset_med_plots_final <- grid.arrange(
     gp = gpar(fontsize = 16, fontface = "bold", hjust = 0.5)  # center the title
   )
 )
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_country_subset_med_plots_final.pdf"), country_subset_med_plots, width = 10, height = 10)
+ggsave(paste0(UpdatedFigDir, "_country_subset_med_plots_final.pdf"), country_subset_med_plots, width = 10, height = 10)
 
 ## =========================================================================================================================================
 ### Mediation Analysis: Predicted Probabilities and OR plots
@@ -1523,12 +1539,13 @@ create_or_pp_plots <- function(df, area_type) {
   # define formulas
   formulas <- list(
     malaria_result ~ home_type_dep,
-    malaria_result ~ home_type_dep + stunting,
+    malaria_result ~ home_type_dep + stunting_dep,
     malaria_result ~ home_type_dep + hh_size,
     malaria_result ~ home_type_dep + EVI_2000m_new,
     malaria_result ~ home_type_dep + wealth_index,
     malaria_result ~ home_type_dep + housing_quality,
-    malaria_result ~ home_type_dep + u5_net_use_dep
+    malaria_result ~ home_type_dep + u5_net_use_dep,
+    malaria_result ~ home_type_dep + med_treat_fever_none
   )
   
   # define term names
@@ -1539,7 +1556,8 @@ create_or_pp_plots <- function(df, area_type) {
     "home type + EVI",
     "home type + wealth index",
     "home type + housing quality",
-    "home type + u5 net use"
+    "home type + u5 net use",
+    "home type + treatment-seeking"
   )
   
   # model function
@@ -1567,7 +1585,7 @@ create_or_pp_plots <- function(df, area_type) {
   # process OR
   df_or <- lapply(model_datasets_results, fun_or) %>% 
     bind_rows(.id = "formula_id") %>% 
-    filter(term == "home_type_dep1") %>% 
+    filter(term == "home_type_dep") %>% 
     mutate(formula_name = term_names[as.numeric(formula_id)])
   
   df_or <- df_or %>% 
@@ -1575,13 +1593,13 @@ create_or_pp_plots <- function(df, area_type) {
     select(variables, odds, lower_ci, upper_ci, p.value)
   
   # write OR results to Excel
-  write_xlsx(df_or, file.path(PopDir, "analysis_dat", paste0(area_type, "_df_or_results.xlsx")))
+  write_xlsx(df_or, file.path(UpdatedFigDir, paste0(area_type, "_df_or_results.xlsx")))
   
   # filter significant results
-  # df_or_significant <- df_or %>% filter(p.value < 0.05)
+  df_or_significant <- df_or %>% filter(p.value < 0.05)
   
   # color palette
-  color_list <- c("#154D42", "#6f3096", "#fa7a48", "#028E41", "#ff8da1", "#4777cd", "#ab0a58")
+  color_list <- c("#154D42", "#6f3096", "red", "#028E41", "#ff8da1", "#4777cd", "#ab0a58", "#fa7a48")
   
   # odds ratio plot
   forest_b <- ggplot(df_or, aes(x = odds, y = variables, color = variables)) + 
@@ -1615,7 +1633,7 @@ create_or_pp_plots <- function(df, area_type) {
   
   # term names for predicted probabilities
   term_names_pred <- data.frame(
-    model_id = c("1", "2", "3", "4", "5", "6", "7"), 
+    model_id = c("1", "2", "3", "4", "5", "6", "7", "8"), 
     variable = term_names
   )
   
@@ -1689,7 +1707,7 @@ or_pp_plots <- grid.arrange(
 )
 
 # save final combined OR and PP plot as .pdf
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_odds_pred_prob.pdf"), or_pp_plots, width = 10, height = 6) 
+ggsave(paste0(UpdatedFigDir, "_odds_pred_prob.pdf"), or_pp_plots, width = 10, height = 6) 
 
 
 ## -----------------------------------------
