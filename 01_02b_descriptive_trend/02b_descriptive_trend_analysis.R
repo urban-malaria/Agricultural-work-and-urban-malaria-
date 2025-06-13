@@ -63,8 +63,8 @@ options(survey.lonely.psu="adjust")  # this option allows admin units with only 
 ### Read in Analysis Datasets
 ## =========================================================================================================================================
 
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/urban_df_for_analysis_trend.csv")) %>%  mutate(type ="urban_data") 
-rural_df <- read_csv(file.path(PopDir,"analysis_dat/rural_df_for_analysis_trend.csv")) %>%  mutate(type ="rural_data")
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/251106_urban_df_for_analysis_trend.csv")) %>%  mutate(type ="urban_data") 
+rural_df <- read_csv(file.path(PopDir,"analysis_dat/251106_rural_df_for_analysis_trend.csv")) %>%  mutate(type ="rural_data")
 
 
 ## =========================================================================================================================================
@@ -739,7 +739,7 @@ all_diff2_ci <- all_diff_ci %>%
          diff_val_malaria = diff_val)
 
 #### WRITE TREND ANALYSIS DATASET HERE
-write.csv(all_diff2_ci, file.path(PopDir, "analysis_dat/240606_df_with_ci_for_analysis_trend_malaria_grace_created.csv"))
+write.csv(all_diff2_ci, file.path(PopDir, "analysis_dat/251106_df_with_ci_for_analysis_trend_malaria_grace_created.csv"))
 
 
 ## =========================================================================================================================================
@@ -820,7 +820,8 @@ diff_d_r_net <- bind_cols(df1_rural_net, df2_rural_net) %>%
 
 # filter plot_country to only include those that used nets (net use = 1)
 diff_d_r_net <- diff_d_r_net %>%
-
+  filter(u5_net_use...4 == 1)
+ 
 diff_d_r_net$title = "Rural"
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
@@ -864,7 +865,7 @@ all_diff_net <- all_diff_net %>%
          non_agric_total_se = total_se...18)  
 
 # save as .csv
-write.csv(all_diff_net, file.path(PopDir, "analysis_dat/240606_df_with_ci_for_analysis_trend_net_grace_created.csv"))
+write.csv(all_diff_net, file.path(PopDir, "analysis_dat/251106_df_with_ci_for_analysis_trend_net_grace_created.csv"))
 
 ## =========================================================================================================================================
 ### 

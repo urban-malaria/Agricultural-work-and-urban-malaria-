@@ -42,6 +42,7 @@ if ("ozodi" %in% username) {
   DriveDir <- file.path(Drive, "urban_malaria")
   PopDir <- file.path(DriveDir, "data", 'data_agric_analysis')
   ManDir <- file.path(DriveDir, "projects", "Manuscripts", "ongoing", "agriculture_malaria_manuscript")
+  UpdatedFigDir <- file.path(ManDir, "Figures", "updated data plots")
   FigDir <- file.path(ManDir, "figures", "main_figures")
   SupDir <- file.path(ManDir, "figures", "supplementary", "pdf_figures")
   ExpDir <- file.path(ManDir, "figures", "exploratory")
@@ -116,7 +117,7 @@ rural_trend_malaria_updated <- rbind(rural_trend_malaria, df)
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # read in the trend analysis dataset for malaria test positivity - INCLUDES CONFIDENCE INTERVALS
-malaria_trend_data_ci <- read_csv(file.path(PopDir, "analysis_dat/240606_df_with_ci_for_analysis_trend_malaria_grace_created.csv"))
+malaria_trend_data_ci <- read_csv(file.path(PopDir, "analysis_dat/251106_df_with_ci_for_analysis_trend_malaria_grace_created.csv"))
 
 #******** URBAN ********
 # select only urban data
@@ -183,7 +184,7 @@ rural_trend_net_updated <- rbind(rural_trend_net, df)
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # read in the trend analysis dataset for net use rates - INCLUDES CONFIDENCE INTERVALS
-net_trend_data_ci <- read_csv(file.path(PopDir, "analysis_dat/240606_df_with_ci_for_analysis_trend_net_grace_created.csv"))
+net_trend_data_ci <- read_csv(file.path(PopDir, "analysis_dat/251106_df_with_ci_for_analysis_trend_net_grace_created.csv"))
 
 #******** URBAN ********
 # select only urban data
@@ -1170,8 +1171,8 @@ urban_country_final_line_plots <- grid.arrange(
 )
 
 # display the combined plot and save as .png and .pdf
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_malaria_net_plots.pdf"), urban_country_final_line_plots, width = 6, height = 8) 
+ggsave(paste0(UpdatedFigDir, "_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
+ggsave(paste0(UpdatedFigDir, "_urban_malaria_net_plots.pdf"), urban_country_final_line_plots, width = 10, height = 10) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria + Net Use + Percent Change in Net Distribution Urban Plots 
@@ -1221,8 +1222,8 @@ urban_country_final_line_plots <- grid.arrange(
 )
 
 # display the combined plot and save as .png and .pdf
-ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_area_plots.pdf"), urban_country_final_line_plots, width = 8, height = 8) 
+ggsave(file.path(UpdatedFigDir, "_urban_country_final_line_plots.png"), urban_country_final_line_plots, width = 10, height = 10) 
+ggsave(file.path(UpdatedFigDir, "_urban_country_area_plots.pdf"), urban_country_final_line_plots, width = 10, height = 10) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria + Net Use + Number of Nets Distributed Urban Plots 
@@ -1271,7 +1272,7 @@ urban_country_final_num_nets_line_plots <- grid.arrange(
 
 # display the combined plot and save as .png and .pdf
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_urban_country_final_num_nets_line_plots.png"), urban_country_final_num_nets_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_urban_country_final_num_nets_line_plots.pdf"), urban_country_final_num_nets_line_plots, width = 10, height = 8) 
+ggsave(file.path(UpdatedFigDir, "_urban_country_final_num_nets_line_plots.pdf"), urban_country_final_num_nets_line_plots, width = 10, height = 8) 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 ### Combine Malaria Urban Plots 
@@ -1610,7 +1611,7 @@ rural_country_final_line_plots <- grid.arrange(
 
 # display the combined plot and save as .png and .pdf
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_rural_country_final_line_plots.png"), rural_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_rural_malaria_net_plots.pdf"), rural_country_final_line_plots, width = 6, height = 8) 
+ggsave(file.path(UpdatedFigDir, "_rural_malaria_net_plots.pdf"), rural_country_final_line_plots, width = 10, height = 10) 
 
 p_rural = Benin_rural_main_plot + `Burkina Faso_rural_main_plot`+ Cameroon_rural_main_plot +`Cote d'Ivoire_rural_main_plot`+ Mali_rural_main_plot+ Mozambique_rural_main_plot+ Ghana_rural_main_plot
 p_urban = Benin_urban_main_plot + `Burkina Faso_urban_main_plot` + Cameroon_urban_main_plot + `Cote d'Ivoire_urban_main_plot`+ Mali_urban_main_plot + Mozambique_urban_main_plot+Ghana_urban_main_plot
@@ -1739,4 +1740,4 @@ rural_country_final_line_plots <- grid.arrange(
 
 # display the combined plot and save as .png and .pdf
 ggsave(paste0(FigDir, "/png_figures/", Sys.Date(),"_rural_country_final_line_plots.png"), rural_country_final_line_plots, width = 10, height = 10) 
-ggsave(paste0(FigDir, "/pdf_figures/", Sys.Date(),"_rural_country_area_plots.pdf"), rural_country_final_line_plots, width = 8, height = 8) 
+ggsave(file.path(UpdatedFigDir, "_rural_country_area_plots.pdf"), rural_country_final_line_plots, width = 10, height = 10) 
