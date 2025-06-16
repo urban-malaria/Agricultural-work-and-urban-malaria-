@@ -93,7 +93,7 @@ afr.shp.base <- afr.shp.base %>%
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 # read in urban survey data
-urban_df <- read_csv(file.path(PopDir, "analysis_dat/240729_urban_df_for_analysis.csv"))
+urban_df <- read_csv(file.path(PopDir, "analysis_dat/250605_urban_df_for_analysis.csv"))
 
 urban_df <- urban_df %>%
   mutate(home_type2 = ifelse(home_type2 == "A", "Agricultural", "Non-Agricultural"))
