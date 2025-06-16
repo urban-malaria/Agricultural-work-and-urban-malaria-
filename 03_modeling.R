@@ -1586,7 +1586,7 @@ create_or_pp_plots <- function(df, area_type) {
   # process OR
   df_or <- lapply(model_datasets_results, fun_or) %>% 
     bind_rows(.id = "formula_id") %>% 
-    filter(term == "home_type_dep") %>% 
+    filter(term == "home_type_dep1") %>% 
     mutate(formula_name = term_names[as.numeric(formula_id)])
   
   df_or <- df_or %>% 

@@ -289,7 +289,7 @@ rural_df <- read_csv(file.path(PopDir,"analysis_dat/250605_rural_df_for_analysis
   mutate(type = "Rural")
 # 
 # # combine urban and rural data
-# df <- rbind(urban_df, rural_df)
+df <- rbind(urban_df, rural_df)
 # 
 # # quick chi-squared test to assess relationship between home type and interview month
 # table(df$home_type2, df$interview_month) # create a contingency table
@@ -352,24 +352,24 @@ rural_df <- read_csv(file.path(PopDir,"analysis_dat/250605_rural_df_for_analysis
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
 #overall
-#color = c("#f2a5a1", "#c55c80")
-# plot_over <- df %>%  dplyr::select(country_year.x, home_type2, code_year, test_result)
-# plot_over2 = plot_over %>%  group_by(home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
-# 
-# p <-ggplot(plot_over2, aes(fill=test_result, x= home_type2)) + 
-#   geom_bar(aes(y = value), position="stack", stat = "identity")+
-#   theme_manuscript()+
-#   scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
-#   scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
-#   geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
-#             position = position_stack(vjust = 0.5),
-#             color = "white") +
-#   labs(x = "", y  = "Number of children, 6 - 59 months,
-#   tested positive for malaria in 16 DHS datasets") +
-#   theme(strip.text.x = element_text(
-#     size = 12, color = "black")) 
-# 
-# ggsave(paste0(SupDir,"/", Sys.Date(),"_sup_figure_1.pdf"), p, width = 8.5, height = 6) 
+color = c("#f2a5a1", "#c55c80")
+plot_over <- df %>%  dplyr::select(country_year.x, home_type2, code_year, test_result)
+plot_over2 = plot_over %>%  group_by(home_type2, test_result) %>%  summarise(value= n()) %>% mutate(percent = round(value/sum(value) *100, 0))
+
+p <-ggplot(plot_over2, aes(fill=test_result, x= home_type2)) +
+  geom_bar(aes(y = value), position="stack", stat = "identity")+
+  theme_manuscript()+
+  scale_x_discrete(labels = c("Agricultural worker \n household (HH)", "Non-agricultural \n worker HH"))+
+  scale_fill_manual(name = "Malaria test result", labels= c("Negative", "positive"), values= color)+
+  geom_text(aes(label = paste0(value, " ", "(", percent, "%", ")"), y = value),
+            position = position_stack(vjust = 0.5),
+            color = "white") +
+  labs(x = "", y  = "Number of children, 6 - 59 months,
+  tested positive for malaria in 16 DHS datasets") +
+  theme(strip.text.x = element_text(
+    size = 12, color = "black"))
+
+ggsave(file.path(UpdatedFigDir, "_sup_figure_1.pdf"), p, width = 8.5, height = 6)
 
 
 ## -----------------------------------------------------------------------------------------------------------------------------------------
@@ -733,7 +733,7 @@ diff_d_u_malaria <- plot_country %>% group_by(country_year.x) %>%
 #       between agricultural worker HH and non-agricultural worker HH")+
 #   facet_wrap(vars(title))+
 #   theme_manuscript()+
-#   theme(legend.position = "bottom") + 
+#   theme(legend.position = "bottom") +
 #   ylim(0, 28)
 # 
 # p_diff_u_malaria
@@ -774,7 +774,7 @@ diff_d_r_nets$title = "Urban"
 #       between agricultural worker HH and non-agricultural worker HH")+
 #   facet_wrap(vars(title))+
 #   theme_manuscript()+
-#   theme(legend.position = "bottom") 
+#   theme(legend.position = "bottom")
 # 
 # p_diff_r_nets
 # 
@@ -1014,11 +1014,11 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 ## =========================================================================================================================================
 
 # ### difference in difference scatter plot for malaria vs nets
-# ddf_df <- bind_rows(df_m_n_country %>% 
-#                       transmute(diff_val_malaria = diff_val_urban_malaria, 
-#                                 diff_val_nets = diff_val_urban_nets, title), 
-#                     df_m_n_country_rural%>% 
-#                       transmute(diff_val_malaria = diff_val_rural_malaria, 
+# ddf_df <- bind_rows(df_m_n_country %>%
+#                       transmute(diff_val_malaria = diff_val_urban_malaria,
+#                                 diff_val_nets = diff_val_urban_nets, title),
+#                     df_m_n_country_rural%>%
+#                       transmute(diff_val_malaria = diff_val_rural_malaria,
 #                                 diff_val_nets = diff_val_rural_nets, title))
 # 
 # did_malaria_nets <- ggplot(data = ddf_df, aes(x = diff_val_nets, y = diff_val_malaria)) +
@@ -1026,15 +1026,15 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 #   # Add the regression line and ribbon
 #   geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "blue", fill = "lightblue", alpha = 0.3) +
 #   # Add the p-value
-#   stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
-#            method = "pearson", 
-#            label.x = 0.5, 
+#   stat_cor(aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),
+#            method = "pearson",
+#            label.x = 0.5,
 #            label.y = max(df_m_n_country_rural$diff_val_rural_malaria, na.rm = TRUE)) +
 #   theme_manuscript() +
-#   facet_wrap(~ title) + 
+#   facet_wrap(~ title) +
 #   labs(x = "Difference in net use", y = "Difference in malaria test positivity rate") +
 #   theme(legend.position = "none")
-# 
+
 # # save as .png
 # ggsave(paste0(FigDir, "/png_figures/supplement/", Sys.Date(),"_DiD_malaria_v_nets.png"), did_malaria_nets, width = 8, height = 5) 
 
@@ -1042,13 +1042,13 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 ### Prepare trend analysis datasets
 ## -----------------------------------------------------------------------------------------------------------------------------------------
 
-# # read in the updated trend analysis datasets for malaria and net use
+# read in the updated trend analysis datasets for malaria and net use
 # df_trend_malaria <- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis_trend_malaria_chilo_created.csv"))
 # df_trend_net<- read_csv(file.path(PopDir, "analysis_dat/240606_urban_df_for_analysis_trend_net_chilo_created.csv"))
 # 
 # # urban analysis for malaria
-# urban_trend <- df_trend_malaria  %>%  
-#   filter(title == "Urban", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% # filter relevant data 
+# urban_trend <- df_trend_malaria  %>%
+#   filter(title == "Urban", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% # filter relevant data
 #   select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_malaria, id) %>% # select specific columns
 #   rename(country_year = country_year.x...2, country_id = cntryId...5) %>% # rename columns for clarity
 #   mutate(id = if_else(country_year == "Mozambique 2015", "Preceding survey", id)) # update id for specific condition
@@ -1057,11 +1057,11 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 27, non_agric_percent = 9, diff_val_malaria = 27 - 9, id = "Most recent survey", country_id  = "MZ")
 # 
 # # join the trend data with hardcoded values
-# urban_malaria_trend <- rbind(urban_trend, df) %>%  
+# urban_malaria_trend <- rbind(urban_trend, df) %>%
 #   select(country_year, diff_val_malaria, id, country_id) # select relevant columns
 # 
 # # urban analysis for nets
-# urban_net_trend <- df_trend_net %>% 
+# urban_net_trend <- df_trend_net %>%
 #   filter(title == "Urban", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% # filter relevant data
 #   select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_net, id) %>% # select specific columns
 #   rename(country_year = country_year.x...2, country_id = cntryId...5) %>% # rename columns for clarity
@@ -1071,7 +1071,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 50, non_agric_percent = 55, diff_val_net = 50 - 55, id = "Most recent survey", country_id  = "MZ")
 # 
 # # join the net trend data with hardcoded values
-# urban_net_trend <- rbind(urban_net_trend, df) %>%  
+# urban_net_trend <- rbind(urban_net_trend, df) %>%
 #   select(country_year, diff_val_net, id, country_id)
 # 
 # # perform a left join to combine malaria and net trend data
@@ -1087,7 +1087,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # # create a scatter plot comparing net use and malaria positivity rates for urban areas
 # country_m_n_urban_trend <- ggplot(urban_mal_net_trend, aes(x=diff_val_net, y=diff_val_malaria, label=country_id))+
 #   geom_point(shape = 19, size = 5, alpha = 0.7, aes(color = id)) +
-#   geom_text_repel(size = 4, point.padding = 1, 
+#   geom_text_repel(size = 4, point.padding = 1,
 #                   segment.curvature = -0.3, # curving the lines
 #                   segment.ncp = 3, # number of control points for smooth curvature
 #                   segment.angle = 20, # angle of line segment
@@ -1098,11 +1098,11 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 #   geom_vline(xintercept = 0) +
 #   geom_hline(yintercept = 0) +
 #   facet_wrap(vars(title))+
-#   labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs", 
+#   labs(x = "Difference in net use between agricultural worker\n HHs and non-agricultural worker HHs",
 #        y = "Difference in malaria test positivity rate between \n agricultural worker HHs and non-agricultural worker HHs")+
 #   theme(legend.position = "bottom", legend.title = element_blank())+
 #   ylim(-4,27)+
-#   xlim(-38, 20) 
+#   xlim(-38, 20)
 # 
 # country_m_n_urban_trend
 # 
@@ -1111,7 +1111,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # ## -----------------------------------------------------------------------------------------------------------------------------------------
 # 
 # # rural analysis for malaria
-# rural_mal_trend <- df_trend_malaria  %>%  
+# rural_mal_trend <- df_trend_malaria  %>%
 #   filter(title == "Rural", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% # filter relevant data for rural areas
 #   select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_malaria, id) %>% # select specific columns
 #   rename(country_year = country_year.x...2, country_id = cntryId...5) %>% # rename columns for clarity
@@ -1124,7 +1124,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # rural_malaria_trend <- rbind(rural_mal_trend, df)%>%  select(country_year, diff_val_malaria, id, country_id)
 # 
 # # rural analysis for nets
-# rural_net_trend <- df_trend_net %>% 
+# rural_net_trend <- df_trend_net %>%
 #   filter(title == "Rural", cntryId...9 != "TZ", country_year.x...2 != "Mozambique 2011") %>% # filter relevant data for rural areas
 #   select(country_year.x...2, cntryId...5, agric_percent, non_agric_percent, diff_val_net, id) %>% # select specific columns
 #   rename(country_year = country_year.x...2, country_id = cntryId...5) %>% # rename columns for clarity
@@ -1134,7 +1134,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # df <- data.frame(country_year = "Mozambique 2022 - 2023", agric_percent = 36, non_agric_percent = 37, diff_val_net = 36 - 37, id = "Most recent survey", country_id  = "MZ")
 # 
 # # join the net trend data with hardcoded values
-# rural_net_trend <- rbind(rural_net_trend, df) %>%  
+# rural_net_trend <- rbind(rural_net_trend, df) %>%
 #   select(country_year, diff_val_net, id, country_id) # select relevant columns
 # 
 # # left join to combine rural malaria and net trend data
@@ -1146,7 +1146,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_final_fig3.pdf")), final_fig3, width = 
 # # create a scatter plot comparing net use and malaria positivity rates for rural areas
 # country_m_n_rural_trend <- ggplot(rural_mal_net_trend, aes(x = diff_val_net, y = diff_val_malaria, label = country_id)) +
 #   geom_point(shape = 19, size = 5, alpha = 0.7, aes(color = id)) +
-#   geom_text_repel(size = 4, point.padding = 5, 
+#   geom_text_repel(size = 4, point.padding = 5,
 #                   segment.curvature = -0.3, # curving the lines
 #                   segment.ncp = 3, # number of control points for smooth curvature
 #                   segment.angle = 20, # angle of line segment
@@ -1346,7 +1346,7 @@ all_df <- all_df %>%
     housing_quality = ifelse(floor_type == 1 & wall_type == 1 & roof_type == 1, 1, 0),
   )
 
-# categorize roof type and prepare survey design
+# categorize housing quality and prepare survey design
 all_df_hq <- all_df %>%
   as_survey_design(ids = id, strata = strat, nest = T, weights = wt) %>%  # create a survey design object
   mutate(housing_quality = ifelse(housing_quality == 1, "Good Quality", "Poor Quality")) %>%  # categorize housing quality
@@ -1356,7 +1356,7 @@ all_df_hq <- all_df %>%
   summarise(value = round(survey_total(), 0)) %>%  # calculate total survey values, rounded to nearest integer
   mutate(percent = round(value / sum(value) * 100, 0))  # calculate percentage of total values
 
-# create a bar plot of roof type by home type
+# create a bar plot of housing quality by home type
 p_hq <- ggplot(all_df_hq, aes(fill = hq_f, x= home_type3)) + 
   geom_bar(aes(y = percent), position="stack", stat = "identity", show.legend = F)+
   scale_fill_manual(name = "", values = c("#C8E6C9", "#1B5E20"))+
@@ -1861,14 +1861,14 @@ ggsave(paste0(file.path(UpdatedFigDir, "_covariate_plots.pdf")), p_figure_4, wid
 # 
 # 
 # 
-# #diff figure 2 rural
+#diff figure 2 rural
 # plot_country = plot_country %>% filter(test_result == "+ve")
-# diff_d_r_malaria <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_rural_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>% 
+# diff_d_r_malaria <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val_rural_malaria = percent[home_type2 == "Agricultural worker Household (HH)"] - percent) %>%
 #   filter(home_type2 == "Non-Agricultural worker HH")
-# diff_d_r$title = "Rural"
-# p_diff_r<-ggplot(diff_d_r , aes(x = reorder(country_year.x, -diff_val_rural_malaria), y = diff_val_rural_malaria, fill)) +
+# diff_d_r_malaria$title = "Rural"
+# p_diff_r<-ggplot(diff_d_r_malaria , aes(x = reorder(country_year.x, -diff_val_rural_malaria), y = diff_val_rural_malaria, fill)) +
 #   geom_bar(stat = "identity",  width = 0.7, fill = "#c55c80") +
-#   geom_text(aes(label= diff_val), position = position_stack(vjust = 0.5),
+#   geom_text(aes(label= diff_val_rural_malaria), position = position_stack(vjust = 0.5),
 #                       color = "black") +
 #   coord_flip() +
 #   theme(legend.title = element_blank()) +
@@ -1878,7 +1878,7 @@ ggsave(paste0(file.path(UpdatedFigDir, "_covariate_plots.pdf")), p_figure_4, wid
 #   theme_manuscript()+
 #   theme(legend.position = "bottom") +
 #   ylim(-2, 28)
-# 
+# p_diff_r
 # 
 # all_diff_p <- p_diff_u + p_diff_r
 # 
@@ -1886,38 +1886,38 @@ ggsave(paste0(file.path(UpdatedFigDir, "_covariate_plots.pdf")), p_figure_4, wid
 # 
 # #new test positivity difference plot 
 # 
-# diff_u <- diff_d_u %>%  select(country_year.x, diff_val, title)
-# diff_r <- diff_d_r %>%  select(country_year.x, diff_val, title)
-# 
-# all_diff <- rbind(diff_u, diff_r) %>%  group_by(country_year.x) 
-# 
-# p_dat <- all_diff%>% 
-#   summarise(start = range(diff_val)[1], end = range(diff_val)[2]) %>% 
-#   ungroup()
-# 
-# 
-# p_2b<-ggplot(p_dat, aes(x = start, y = reorder(country_year.x, end)))+
-#   geom_segment(aes(xend = end, yend = country_year.x)) +
-#   
-#   geom_point(
-#     data = all_diff,
-#     aes(diff_val, country_year.x, color = title), 
-#     size = 4, alpha =0.7
-#   ) +
-#   
-#   scale_color_manual(name= "", values=c( "darkgoldenrod1", "darkviolet")) +
-#   scale_x_continuous(breaks = seq(-2, 28, by = 2))+
-#   theme_manuscript() +
-#   theme(legend.position = "bottom") +
-#   labs(y = "", x = "Percentage difference in malaria test positivity rates
-#       between agricultural worker HH and non-agricultural worker HH")
-# p_2b
-# #ggsave(paste0(FigDir,"/", Sys.Date(),"_new_malaria_prevalence_diff_rural__by_country.pdf"),p_2b, width = 8.5, height= 5) 
-# 
-# p_figure2 <- p_2a/p_2b
-# ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_2.pdf"),p_figure2, width = 8.5, height= 9.5) 
-# 
-# 
+diff_u <- diff_d_u %>%  select(country_year.x, diff_val, title)
+diff_r <- diff_d_r %>%  select(country_year.x, diff_val, title)
+
+all_diff <- rbind(diff_u, diff_r) %>%  group_by(country_year.x)
+
+p_dat <- all_diff%>%
+  summarise(start = range(diff_val)[1], end = range(diff_val)[2]) %>%
+  ungroup()
+
+
+p_2b<-ggplot(p_dat, aes(x = start, y = reorder(country_year.x, end)))+
+  geom_segment(aes(xend = end, yend = country_year.x)) +
+
+  geom_point(
+    data = all_diff,
+    aes(diff_val, country_year.x, color = title),
+    size = 4, alpha =0.7
+  ) +
+
+  scale_color_manual(name= "", values=c( "darkgoldenrod1", "darkviolet")) +
+  scale_x_continuous(breaks = seq(-2, 28, by = 2))+
+  theme_manuscript() +
+  theme(legend.position = "bottom") +
+  labs(y = "", x = "Percentage difference in malaria test positivity rates
+      between agricultural worker HH and non-agricultural worker HH")
+p_2b
+#ggsave(paste0(FigDir,"/", Sys.Date(),"_new_malaria_prevalence_diff_rural__by_country.pdf"),p_2b, width = 8.5, height= 5)
+
+p_figure2 <- p_2a/p_2b
+ggsave(paste0(FigDir,"/", Sys.Date(),"_Figure_2.pdf"),p_figure2, width = 8.5, height= 9.5)
+
+
 # 
 # #figure 3
 # 
@@ -1983,9 +1983,9 @@ ggsave(paste0(file.path(UpdatedFigDir, "_covariate_plots.pdf")), p_figure_4, wid
 # 
 # 
 # #diff 
-# plot_country = plot_country %>% filter(u5_net_use == 1)
-# diff_d_u <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val = percent[home_type2== "Agricultural worker Household (HH)"] - percent) %>% 
-#   filter(home_type2 == "Non-Agricultural worker HH") 
+plot_country = plot_country %>% filter(u5_net_use == 1)
+diff_d_u <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val = percent[home_type2== "Agricultural worker Household (HH)"] - percent) %>%
+  filter(home_type2 == "Non-Agricultural worker HH")
 # 
 # diff_d_u$title = "Urban"
 # p_diff_u<-ggplot(diff_d_u, aes(x = reorder(country_year.x, -diff_val), y = diff_val, fill)) +
@@ -2038,8 +2038,8 @@ ggsave(paste0(file.path(UpdatedFigDir, "_covariate_plots.pdf")), p_figure_4, wid
 # #diff 
 # 
 # plot_country = plot_country %>% filter(u5_net_use == 1)
-# diff_d_r <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val = percent[home_type2== "Agricultural worker Household (HH)"] - percent) %>% 
-#   filter(home_type2 == "Non-Agricultural worker HH") 
+diff_d_r <- plot_country %>% group_by(country_year.x) %>%  mutate(diff_val = percent[home_type2== "Agricultural worker Household (HH)"] - percent) %>%
+  filter(home_type2 == "Non-Agricultural worker HH")
 # 
 # diff_d_r$title = "Rural"
 # p_diff_r<-ggplot(diff_d_r , aes(x = reorder(country_year.x, -diff_val), y = diff_val, fill)) +
